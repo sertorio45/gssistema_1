@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import SignIn from '~/components/auth/SignIn.vue'
 import Auth from '~/components/layout/Auth.vue'
-import { useAuth } from '~/composables/useAuth'
 
 definePageMeta({
   layout: 'blank',
@@ -9,16 +8,16 @@ definePageMeta({
 })
 
 const router = useRouter()
-const { currentUser, isAuthenticated } = useAuth()
+
 
 // Verificar se o usuário já está autenticado ao carregar a página
-onMounted(() => {
-  if (isAuthenticated.value) {
-    const redirectTo = localStorage.getItem('redirectTo') || '/'
-    localStorage.removeItem('redirectTo')
-    router.push(redirectTo)
-  }
-})
+// onMounted(() => {
+//   if (isAuthenticated.value) {
+//     const redirectTo = localStorage.getItem('redirectTo') || '/'
+//     localStorage.removeItem('redirectTo')
+//     router.push(redirectTo)
+//   }
+// })
 </script>
 
 <template>

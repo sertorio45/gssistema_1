@@ -1,3 +1,6 @@
+import { useSupabaseClient, useSupabaseUser } from '#imports'
+import type { User } from '@supabase/supabase-js'
+
 export function useAuth() {
   const client = useSupabaseClient()
   const user = useSupabaseUser()
@@ -6,51 +9,83 @@ export function useAuth() {
   const error = ref<string | null>(null)
   const userRole = ref<string | null>(null)
 
-  // Função para decodificar JWT
-  const decodeJWT = (token: string) => {
-    try {
-      const base64Url = token.split('.')[1]
-      if (!base64Url)
-        return null
-
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-      const jsonPayload = decodeURIComponent(
-        atob(base64).split('').map((c) => {
-          return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
-        }).join(''),
-      )
-      return JSON.parse(jsonPayload)
+  // Função para atualizar o papel do usuário
+  const updateUserRole = async () => {
+    if (!user.value) {
+      userRole.value = null
+      return
     }
-    catch (e) {
-      console.error('Erro ao decodificar JWT:', e)
-      return null
+
+    try {
+      // Forçar uma nova consulta sem cache
+      const { data, error } = await client
+        .from('users')
+        .select('role')
+        .eq('id', user.value.id)
+        .single()
+        .throwOnError()
+
+      if (error) {
+        throw error
+      }
+
+      userRole.value = data?.role || null
+    } 
+    catch (error) {
+      console.error('Erro ao buscar papel do usuário:', error)
+      userRole.value = null
     }
   }
 
-  // Função para obter o role do usuário do token JWT
-  const getUserRole = async (token?: string) => {
-    try {
-      if (!token) {
-        const { data } = await client.auth.getSession()
-        token = data.session?.access_token
-      }
+  // Inicializar o papel do usuário
+  onMounted(() => {
+    updateUserRole()
+  })
 
-      if (token) {
-        const decoded = decodeJWT(token)
-        if (decoded && 'user_role' in decoded) {
-          userRole.value = decoded.user_role
-          return decoded.user_role
-        }
-      }
+  // Monitorar mudanças no usuário
+  watch(user, (newUser) => {
+    if (newUser) {
+      updateUserRole()
+    } 
+    else {
+      userRole.value = null
+    }
+  })
 
-      userRole.value = null
-      return null
-    }
-    catch (err) {
-      console.error('Erro ao obter role do usuário:', err)
-      userRole.value = null
-      return null
-    }
+  // Configurar realtime para monitorar mudanças na tabela users
+  onMounted(() => {
+    const channel = client
+      .channel('users_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'users',
+        },
+        (payload: any) => {
+          // Se a mudança for no usuário atual, atualize o papel
+          if (payload.new?.id === user.value?.id) {
+            updateUserRole()
+          }
+        },
+      )
+      .subscribe()
+
+    // Limpar subscription quando o componente for desmontado
+    onUnmounted(() => {
+      channel.unsubscribe()
+    })
+  })
+
+  // Verificar se o usuário tem um papel específico
+  const hasRole = (role: string) => {
+    return userRole.value === role
+  }
+
+  // Verificar se o usuário tem um dos papéis especificados
+  const hasAnyRole = (roles: string[]) => {
+    return roles.includes(userRole.value || '')
   }
 
   // Função para login
@@ -70,9 +105,7 @@ export function useAuth() {
       }
 
       // Após login bem-sucedido, verifique o role do usuário
-      if (data?.session?.access_token) {
-        await getUserRole(data.session.access_token)
-      }
+      await updateUserRole()
 
       return { success: true, data }
     }
@@ -111,54 +144,6 @@ export function useAuth() {
     }
   }
 
-  // Função para verificar se o usuário tem uma determinada role
-  const hasRole = (role: string | string[]) => {
-    if (!userRole.value) {
-      return false
-    }
-
-    const roles = Array.isArray(role) ? role : [role]
-    return roles.includes(userRole.value)
-  }
-
-  // Verificar o role do usuário ao inicializar (e forçar refresh para captar mudanças)
-  onMounted(async () => {
-    // Tentar renovar a sessão e obter JWT atualizado
-    const { data: refreshData, error: refreshError } = await client.auth.refreshSession()
-    if (refreshError) {
-      console.error('Erro ao renovar sessão:', refreshError.message)
-    }
-
-    const token = refreshData.session?.access_token
-    if (token) {
-      await getUserRole(token)
-    }
-
-    // Assinar mudanças na tabela users para detectar troca de role
-    if (user.value?.id) {
-      const channel = client
-        .channel(`user-role-update-${user.value.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'users',
-            filter: `id=eq.${user.value.id}`,
-          },
-          async () => {
-            // forçar nova sessão e atualizar role
-            const { data: newSessionData } = await client.auth.refreshSession()
-            const newToken = newSessionData.session?.access_token
-            if (newToken) {
-              await getUserRole(newToken)
-            }
-          },
-        )
-      await channel.subscribe()
-    }
-  })
-
   // Função para verificar se o usuário está autenticado
   const isAuthenticated = computed(() => !!user.value)
 
@@ -172,7 +157,7 @@ export function useAuth() {
   const checkSession = async () => {
     const { data } = await client.auth.getSession()
     if (data.session?.access_token) {
-      await getUserRole(data.session.access_token)
+      await updateUserRole()
     }
     return !!data.session
   }
@@ -187,6 +172,7 @@ export function useAuth() {
     loading,
     error,
     hasRole,
-    getUserRole,
+    hasAnyRole,
+    updateUserRole,
   }
 }
