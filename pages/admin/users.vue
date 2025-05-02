@@ -2,6 +2,10 @@
 import { onMounted, ref } from 'vue'
 import { useToast } from '~/components/ui/toast'
 import CreateUserDialog from '~/components/users/CreateUserDialog.vue'
+import EditUserDialog from '~/components/users/EditUserDialog.vue'
+
+const createUserDialog = ref<InstanceType<typeof CreateUserDialog> | null>(null)
+const editUserDialog = ref<InstanceType<typeof EditUserDialog> | null>(null)
 
 const { data: usersData, refresh } = await useFetch<{ users: User[] }>('/api/admin/users')
 
@@ -19,33 +23,8 @@ interface User {
 const { toast } = useToast()
 const users = ref<User[]>([])
 const isLoading = ref(true)
-const isCreateDialogOpen = ref(false)
-const isEditDialogOpen = ref(false)
 const isDeleteAlertOpen = ref(false)
 const selectedUser = ref<User | null>(null)
-
-// Formulário de criação/edição
-const form = ref({
-  email: '',
-  role: '',
-  password: '',
-  confirmPassword: ''
-})
-
-// Reset do formulário
-function resetForm() {
-  form.value = {
-    email: '',
-    role: '',
-    password: '',
-    confirmPassword: ''
-  }
-}
-
-// Função para abrir o diálogo de criação de usuário
-function openCreateUserDialog() {
-  isCreateDialogOpen.value = true
-}
 
 // Carregar dados
 async function loadData() {
@@ -67,76 +46,6 @@ async function loadData() {
   }
 }
 
-// Validar senha
-function validatePassword() {
-  if (form.value.password !== form.value.confirmPassword) {
-    toast({
-      title: 'Erro',
-      description: 'As senhas não coincidem',
-      variant: 'destructive'
-    })
-    return false
-  }
-  if (form.value.password.length < 6) {
-    toast({
-      title: 'Erro',
-      description: 'A senha deve ter no mínimo 6 caracteres',
-      variant: 'destructive'
-    })
-    return false
-  }
-  return true
-}
-
-// Abrir edição de usuário
-function openEditDialog(user: User) {
-  selectedUser.value = user
-  form.value = {
-    email: user.email,
-    role: user.role,
-    password: '',
-    confirmPassword: ''
-  }
-  isEditDialogOpen.value = true
-}
-
-// Atualizar usuário
-async function updateUser() {
-  if (!selectedUser.value) return
-
-  // Se a senha foi preenchida, valide-a
-  if (form.value.password && !validatePassword()) return
-
-  try {
-    const { error } = await useFetch(`/api/admin/users/${selectedUser.value.id}`, {
-      method: 'PUT',
-      body: {
-        email: form.value.email,
-        role: form.value.role,
-        ...(form.value.password && { password: form.value.password })
-      },
-    })
-
-    if (error.value) throw error.value
-
-    toast({
-      title: 'Sucesso',
-      description: 'Usuário atualizado com sucesso',
-    })
-
-    // Fechar diálogo e recarregar dados
-    isEditDialogOpen.value = false
-    await loadData()
-  } catch (error: any) {
-    console.error('Erro ao atualizar usuário:', error)
-    toast({
-      title: 'Erro',
-      description: error?.message || 'Não foi possível atualizar o usuário',
-      variant: 'destructive',
-    })
-  }
-}
-
 // Abrir diálogo de confirmação de exclusão
 function openDeleteAlert(user: User) {
   selectedUser.value = user
@@ -145,14 +54,18 @@ function openDeleteAlert(user: User) {
 
 // Excluir usuário
 async function deleteUser() {
-  if (!selectedUser.value) return
+  if (!selectedUser.value) {
+    return
+  }
 
   try {
-    const { error } = await useFetch(`/api/admin/users/${selectedUser.value.id}`, {
+    const { data } = await useFetch(`/api/admin/users/${selectedUser.value.id}`, {
       method: 'DELETE',
     })
 
-    if (error.value) throw error.value
+    if (!data.value?.success) {
+      throw new Error(data.value?.error || 'Erro ao excluir usuário')
+    }
 
     toast({
       title: 'Sucesso',
@@ -185,7 +98,10 @@ onMounted(() => {
       <h1 class="text-2xl font-bold">
         Gerenciamento de Usuários
       </h1>
-      <Button class="bg-primary hover:bg-primary/90" @click="$refs.createUserDialog.open()">
+      <Button 
+        class="bg-primary hover:bg-primary/90" 
+        @click="createUserDialog?.open()"
+      >
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
         Novo Usuário
       </Button>
@@ -259,8 +175,10 @@ onMounted(() => {
                 <TableCell class="text-right">
                   <div class="flex justify-end gap-2">
                     <Button
-                      variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-primary"
-                      @click="openEditDialog(user)"
+                      variant="ghost" 
+                      size="icon" 
+                      class="h-8 w-8 text-muted-foreground hover:text-primary"
+                      @click="editUserDialog?.open(user)"
                     >
                       <Icon name="lucide:pencil" class="h-4 w-4" />
                       <span class="sr-only">Editar</span>
@@ -285,53 +203,7 @@ onMounted(() => {
     <CreateUserDialog ref="createUserDialog" @userCreated="loadData" />
 
     <!-- Dialog para editar usuário -->
-    <Dialog :open="isEditDialogOpen" @update:open="isEditDialogOpen = $event">
-      <DialogContent class="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Editar Usuário</DialogTitle>
-          <DialogDescription>
-            Altere os campos que deseja atualizar. Deixe a senha em branco para mantê-la inalterada.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div class="grid gap-4 py-4">
-          <div class="grid gap-2">
-            <Label for="email">Email</Label>
-            <Input id="email" v-model="form.email" placeholder="exemplo@email.com" />
-          </div>
-          <div class="grid gap-2">
-            <Label for="role">Função</Label>
-            <Select v-model="form.role">
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma função" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="role in ['admin', 'funcionario', 'cliente']" :key="role" :value="role">
-                  {{ role }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div class="grid gap-2">
-            <Label for="password">Nova Senha</Label>
-            <Input id="password" v-model="form.password" type="password" placeholder="Deixe em branco para manter a senha atual" />
-          </div>
-          <div class="grid gap-2">
-            <Label for="confirmPassword">Confirmar Nova Senha</Label>
-            <Input id="confirmPassword" v-model="form.confirmPassword" type="password" placeholder="Confirme a nova senha" />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" @click="isEditDialogOpen = false">
-            Cancelar
-          </Button>
-          <Button @click="updateUser">
-            Salvar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <EditUserDialog ref="editUserDialog" @userUpdated="loadData" />
 
     <!-- Alert Dialog para confirmação de exclusão -->
     <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">

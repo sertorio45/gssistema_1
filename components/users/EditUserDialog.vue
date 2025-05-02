@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useSupabaseClient } from '#imports'
 import { useToast } from '~/components/ui/toast'
+import UserForm from './UserForm.vue'
 
 const emit = defineEmits<{
   (e: 'userUpdated'): void
@@ -10,70 +11,74 @@ const { toast } = useToast()
 const isOpen = ref(false)
 const isLoading = ref(false)
 const selectedUser = ref<any>(null)
+const userForm = ref<any>(null)
 
 // Função para atualizar usuário
-async function handleSubmit(form: any) {
-  if (!selectedUser.value) return
+async function handleSubmit() {
+  if (!selectedUser.value || !userForm.value) {
+    return
+  }
+
+  if (!userForm.value.validate()) {
+    toast({
+      title: 'Erro',
+      description: 'Por favor, preencha os campos corretamente',
+      variant: 'destructive',
+    })
+    return
+  }
 
   isLoading.value = true
 
   try {
-    const supabase = useSupabaseClient()
-    
-    // Verificar permissão do usuário
-    const { data: { user: currentUser } } = await supabase.auth.getUser()
-    const userMeta = currentUser?.user_metadata || {}
-    
-    if (userMeta.role !== 'admin') {
+    const formData = userForm.value.form
+    const updateData: any = {}
+
+    if (formData.email) {
+      updateData.email = formData.email
+      updateData.email_confirm = true
+    }
+
+    if (formData.password && formData.password.trim() !== '') {
+      updateData.password = formData.password
+    }
+
+    // Se não há dados para atualizar, retorna
+    if (Object.keys(updateData).length === 0) {
       toast({
-        title: 'Erro',
-        description: 'Apenas administradores podem editar usuários',
-        variant: 'destructive',
+        title: 'Aviso',
+        description: 'Nenhum dado foi alterado',
+        variant: 'default',
       })
       return
     }
 
-    // Preparar os metadados para atualização
-    const userMetadata = {
-      full_name: form.name,
-    }
-
-    // Atualizar dados do usuário no Supabase
-    const { error } = await supabase.auth.admin.updateUserById(
-      selectedUser.value.id,
-      {
-        email: form.email,
-        user_metadata: userMetadata,
-        banned: form.status === 0,
+    const response = await fetch(`/api/admin/users/${selectedUser.value.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
       },
-    )
+      body: JSON.stringify(updateData),
+    })
 
-    if (error) throw error
+    const data = await response.json()
 
-    // Se a senha foi alterada, atualize-a separadamente
-    if (form.password) {
-      const { error: passwordError } = await supabase.auth.admin.updateUserById(
-        selectedUser.value.id,
-        { password: form.password },
-      )
-      
-      if (passwordError) throw passwordError
+    if (!data.success) {
+      throw new Error(data.error)
     }
 
     toast({
       title: 'Sucesso',
-      description: 'Usuário atualizado com sucesso',
+      description: data.message,
     })
 
-    // Fechar diálogo e emitir evento
     isOpen.value = false
     emit('userUpdated')
   }
   catch (error: any) {
-    console.error('Erro ao atualizar usuário:', error)
     toast({
       title: 'Erro',
-      description: error?.message || 'Não foi possível atualizar o usuário',
+      description: error.message,
       variant: 'destructive',
     })
   }
@@ -97,26 +102,25 @@ defineExpose({
       <DialogHeader>
         <DialogTitle>Editar Usuário</DialogTitle>
         <DialogDescription>
-          Altere os campos que deseja atualizar.
+          Altere o email ou senha do usuário.
         </DialogDescription>
       </DialogHeader>
 
       <UserForm
+        ref="userForm"
         v-if="selectedUser"
         :initial-form="{
-          name: selectedUser.name,
           email: selectedUser.email,
           password: '',
-          status: selectedUser.status,
+          user_metadata: { name: '' },
+          email_confirm: true,
         }"
         :is-editing="true"
-        @submit="handleSubmit"
-        @cancel="isOpen = false"
       />
 
       <DialogFooter class="mt-6 flex items-center justify-between">
         <div class="text-xs text-muted-foreground">
-          Última atualização: {{ selectedUser ? new Date(selectedUser.updatedAt).toLocaleDateString('pt-BR') : '' }}
+          Última atualização: {{ selectedUser ? new Date(selectedUser.updated_at).toLocaleDateString('pt-BR') : '' }}
         </div>
         <div class="flex gap-2">
           <Button variant="outline" @click="isOpen = false">

@@ -86,16 +86,42 @@ function generateSecurePassword() {
   validatePassword(password)
 }
 
+function validate() {
+  // Se estiver editando, não exige senha
+  if (props.isEditing) {
+    // Se tiver senha preenchida, valida a força
+    if (form.value.password && form.value.password.trim() !== '') {
+      return form.value.email && passwordStrength.value.isValid
+    }
+    // Se não tiver senha, só valida o email
+    return form.value.email
+  }
+  // Para criação, exige todos os campos
+  return form.value.email
+    && form.value.password
+    && passwordStrength.value.isValid
+}
+
 // Expor o formulário e métodos
 defineExpose({
   form: form.value,
-  validate: () => {
-    return form.value.email
-      && form.value.password
-      && form.value.user_metadata.name
-      && passwordStrength.value.isValid
-  },
+  validate,
 })
+
+const emit = defineEmits<{
+  (e: 'submit', form: UserForm): void
+  (e: 'cancel'): void
+}>()
+
+function handleSubmit() {
+  if (validate()) {
+    emit('submit', form.value)
+  }
+}
+
+function handleCancel() {
+  emit('cancel')
+}
 </script>
 
 <template>
