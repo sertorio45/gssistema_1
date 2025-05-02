@@ -52,6 +52,7 @@
     "@nuxtjs/supabase": "^1.5.0",
     "@supabase/supabase-js": "^2.49.4",
     "@tanstack/vue-table": "^8.21.2",
+    "@tinymce/tinymce-vue": "^6.1.0",
     "@unovis/ts": "^1.5.1",
     "@unovis/vue": "^1.5.1",
     "embla-carousel": "^8.5.2",

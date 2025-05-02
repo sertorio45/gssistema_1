@@ -17,6 +17,9 @@ useHead({
   link: [
     { rel: 'icon', href: '/favicon.ico' },
   ],
+  script: [
+    { src: '/tinymce/tinymce.min.js' },
+  ],
   htmlAttrs: {
     lang: 'en',
   },

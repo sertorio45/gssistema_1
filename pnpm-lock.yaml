@@ -29,6 +29,9 @@ importers:
       '@tanstack/vue-table':
         specifier: ^8.21.2
         version: 8.21.2(vue@3.5.13(typescript@5.8.2))
+      '@tinymce/tinymce-vue':
+        specifier: ^6.1.0
+        version: 6.1.0(vue@3.5.13(typescript@5.8.2))
       '@unovis/ts':
         specifier: ^1.5.1
         version: 1.5.1
@@ -1346,6 +1349,15 @@ packages:
     resolution: {integrity: sha512-1fPrd3hE1SS4R/9JbX1AlzueY4duCK7ixuLcMW5GMnk9N6WbLo9MioNKiv22V+UaXKOLNy8tLdzT8NYerOFTOQ==}
     peerDependencies:
       vue: ^2.7.0 || ^3.0.0
+
+  '@tinymce/tinymce-vue@6.1.0':
+    resolution: {integrity: sha512-7JdaKMOaohuFWpjKwRmaZJbT/eNVUUYHG93R7+lUf7SUN+hSqd2spbuqZcki+tG9kaSAGd2ZmvJIsmzWDNAzpw==}
+    peerDependencies:
+      tinymce: ^7.0.0 || ^6.0.0 || ^5.5.1
+      vue: ^3.0.0
+    peerDependenciesMeta:
+      tinymce:
+        optional: true
 
   '@trysound/sax@0.2.0':
     resolution: {integrity: sha512-L7z9BgrNEcYyUYtF+HaEfiS5ebkh9jXqbszz7pC0hRBPaatV0XjSD3+eHrpqFemQfgwiFF0QPIarnIihIDn7OA==}
@@ -6775,6 +6787,10 @@ snapshots:
   '@tanstack/vue-virtual@3.13.4(vue@3.5.13(typescript@5.8.2))':
     dependencies:
       '@tanstack/virtual-core': 3.13.4
+      vue: 3.5.13(typescript@5.8.2)
+
+  '@tinymce/tinymce-vue@6.1.0(vue@3.5.13(typescript@5.8.2))':
+    dependencies:
       vue: 3.5.13(typescript@5.8.2)
 
   '@trysound/sax@0.2.0': {}
