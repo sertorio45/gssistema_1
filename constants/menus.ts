@@ -1,6 +1,28 @@
 import type { NavMenu, NavMenuItems } from '~/types/nav'
 
 export const navMenu: NavMenu[] = [
+  {
+    heading: '',
+    items: [
+      {
+        title: 'Articles',
+        icon: 'i-lucide-book-a',
+        roles: ['admin', 'funcionario', 'cliente '],
+        children: [
+          {
+            title: 'Ver artigos',
+            icon: 'i-lucide-circle',
+            link: '/articles',
+          },
+          {
+            title: 'Criar',
+            icon: 'i-lucide-circle',
+            link: '/articles/new',
+          },
+        ],
+      },
+    ],
+  },
 
   {
     heading: '',
