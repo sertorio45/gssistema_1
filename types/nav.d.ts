@@ -1,4 +1,8 @@
-export interface NavLink {
+export interface NavBase {
+  roles?: string[]
+}
+
+export interface NavLink extends NavBase {
   title: string
   link: string
   icon?: string
@@ -9,7 +13,7 @@ export interface NavSectionTitle {
   heading: string
 }
 
-export interface NavGroup {
+export interface NavGroup extends NavBase {
   title: string
   icon?: string
   new?: boolean

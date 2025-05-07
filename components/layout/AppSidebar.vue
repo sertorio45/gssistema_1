@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { NavGroup, NavLink, NavSectionTitle } from '~/types/nav'
+import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
+import { useRole } from '@/composables/useRole'
+import { onMounted, ref } from 'vue'
 import { navMenu, navMenuBottom } from '~/constants/menus'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
@@ -42,6 +44,54 @@ const user: {
 }
 
 const { sidebar } = useAppSettings()
+
+// --- Lógica de role ---
+const { userRole, fetchUserRole, hasRole } = useRole()
+const filteredMenu = ref<NavMenu[]>([])
+
+function filterMenuByRole(menu: NavMenu[]) {
+  return menu
+    .map((section: NavMenu) => ({
+      ...section,
+      items: section.items
+        .filter((item: NavLink | NavGroup | NavSectionTitle) => {
+          // Se for grupo
+          if ('children' in item) {
+            // Verifica se o grupo tem permissão
+            if (item.roles && !hasRole(item.roles)) {
+              return false
+            }
+            // Verifica se algum filho tem permissão
+            return item.children.some(child => !child.roles || hasRole(child.roles))
+          }
+          // Se for link
+          if ('link' in item) {
+            return !item.roles || hasRole(item.roles)
+          }
+          // Se for título de seção, sempre mostra
+          return true
+        })
+        // Se for grupo, filtra os filhos também
+        .map((item: NavLink | NavGroup | NavSectionTitle) => {
+          if ('children' in item) {
+            return {
+              ...item,
+              children: item.children.filter(child => !child.roles || hasRole(child.roles)),
+            }
+          }
+          return item
+        }),
+    }))
+    // Remove se a seção ficou sem itens
+    .filter((section: NavMenu) => section.items.length > 0)
+}
+
+onMounted(async () => {
+  await fetchUserRole()
+  console.warn('Role do usuário:', userRole.value) // Debug
+  filteredMenu.value = filterMenuByRole(navMenu)
+  console.warn('Menu filtrado:', filteredMenu.value) // Debug
+})
 </script>
 
 <template>
@@ -51,7 +101,7 @@ const { sidebar } = useAppSettings()
       <Search />
     </SidebarHeader>
     <SidebarContent>
-      <SidebarGroup v-for="(nav, indexGroup) in navMenu" :key="indexGroup">
+      <SidebarGroup v-for="(nav, indexGroup) in filteredMenu" :key="indexGroup">
         <SidebarGroupLabel v-if="nav.heading">
           {{ nav.heading }}
         </SidebarGroupLabel>
