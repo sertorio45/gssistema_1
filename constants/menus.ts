@@ -19,6 +19,16 @@ export const navMenu: NavMenu[] = [
             icon: 'i-lucide-circle',
             link: '/articles/new',
           },
+          {
+            title: 'Categorias',
+            icon: 'i-lucide-circle',
+            link: '/articles/categories',
+          },
+          {
+            title: 'Tags',
+            icon: 'i-lucide-circle',
+            link: '/articles/tags',
+          },
         ],
       },
     ],

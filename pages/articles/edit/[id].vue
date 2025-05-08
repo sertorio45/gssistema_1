@@ -15,7 +15,7 @@
     </div>
 
     <!-- Formulário -->
-    <form v-if="!pending" @submit.prevent="saveArticle" class="space-y-8">
+    <form v-if="!loading" @submit.prevent="saveArticle" class="space-y-8">
       <!-- Grid com proporção 70/30 -->
       <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
         <!-- Coluna da Esquerda: Informações Básicas (70%) -->
@@ -34,7 +34,7 @@
                 id="title"
                 v-model="form.title"
                 placeholder="Digite um título atrativo para seu artigo"
-                :disabled="isLoading"
+                :disabled="loading"
                 required
                 @blur="updateSlug"
               />
@@ -48,13 +48,13 @@
                   id="slug"
                   v-model="form.slug"
                   placeholder="url-do-artigo"
-                  :disabled="isLoading"
+                  :disabled="loading"
                   required
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  :disabled="isLoading"
+                  :disabled="loading"
                   @click="updateSlug"
                 >
                   <Icon name="lucide:refresh-cw" class="h-4 w-4" />
@@ -69,7 +69,7 @@
                 id="description"
                 v-model="form.description"
                 placeholder="Escreva um breve resumo do seu artigo"
-                :disabled="isLoading"
+                :disabled="loading"
                 required
                 rows="3"
               />
@@ -89,7 +89,7 @@
             <!-- Status -->
             <div class="space-y-2">
               <Label>Status</Label>
-              <Select v-model="form.status" :disabled="isLoading">
+              <Select v-model="form.status" :disabled="loading">
                 <SelectTrigger>
                   <SelectValue :placeholder="form.status === 'draft' ? 'Rascunho' : 'Publicado'" />
                 </SelectTrigger>
@@ -115,67 +115,72 @@
             <!-- Categoria -->
             <div class="space-y-2">
               <Label>Categoria</Label>
-              <Select v-model="form.category" :disabled="isLoading">
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem v-for="category in categories" :key="category.id" :value="category.id.toString()">
-                      {{ category.title }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <p class="text-sm text-muted-foreground">
-                Selecione uma categoria para o artigo
-              </p>
-            </div>
-
-            <!-- Tags -->
-            <div class="space-y-2">
-              <Label>Tags</Label>
-              <div class="flex flex-wrap gap-2">
-                <Badge
-                  v-for="(tag, index) in form.tags"
-                  :key="index"
-                  variant="secondary"
-                  class="flex items-center gap-1"
-                >
-                  {{ tag }}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    class="h-4 w-4 p-0"
-                    @click="removeTag(index)"
-                  >
-                    <Icon name="lucide:x" class="h-3 w-3" />
-                  </Button>
-                </Badge>
-              </div>
               <div class="flex gap-2">
-                <Input
-                  v-model="newTag"
-                  placeholder="Adicionar tag"
-                  :disabled="isLoading"
-                  @keyup.enter="addTag"
-                />
+                <Select v-model="form.category_id" :disabled="loading">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem v-for="category in categories" :key="category.id" :value="category.id.toString()">
+                        {{ category.title }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
-                  variant="outline"
-                  :disabled="isLoading"
-                  @click="addTag"
+                  variant="secondary"
+                  :disabled="loading"
+                  @click="showNewCategoryInput = !showNewCategoryInput"
                 >
                   <Icon name="lucide:plus" class="h-4 w-4" />
                 </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  :disabled="!form.category_id || loadingDeleteCategory"
+                  @click="showDeleteCategoryDialog = true"
+                  title="Excluir categoria selecionada"
+                >
+                  <Icon name="lucide:trash-2" class="h-4 w-4" />
+                </Button>
               </div>
-              <p v-if="tagError" class="text-sm text-destructive">
-                {{ tagError }}
-              </p>
+              <div v-if="showNewCategoryInput" class="mt-2 space-y-2">
+                <div class="flex gap-2">
+                  <Input
+                    v-model="newCategory"
+                    placeholder="Digite o nome da categoria"
+                    :disabled="loadingNewCategory"
+                    @keyup.enter.prevent="addCategory"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    :disabled="loadingNewCategory"
+                    @click="addCategory"
+                  >
+                    Adicionar
+                  </Button>
+                </div>
+                <p v-if="categoryError" class="text-sm text-destructive">
+                  {{ categoryError }}
+                </p>
+              </div>
               <p class="text-sm text-muted-foreground">
-                Adicione tags para melhorar a organização e busca do artigo
+                Selecione uma categoria para o artigo (opcional)
               </p>
+              <!-- Modal de confirmação de exclusão -->
+              <div v-if="showDeleteCategoryDialog" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div class="bg-white dark:bg-zinc-900 rounded-lg p-6 shadow-lg w-full max-w-md">
+                  <h2 class="text-lg font-bold mb-2">Excluir Categoria</h2>
+                  <p class="mb-4">Tem certeza que deseja excluir a categoria selecionada? Esta ação não pode ser desfeita.</p>
+                  <div class="flex justify-end gap-2">
+                    <Button variant="outline" @click="showDeleteCategoryDialog = false">Cancelar</Button>
+                    <Button variant="destructive" :disabled="loadingDeleteCategory" @click="deleteSelectedCategory">Excluir</Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -193,7 +198,7 @@
           <Tiny
             v-model="form.content"
             :height="500"
-            :disabled="isLoading"
+            :disabled="loading"
           />
         </CardContent>
       </Card>
@@ -203,18 +208,18 @@
         <Button
           type="button"
           variant="outline"
-          :disabled="isLoading"
+          :disabled="loading"
           @click="() => navigateTo('/articles')"
         >
           Cancelar
         </Button>
         <Button
           type="submit"
-          :disabled="isLoading"
+          :disabled="loading"
           class="bg-primary hover:bg-primary/90"
         >
           <Icon
-            v-if="isLoading"
+            v-if="loading"
             name="lucide:loader-2"
             class="mr-2 h-4 w-4 animate-spin"
           />
@@ -261,9 +266,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from '~/components/ui/toast'
 import Tiny from '~/components/articles/Tiny.vue'
+import { useArticles } from '~/composables/useArticles'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -272,7 +279,7 @@ definePageMeta({
 
 const route = useRoute()
 const { toast } = useToast()
-const isLoading = ref(false)
+const { fetchArticleById, updateArticle, loading, error, categories, fetchCategories, createCategory, deleteCategory } = useArticles()
 
 interface ArticleForm {
   id: string
@@ -281,8 +288,7 @@ interface ArticleForm {
   content: string
   status: 'draft' | 'published'
   description: string
-  category: string
-  tags: string[]
+  category_id: string
 }
 
 const form = ref<ArticleForm>({
@@ -291,51 +297,17 @@ const form = ref<ArticleForm>({
   slug: '',
   content: '',
   description: '',
-  category: '',
-  tags: [],
+  category_id: '',
   status: 'draft',
 })
 
-// Lista de categorias
-const categories = ref<Category[]>([])
-const isLoadingCategories = ref(true)
-const _categoryOpen = ref(false)
-
-// Estado para nova categoria
+const showNewCategoryInput = ref(false)
 const newCategory = ref('')
 const categoryError = ref('')
-const showNewCategoryInput = ref(false)
+const loadingNewCategory = ref(false)
+const showDeleteCategoryDialog = ref(false)
+const loadingDeleteCategory = ref(false)
 
-// Tag input
-const newTag = ref('')
-const tagError = ref('')
-
-interface Category {
-  id: number
-  title: string
-  status: 'draft' | 'published'
-  created_at: string
-  updated_at: string
-}
-
-interface CategoryResponse {
-  articlesCategory: Category[]
-}
-
-interface ArticleResponse {
-  article: {
-    id: string
-    title: string
-    slug: string
-    content: string
-    status: 'draft' | 'published'
-    meta_description: string
-    category: string
-    tags: string[]
-  }
-}
-
-// Função para gerar slug
 function generateSlug(text: string): string {
   return text
     .toString()
@@ -348,188 +320,97 @@ function generateSlug(text: string): string {
     .replace(/-{2,}/g, '-')
 }
 
-// Função para atualizar o slug
 function updateSlug() {
   if (form.value.title) {
     form.value.slug = generateSlug(form.value.title)
   }
 }
 
-// Carregar dados do artigo
-const { data, pending, error } = await useFetch<ArticleResponse>(`/api/articles/${route.params.id}`)
-
-// Carregar categorias da API
-async function fetchCategories() {
-  try {
-    const { data, error } = await useFetch<CategoryResponse>('/api/articles/category')
-    
-    if (error.value) {
-      throw new Error(error.value.message)
+async function loadArticle() {
+  const article = await fetchArticleById(route.params.id as string)
+  if (article) {
+    form.value = {
+      id: article.id,
+      title: article.title,
+      slug: article.slug,
+      content: article.content,
+      description: article.meta_description,
+      status: article.status,
+      category_id: article.category_id ? article.category_id.toString() : '',
     }
-
-    if (data.value?.articlesCategory) {
-      // Filtrar apenas categorias publicadas
-      categories.value = data.value.articlesCategory.filter(
-        category => category.status === 'published',
-      )
-    }
-  } catch (error: any) {
-    toast({
-      title: 'Erro',
-      description: 'Erro ao carregar categorias',
-      variant: 'destructive',
-    })
-  } finally {
-    isLoadingCategories.value = false
+  } else {
+    toast({ title: 'Erro', description: error.value || 'Erro ao carregar artigo', variant: 'destructive' })
+    navigateTo('/articles')
   }
 }
 
-// Carregar categorias quando o componente montar
 onMounted(() => {
+  loadArticle()
   fetchCategories()
 })
+
+async function saveArticle() {
+  if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
+    toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' })
+    return
+  }
+  const updates: any = {
+    title: form.value.title,
+    slug: form.value.slug,
+    content: form.value.content,
+    meta_description: form.value.description,
+    status: form.value.status,
+  }
+  if (form.value.category_id) {
+    updates.category_id = form.value.category_id
+  }
+  const success = await updateArticle(form.value.id, updates)
+  if (success) {
+    toast({ title: 'Sucesso', description: 'Artigo atualizado com sucesso!' })
+    navigateTo('/articles')
+  } else {
+    toast({ title: 'Erro', description: error.value || 'Ocorreu um erro ao atualizar o artigo', variant: 'destructive' })
+  }
+}
 
 async function addCategory() {
   if (!newCategory.value) {
     categoryError.value = 'Digite um nome para a categoria'
     return
   }
-
-  const slug = generateSlug(newCategory.value)
-  
-  if (categories.value.some(cat => cat.title.toLowerCase() === newCategory.value.toLowerCase())) {
+  if (categories.value.some((cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase())) {
     categoryError.value = 'Categoria já existe'
     return
   }
-
-  try {
-    const { error } = await useFetch('/api/articles/category', {
-      method: 'POST',
-      body: {
-        title: newCategory.value,
-        status: 'published',
-      },
-    })
-
-    if (error.value) {
-      throw new Error(error.value.message)
-    }
-
-    // Recarregar categorias após adicionar
-    await fetchCategories()
-    
-    newCategory.value = ''
-    categoryError.value = ''
-    showNewCategoryInput.value = false
-
-    toast({
-      title: 'Sucesso',
-      description: 'Categoria adicionada com sucesso!',
-    })
-  } catch (error: any) {
-    toast({
-      title: 'Erro',
-      description: error.message || 'Erro ao adicionar categoria',
-      variant: 'destructive',
-    })
+  loadingNewCategory.value = true
+  await createCategory({ title: newCategory.value, status: 'published' })
+  await fetchCategories()
+  const nova = categories.value.find(
+    (cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase()
+  )
+  if (nova) {
+    form.value.category_id = nova.id.toString()
   }
+  newCategory.value = ''
+  categoryError.value = ''
+  showNewCategoryInput.value = false
+  loadingNewCategory.value = false
+  toast({ title: 'Sucesso', description: 'Categoria adicionada com sucesso!' })
 }
 
-function addTag() {
-  if (!newTag.value) {
-    tagError.value = 'Digite uma tag'
-    return
+async function deleteSelectedCategory() {
+  if (!form.value.category_id) return
+  loadingDeleteCategory.value = true
+  const success = await deleteCategory(form.value.category_id)
+  await fetchCategories()
+  if (success) {
+    toast({ title: 'Sucesso', description: 'Categoria excluída com sucesso!' })
+    form.value.category_id = ''
+  } else {
+    toast({ title: 'Erro', description: error.value || 'Erro ao excluir categoria', variant: 'destructive' })
   }
-
-  if (form.value.tags.includes(newTag.value)) {
-    tagError.value = 'Tag já existe'
-    return
-  }
-
-  form.value.tags.push(newTag.value)
-  newTag.value = ''
-  tagError.value = ''
-}
-
-function removeTag(index: number) {
-  form.value.tags.splice(index, 1)
-}
-
-// Atualizar formulário quando os dados forem carregados
-watch(data, (newData) => {
-  if (newData?.article) {
-    form.value = {
-      id: newData.article.id,
-      title: newData.article.title,
-      slug: newData.article.slug,
-      content: newData.article.content,
-      description: newData.article.meta_description,
-      status: newData.article.status,
-      category: newData.article.category || '',
-      tags: newData.article.tags || [],
-    }
-  }
-}, { immediate: true })
-
-// Tratar erro de carregamento
-watch(error, (newError) => {
-  if (newError) {
-    toast({
-      title: 'Erro',
-      description: 'Erro ao carregar artigo',
-      variant: 'destructive',
-    })
-    navigateTo('/articles')
-  }
-})
-
-// Salvar artigo
-async function saveArticle() {
-  isLoading.value = true
-
-  try {
-    // Validação básica antes do envio
-    if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
-      throw new Error('Preencha todos os campos obrigatórios')
-    }
-
-    const { error } = await useFetch('/api/articles', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id: form.value.id,
-        title: form.value.title,
-        slug: form.value.slug,
-        content: form.value.content,
-        description: form.value.description,
-        status: form.value.status,
-        category: form.value.category,
-        tags: form.value.tags,
-      }),
-    })
-
-    if (error.value) {
-      throw new Error(error.value.message)
-    }
-
-    toast({
-      title: 'Sucesso',
-      description: 'Artigo atualizado com sucesso!',
-    })
-
-    // Redirecionar para lista de artigos
-    navigateTo('/articles')
-  } catch (error: any) {
-    toast({
-      title: 'Erro',
-      description: error.message || 'Ocorreu um erro ao atualizar o artigo',
-      variant: 'destructive',
-    })
-  } finally {
-    isLoading.value = false
-  }
+  loadingDeleteCategory.value = false
+  showDeleteCategoryDialog.value = false
 }
 </script>
 

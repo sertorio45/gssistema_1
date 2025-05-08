@@ -1,10 +1,18 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: true
 ---
 
-# Your rule content
+# Bibliotecas e Tecnologias
 
-- You can @ files here
-- You can use markdown but dont have to
+- Nuxt 3
+- Shadcn para Nuxt
+- Unocss
+- Typescript
+- Vue 3
+- Icones: Lucide
+
+# Regras gerais
+
+- 

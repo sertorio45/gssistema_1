@@ -1,3 +1,40 @@
+<script setup lang="ts">
+import { useToast } from '~/components/ui/toast'
+import { useArticles } from '~/composables/useArticles'
+
+const { articles, fetchArticles, deleteArticle, loading, error } = useArticles()
+const { toast } = useToast()
+
+const showDeleteDialog = ref(false)
+const articleToDelete = ref<any | null>(null)
+
+function editArticle(article: any) {
+  navigateTo(`/articles/edit/${article.id}`)
+}
+
+function handleDeleteClick(article: any) {
+  articleToDelete.value = article
+  showDeleteDialog.value = true
+}
+
+async function handleDeleteConfirm() {
+  if (!articleToDelete.value) return
+  const success = await deleteArticle(articleToDelete.value.id)
+  if (success) {
+    toast({ title: 'Sucesso', description: 'Artigo excluído com sucesso!' })
+    showDeleteDialog.value = false
+    articleToDelete.value = null
+    await fetchArticles()
+  } else {
+    toast({ title: 'Erro', description: error.value || 'Erro ao excluir artigo', variant: 'destructive' })
+  }
+}
+
+onMounted(() => {
+  fetchArticles()
+})
+</script>
+
 <template>
   <!-- Topo abaixo de breadcrumb -->
   <div class="p-6">
@@ -26,7 +63,7 @@
             </TableRow>
           </TableHeader>
           <TableBody>
-            <template v-if="pending">
+            <template v-if="loading">
               <TableRow v-for="i in 5" :key="i">
                 <TableCell><Skeleton class="h-5 w-[250px]" /></TableCell>
                 <TableCell><Skeleton class="h-5 w-[180px]" /></TableCell>
@@ -38,7 +75,7 @@
                 </TableCell>
               </TableRow>
             </template>
-            <TableRow v-else-if="!data?.articles || data.articles.length === 0">
+            <TableRow v-else-if="!articles || articles.length === 0">
               <TableCell colspan="3" class="h-24 text-center">
                 <div class="flex flex-col items-center justify-center gap-2 text-muted-foreground">
                   <Icon name="lucide:file-text" class="h-8 w-8" />
@@ -47,7 +84,7 @@
               </TableCell>
             </TableRow>
             <template v-else>
-              <TableRow v-for="article in data.articles" :key="article.id" class="transition-colors hover:bg-muted/30">
+              <TableRow v-for="article in articles" :key="article.id" class="transition-colors hover:bg-muted/30">
                 <TableCell class="text-muted-foreground">
                   {{ article.title }}
                 </TableCell>
@@ -96,58 +133,18 @@
     </Card>
 
     <!-- Diálogo de confirmação de exclusão -->
-    <DeleteArticleDialog
-      v-model:open="showDeleteDialog"
-      :article="articleToDelete"
-      :is-deleting="isDeleting"
-      @delete="handleDeleteConfirm"
-    />
+    <div v-if="showDeleteDialog" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+      <div class="bg-white dark:bg-zinc-900 rounded-lg p-6 shadow-lg w-full max-w-md">
+        <h2 class="text-lg font-bold mb-2">Excluir Artigo</h2>
+        <p class="mb-4">Tem certeza que deseja excluir o artigo "{{ articleToDelete?.title }}"? Esta ação não pode ser desfeita.</p>
+        <div class="flex justify-end gap-2">
+          <Button variant="outline" @click="showDeleteDialog = false">Cancelar</Button>
+          <Button variant="destructive" @click="handleDeleteConfirm">Excluir</Button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { useArticleDelete } from '~/composables/useArticleDelete'
-import DeleteArticleDialog from '~/components/articles/DeleteArticleDialog.vue'
-
-definePageMeta({
-  middleware: ['auth', 'role'],
-  requiredRoles: ['admin'],
-})
-
-interface Article {
-  id: string
-  title: string
-  status: 'published' | 'draft'
-}
-
-const { data, pending, refresh } = await useFetch<{ articles: Article[] }>('/api/articles')
-const { deleteArticle, isDeleting } = useArticleDelete()
-
-const showDeleteDialog = ref(false)
-const articleToDelete = ref<Article | null>(null)
-
-function editArticle(article: Article) {
-  navigateTo(`/articles/edit/${article.id}`)
-}
-
-function handleDeleteClick(article: Article) {
-  articleToDelete.value = article
-  showDeleteDialog.value = true
-}
-
-async function handleDeleteConfirm(article: { id: string; title: string }) {
-  const success = await deleteArticle(article)
-  if (success) {
-    showDeleteDialog.value = false
-    articleToDelete.value = null
-    refresh()
-  }
-}
-
-onMounted(() => {
-  refresh()
-})
-</script>
 
 <style>
 
