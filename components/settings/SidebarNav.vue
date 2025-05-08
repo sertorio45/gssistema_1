@@ -30,25 +30,38 @@ const sidebarNavItems: Item[] = [
     href: '/settings/display',
   },
 ]
+
+const isLoadingMenu = ref(false)
+
+onMounted(() => {
+  // Simule carregamento se necessário
+  // isLoadingMenu.value = true
+  // setTimeout(() => { isLoadingMenu.value = false }, 1000)
+})
 </script>
 
 <template>
   <nav class="flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-1">
-    <Button
-      v-for="item in sidebarNavItems"
-      :key="item.title"
-      variant="ghost"
-      :class="cn(
-        'w-full text-left justify-start items-start',
-        route.path === item.href && 'bg-muted hover:bg-muted',
-      )"
-      as-child
-    >
-      <NuxtLink
-        :to="item.href"
+    <template v-if="isLoadingMenu">
+      <Skeleton v-for="n in 5" :key="n" class="h-8 w-full mb-2" />
+    </template>
+    <template v-else>
+      <Button
+        v-for="item in sidebarNavItems"
+        :key="item.title"
+        variant="ghost"
+        :class="cn(
+          'w-full text-left justify-start items-start',
+          route.path === item.href && 'bg-muted hover:bg-muted',
+        )"
+        as-child
       >
-        {{ item.title }}
-      </NuxtLink>
-    </Button>
+        <NuxtLink
+          :to="item.href"
+        >
+          {{ item.title }}
+        </NuxtLink>
+      </Button>
+    </template>
   </nav>
 </template>

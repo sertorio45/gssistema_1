@@ -7,7 +7,7 @@ export const navMenu: NavMenu[] = [
       {
         title: 'Articles',
         icon: 'i-lucide-book-a',
-        roles: ['admin', 'funcionario', 'cliente '],
+        roles: ['admin', 'funcionario', 'cliente'],
         children: [
           {
             title: 'Ver artigos',

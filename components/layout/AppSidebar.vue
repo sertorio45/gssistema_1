@@ -48,6 +48,7 @@ const { sidebar } = useAppSettings()
 // --- Lógica de role ---
 const { userRole, fetchUserRole, hasRole } = useRole()
 const filteredMenu = ref<NavMenu[]>([])
+const isLoadingMenu = ref(true)
 
 function filterMenuByRole(menu: NavMenu[]) {
   return menu
@@ -91,25 +92,35 @@ onMounted(async () => {
   console.warn('Role do usuário:', userRole.value) // Debug
   filteredMenu.value = filterMenuByRole(navMenu)
   console.warn('Menu filtrado:', filteredMenu.value) // Debug
+  isLoadingMenu.value = false
 })
 </script>
 
 <template>
   <Sidebar :collapsible="sidebar.collapsible" :side="sidebar.side" :variant="sidebar.variant">
     <SidebarHeader>
-      <LayoutSidebarNavHeader :teams="teams" />
+      <LayoutSidebarNavLogo />
       <Search />
     </SidebarHeader>
     <SidebarContent>
-      <SidebarGroup v-for="(nav, indexGroup) in filteredMenu" :key="indexGroup">
-        <SidebarGroupLabel v-if="nav.heading">
-          {{ nav.heading }}
-        </SidebarGroupLabel>
-        <component :is="resolveNavItemComponent(item)" v-for="(item, index) in nav.items" :key="index" :item="item" />
-      </SidebarGroup>
-      <SidebarGroup class="mt-auto">
-        <component :is="resolveNavItemComponent(item)" v-for="(item, index) in navMenuBottom" :key="index" :item="item" size="sm" />
-      </SidebarGroup>
+      <template v-if="isLoadingMenu">
+        <SidebarGroup v-for="n in 4" :key="n">
+          <SidebarMenuSkeleton showIcon class="mb-1" />
+          <SidebarMenuSkeleton class="mb-1 ml-6" />
+          <SidebarMenuSkeleton class="mb-1 ml-6" />
+        </SidebarGroup>
+      </template>
+      <template v-else>
+        <SidebarGroup v-for="(nav, indexGroup) in filteredMenu" :key="indexGroup">
+          <SidebarGroupLabel v-if="nav.heading">
+            {{ nav.heading }}
+          </SidebarGroupLabel>
+          <component :is="resolveNavItemComponent(item)" v-for="(item, index) in nav.items" :key="index" :item="item" />
+        </SidebarGroup>
+        <SidebarGroup class="mt-auto">
+          <component :is="resolveNavItemComponent(item)" v-for="(item, index) in navMenuBottom" :key="index" :item="item" size="sm" />
+        </SidebarGroup>
+      </template>
     </SidebarContent>
     <SidebarFooter>
       <LayoutSidebarNavFooter :user="user" />
