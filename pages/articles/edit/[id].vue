@@ -1,4 +1,5 @@
 <template>
+<div>
 <!-- Topo abaixo de breadcrumb -->
 <div class="p-6">
     <div class="mb-6 flex items-center justify-between">
@@ -202,30 +203,6 @@
           />
         </CardContent>
       </Card>
-
-      <!-- Botões -->
-      <div class="flex items-center justify-end gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          :disabled="loading"
-          @click="() => navigateTo('/articles')"
-        >
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          :disabled="loading"
-          class="bg-primary hover:bg-primary/90"
-        >
-          <Icon
-            v-if="loading"
-            name="lucide:loader-2"
-            class="mr-2 h-4 w-4 animate-spin"
-          />
-          Salvar Alterações
-        </Button>
-      </div>
     </form>
 
     <!-- Loading State -->
@@ -263,6 +240,14 @@
       </Card>
     </div>
   </div>
+  <ArticleFloatingMenu
+    :onSave="saveArticle"
+    :onBack="() => navigateTo('/articles')"
+    :onCancel="() => navigateTo('/articles')"
+    :isLoading="loading"
+    :show="showFloatingMenu"
+  />
+</div>
 </template>
 
 <script setup lang="ts">
@@ -271,6 +256,7 @@ import { useRoute } from 'vue-router'
 import { useToast } from '~/components/ui/toast'
 import Tiny from '~/components/articles/Tiny.vue'
 import { useArticles } from '~/composables/useArticles'
+import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -307,6 +293,7 @@ const categoryError = ref('')
 const loadingNewCategory = ref(false)
 const showDeleteCategoryDialog = ref(false)
 const loadingDeleteCategory = ref(false)
+const showFloatingMenu = ref(false)
 
 function generateSlug(text: string): string {
   return text
@@ -347,6 +334,9 @@ async function loadArticle() {
 onMounted(() => {
   loadArticle()
   fetchCategories()
+  window.addEventListener('scroll', () => {
+    showFloatingMenu.value = window.scrollY > 200
+  })
 })
 
 async function saveArticle() {

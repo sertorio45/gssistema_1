@@ -101,7 +101,7 @@
               <div class="flex gap-2">
                 <Select v-model="form.category_id" :disabled="loading">
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
+                    <SelectValue placeholder="Selecionar categoria" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
@@ -151,7 +151,7 @@
                 </p>
               </div>
               <p class="text-sm text-muted-foreground">
-                Escolha a categoria que melhor se encaixa com o tema do artigo
+                Escolha a categoria que melhor se encaixa com o tema do artigo (opcional)
               </p>
             </div>
 
@@ -203,31 +203,15 @@
           />
         </CardContent>
       </Card>
-
-      <!-- Botões -->
-      <div class="flex items-center justify-end gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          :disabled="loading"
-          @click="() => navigateTo('/articles')"
-        >
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          :disabled="loading"
-          class="bg-primary hover:bg-primary/90"
-        >
-          <Icon
-            v-if="loading"
-            name="lucide:loader-2"
-            class="mr-2 h-4 w-4 animate-spin"
-          />
-          {{ form.status === 'published' ? 'Publicar' : 'Salvar' }} Artigo
-        </Button>
-      </div>
     </form>
+
+    <ArticleFloatingMenu
+      :onSave="saveArticle"
+      :onBack="() => navigateTo('/articles')"
+      :onCancel="() => navigateTo('/articles')"
+      :isLoading="loading"
+      :show="showFloatingMenu"
+    />
   </div>
   <!-- Diálogo de confirmação de exclusão -->
   <div v-if="showDeleteCategoryDialog" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
@@ -247,6 +231,7 @@ import { ref, onMounted } from 'vue'
 import { useToast } from '~/components/ui/toast'
 import { useArticles } from '~/composables/useArticles'
 import Tiny from '~/components/articles/Tiny.vue'
+import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -289,6 +274,7 @@ const form = ref<ArticleForm>({
 
 const showDeleteCategoryDialog = ref(false)
 const loadingDeleteCategory = ref(false)
+const showFloatingMenu = ref(false)
 
 function updateSlug() {
   if (form.value.title) {
@@ -298,10 +284,13 @@ function updateSlug() {
 
 onMounted(() => {
   fetchCategories()
+  window.addEventListener('scroll', () => {
+    showFloatingMenu.value = window.scrollY > 200
+  })
 })
 
 async function saveArticle() {
-  if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description || !form.value.category_id) {
+  if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
     toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' })
     return
   }
