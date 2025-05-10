@@ -72,4 +72,4 @@ export default defineEventHandler(async (event) => {
       error: error.message || 'Erro ao atualizar usuário',
     }
   }
-}) 
+})

@@ -59,4 +59,4 @@ export function useRole() {
     isFuncionario,
     hasRole,
   }
-} 
+}

@@ -1,262 +1,30 @@
-<template>
-<div>
-<!-- Topo abaixo de breadcrumb -->
-<div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-bold">
-        Editar Artigo
-      </h1>
-      <Button 
-        class="bg-primary hover:bg-primary/90" 
-        @click="() => navigateTo('/articles')"
-      >
-        <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-        Voltar
-      </Button>
-    </div>
-
-    <!-- Formulário -->
-    <form v-if="!loading" @submit.prevent="saveArticle" class="space-y-8">
-      <!-- Grid com proporção 70/30 -->
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
-        <!-- Coluna da Esquerda: Informações Básicas (70%) -->
-        <Card class="md:col-span-8">
-          <CardHeader>
-            <CardTitle>Informações Básicas</CardTitle>
-            <CardDescription>
-              Edite as informações principais do artigo
-            </CardDescription>
-          </CardHeader>
-          <CardContent class="space-y-6">
-            <!-- Título -->
-            <div class="space-y-2">
-              <Label for="title">Título</Label>
-              <Input
-                id="title"
-                v-model="form.title"
-                placeholder="Digite um título atrativo para seu artigo"
-                :disabled="loading"
-                required
-                @blur="updateSlug"
-              />
-            </div>
-
-            <!-- Slug -->
-            <div class="space-y-2">
-              <Label for="slug">URL do Artigo</Label>
-              <div class="flex gap-2">
-                <Input
-                  id="slug"
-                  v-model="form.slug"
-                  placeholder="url-do-artigo"
-                  :disabled="loading"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  :disabled="loading"
-                  @click="updateSlug"
-                >
-                  <Icon name="lucide:refresh-cw" class="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <!-- Descrição -->
-            <div class="space-y-2">
-              <Label for="description">Descrição</Label>
-              <Textarea
-                id="description"
-                v-model="form.description"
-                placeholder="Escreva um breve resumo do seu artigo"
-                :disabled="loading"
-                required
-                rows="3"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <!-- Coluna da Direita: Status (30%) -->
-        <Card class="md:col-span-4">
-          <CardHeader>
-            <CardTitle>Status</CardTitle>
-            <CardDescription>
-              Defina o status do artigo
-            </CardDescription>
-          </CardHeader>
-          <CardContent class="space-y-6">
-            <!-- Status -->
-            <div class="space-y-2">
-              <Label>Status</Label>
-              <Select v-model="form.status" :disabled="loading">
-                <SelectTrigger>
-                  <SelectValue :placeholder="form.status === 'draft' ? 'Rascunho' : 'Publicado'" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="draft">
-                      <div class="flex items-center">
-                        <Icon name="lucide:file-text" class="mr-2 h-4 w-4" />
-                        Rascunho
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="published">
-                      <div class="flex items-center">
-                        <Icon name="lucide:check-circle" class="mr-2 h-4 w-4" />
-                        Publicado
-                      </div>
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <!-- Categoria -->
-            <div class="space-y-2">
-              <Label>Categoria</Label>
-              <div class="flex gap-2">
-                <Select v-model="form.category_id" :disabled="loading">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem v-for="category in categories" :key="category.id" :value="category.id.toString()">
-                        {{ category.title }}
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  :disabled="loading"
-                  @click="showNewCategoryInput = !showNewCategoryInput"
-                >
-                  <Icon name="lucide:plus" class="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  :disabled="!form.category_id || loadingDeleteCategory"
-                  @click="showDeleteCategoryDialog = true"
-                  title="Excluir categoria selecionada"
-                >
-                  <Icon name="lucide:trash-2" class="h-4 w-4" />
-                </Button>
-              </div>
-              <div v-if="showNewCategoryInput" class="mt-2 space-y-2">
-                <div class="flex gap-2">
-                  <Input
-                    v-model="newCategory"
-                    placeholder="Digite o nome da categoria"
-                    :disabled="loadingNewCategory"
-                    @keyup.enter.prevent="addCategory"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    :disabled="loadingNewCategory"
-                    @click="addCategory"
-                  >
-                    Adicionar
-                  </Button>
-                </div>
-                <p v-if="categoryError" class="text-sm text-destructive">
-                  {{ categoryError }}
-                </p>
-              </div>
-              <p class="text-sm text-muted-foreground">
-                Selecione uma categoria para o artigo (opcional)
-              </p>
-              <!-- Modal de confirmação de exclusão -->
-              <div v-if="showDeleteCategoryDialog" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-                <div class="bg-white dark:bg-zinc-900 rounded-lg p-6 shadow-lg w-full max-w-md">
-                  <h2 class="text-lg font-bold mb-2">Excluir Categoria</h2>
-                  <p class="mb-4">Tem certeza que deseja excluir a categoria selecionada? Esta ação não pode ser desfeita.</p>
-                  <div class="flex justify-end gap-2">
-                    <Button variant="outline" @click="showDeleteCategoryDialog = false">Cancelar</Button>
-                    <Button variant="destructive" :disabled="loadingDeleteCategory" @click="deleteSelectedCategory">Excluir</Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <!-- Editor de Conteúdo (Largura Total) -->
-      <Card>
-        <CardHeader>
-          <CardTitle>Conteúdo</CardTitle>
-          <CardDescription>
-            Edite o conteúdo do seu artigo usando o editor abaixo
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tiny
-            v-model="form.content"
-            :height="500"
-            :disabled="loading"
-          />
-        </CardContent>
-      </Card>
-    </form>
-
-    <!-- Loading State -->
-    <div v-else class="space-y-8">
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
-        <Card class="md:col-span-8">
-          <CardHeader>
-            <Skeleton class="h-6 w-[200px]" />
-            <Skeleton class="h-4 w-[300px]" />
-          </CardHeader>
-          <CardContent class="space-y-6">
-            <Skeleton class="h-10 w-full" />
-            <Skeleton class="h-10 w-full" />
-            <Skeleton class="h-24 w-full" />
-          </CardContent>
-        </Card>
-        <Card class="md:col-span-4">
-          <CardHeader>
-            <Skeleton class="h-6 w-[150px]" />
-            <Skeleton class="h-4 w-[200px]" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton class="h-10 w-full" />
-          </CardContent>
-        </Card>
-      </div>
-      <Card>
-        <CardHeader>
-          <Skeleton class="h-6 w-[180px]" />
-          <Skeleton class="h-4 w-[250px]" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton class="h-[500px] w-full" />
-        </CardContent>
-      </Card>
-    </div>
-  </div>
-  <ArticleFloatingMenu
-    :onSave="saveArticle"
-    :onBack="() => navigateTo('/articles')"
-    :onCancel="() => navigateTo('/articles')"
-    :isLoading="loading"
-    :show="showFloatingMenu"
-  />
-</div>
-</template>
-
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useToast } from '~/components/ui/toast'
-import Tiny from '~/components/articles/Tiny.vue'
-import { useArticles } from '~/composables/useArticles'
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
+import Tiny from '~/components/articles/Tiny.vue'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '~/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '~/components/ui/popover'
+import {
+  TagsInput,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+} from '~/components/ui/tags-input'
+import { useToast } from '~/components/ui/toast'
+import { useArticles } from '~/composables/useArticles'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -265,7 +33,20 @@ definePageMeta({
 
 const route = useRoute()
 const { toast } = useToast()
-const { fetchArticleById, updateArticle, loading, error, categories, fetchCategories, createCategory, deleteCategory } = useArticles()
+const {
+  fetchArticleById,
+  updateArticle,
+  loading,
+  error,
+  categories,
+  fetchCategories,
+  createCategory,
+  deleteCategory,
+  tags,
+  fetchTags,
+  createTag,
+  fetchArticleTags,
+} = useArticles()
 
 interface ArticleForm {
   id: string
@@ -275,6 +56,7 @@ interface ArticleForm {
   status: 'draft' | 'published'
   description: string
   category_id: string
+  tagIds: string[]
 }
 
 const form = ref<ArticleForm>({
@@ -285,8 +67,10 @@ const form = ref<ArticleForm>({
   description: '',
   category_id: '',
   status: 'draft',
+  tagIds: [],
 })
 
+const articleTags = ref<Array<{ id: string, title: string, value?: string }>>([])
 const showNewCategoryInput = ref(false)
 const newCategory = ref('')
 const categoryError = ref('')
@@ -294,6 +78,37 @@ const loadingNewCategory = ref(false)
 const showDeleteCategoryDialog = ref(false)
 const loadingDeleteCategory = ref(false)
 const showFloatingMenu = ref(false)
+const loadingTags = ref(false)
+const searchTagTerm = ref('')
+const showTagSuggestions = ref(false)
+
+// Função para filtrar tags disponíveis
+const filteredTags = computed(() => {
+  if (!searchTagTerm.value.trim()) {
+    return []
+  }
+  
+  const term = searchTagTerm.value.toLowerCase().trim()
+  
+  return (tags.value || [])
+    .filter((tag) => {
+      // Filtrar por termo de busca
+      if (!tag.title.toLowerCase().includes(term)) {
+        return false
+      }
+      
+      // Excluir tags que já estão adicionadas ao artigo
+      if (form.value.tagIds.includes(tag.id)) {
+        return false
+      }
+      
+      return true
+    })
+    .slice(0, 5) // Limitar a 5 sugestões
+})
+
+// Adicionando uma chave para forçar a recriação do componente quando as tags mudam
+const tagInputKey = ref(0)
 
 function generateSlug(text: string): string {
   return text
@@ -324,16 +139,46 @@ async function loadArticle() {
       description: article.meta_description,
       status: article.status,
       category_id: article.category_id ? article.category_id.toString() : '',
+      tagIds: [],
     }
-  } else {
+    await loadArticleTags()
+  }
+  else {
     toast({ title: 'Erro', description: error.value || 'Erro ao carregar artigo', variant: 'destructive' })
     navigateTo('/articles')
   }
 }
 
+async function loadArticleTags() {
+  loadingTags.value = true
+  // Reseta a lista de tags atual
+  articleTags.value = []
+  form.value.tagIds = []
+
+  // Busca as tags do artigo no backend
+  try {
+    const tags = await fetchArticleTags(form.value.id)
+    if (tags && tags.length > 0) {
+      articleTags.value = tags
+      form.value.tagIds = tags.map(tag => tag.id)
+    }
+    else {
+      // Nenhuma tag encontrada
+    }
+  }
+  catch (err) {
+    error.value = String(err)
+  }
+
+  // Força a atualização do componente TagsInput
+  tagInputKey.value++
+  loadingTags.value = false
+}
+
 onMounted(() => {
   loadArticle()
   fetchCategories()
+  fetchTags()
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
@@ -350,6 +195,7 @@ async function saveArticle() {
     content: form.value.content,
     meta_description: form.value.description,
     status: form.value.status,
+    tags: form.value.tagIds, // Envia apenas os IDs para o backend
   }
   if (form.value.category_id) {
     updates.category_id = form.value.category_id
@@ -357,8 +203,12 @@ async function saveArticle() {
   const success = await updateArticle(form.value.id, updates)
   if (success) {
     toast({ title: 'Sucesso', description: 'Artigo atualizado com sucesso!' })
-    navigateTo('/articles')
-  } else {
+    // Recarrega as tags e força a atualização do componente
+    await loadArticleTags()
+    // Força o componente TagsInput a ser recriado
+    tagInputKey.value++
+  }
+  else {
     toast({ title: 'Erro', description: error.value || 'Ocorreu um erro ao atualizar o artigo', variant: 'destructive' })
   }
 }
@@ -376,7 +226,7 @@ async function addCategory() {
   await createCategory({ title: newCategory.value, status: 'published' })
   await fetchCategories()
   const nova = categories.value.find(
-    (cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase()
+    (cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase(),
   )
   if (nova) {
     form.value.category_id = nova.id.toString()
@@ -389,20 +239,472 @@ async function addCategory() {
 }
 
 async function deleteSelectedCategory() {
-  if (!form.value.category_id) return
+  if (!form.value.category_id)
+    return
   loadingDeleteCategory.value = true
   const success = await deleteCategory(form.value.category_id)
   await fetchCategories()
   if (success) {
     toast({ title: 'Sucesso', description: 'Categoria excluída com sucesso!' })
     form.value.category_id = ''
-  } else {
+  }
+  else {
     toast({ title: 'Erro', description: error.value || 'Erro ao excluir categoria', variant: 'destructive' })
   }
   loadingDeleteCategory.value = false
   showDeleteCategoryDialog.value = false
 }
+
+// Adicionar tag existente ao artigo
+function addExistingTag(tag: { id: string; title: string; }) {
+  // Verificar se a tag já está no artigo
+  if (form.value.tagIds.includes(tag.id)) {
+    return
+  }
+  
+  // Adicionar à lista visual
+  articleTags.value.push(tag)
+  
+  // Adicionar ao array de IDs
+  form.value.tagIds.push(tag.id)
+  
+  // Limpar o campo de busca
+  searchTagTerm.value = ''
+  
+  // Salvar as alterações
+  saveTagChanges()
+}
+
+// Adicionar nova tag a partir do input
+async function addNewTagFromInput(e: Event) {
+  // Prevenir qualquer comportamento padrão
+  e?.preventDefault()
+  
+  const value = searchTagTerm.value.trim()
+  if (!value) {
+    return
+  }
+  
+  // Verificar se já existe uma tag com esse nome entre as sugestões
+  const existingTag = filteredTags.value.find(tag => tag.title.toLowerCase() === value.toLowerCase())
+  if (existingTag) {
+    addExistingTag(existingTag)
+    return
+  }
+  
+  // Verificar se já existe no artigo
+  if (articleTags.value.some(tag => tag.title.toLowerCase() === value.toLowerCase())) {
+    searchTagTerm.value = ''
+    return
+  }
+  
+  // Criar nova tag
+  try {
+    const newTag = await createTag({ title: value, status: 'published' })
+    if (newTag) {
+      // Adicionar a nova tag ao artigo
+      addExistingTag(newTag)
+      
+      // Atualizar lista completa de tags
+      await fetchTags()
+    }
+  } catch (err) {
+    error.value = 'Erro ao criar tag'
+  }
+}
+
+// Remover tag do artigo
+function removeTag(tagId: string) {
+  // Remover da lista visual
+  articleTags.value = articleTags.value.filter(tag => tag.id !== tagId)
+  
+  // Remover do array de IDs
+  form.value.tagIds = form.value.tagIds.filter(id => id !== tagId)
+  
+  // Salvar as alterações
+  saveTagChanges()
+}
+
+// Função para salvar apenas as alterações das tags
+async function saveTagChanges() {
+  const updates = {
+    tags: form.value.tagIds,
+  }
+
+  await updateArticle(form.value.id, updates)
+  // Não exibe notificação para não interromper o fluxo do usuário
+}
+
+// Em vez de usar setTimeout diretamente no template, criar uma função
+function hideTagSuggestions() {
+  window.setTimeout(() => {
+    showTagSuggestions.value = false
+  }, 200)
+}
 </script>
+
+<template>
+  <div>
+    <!-- Topo abaixo de breadcrumb -->
+    <div class="p-6">
+      <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold">
+          Editar Artigo
+        </h1>
+        <Button
+          class="bg-primary hover:bg-primary/90"
+          @click="() => navigateTo('/articles')"
+        >
+          <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+      </div>
+
+      <!-- Formulário -->
+      <form v-if="!loading" class="space-y-8" @submit.prevent="saveArticle">
+        <!-- Grid com proporção 70/30 -->
+        <div class="grid grid-cols-1 gap-8 md:grid-cols-12">
+          <!-- Coluna da Esquerda: Informações Básicas (70%) -->
+          <Card class="md:col-span-8">
+            <CardHeader>
+              <CardTitle>Informações Básicas</CardTitle>
+              <CardDescription>
+                Edite as informações principais do artigo
+              </CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <!-- Título -->
+              <div class="space-y-2">
+                <Label for="title">Título</Label>
+                <Input
+                  id="title"
+                  v-model="form.title"
+                  placeholder="Digite um título atrativo para seu artigo"
+                  :disabled="loading"
+                  required
+                  @blur="updateSlug"
+                />
+              </div>
+
+              <!-- Slug -->
+              <div class="space-y-2">
+                <Label for="slug">URL do Artigo</Label>
+                <div class="flex gap-2">
+                  <Input
+                    id="slug"
+                    v-model="form.slug"
+                    placeholder="url-do-artigo"
+                    :disabled="loading"
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    :disabled="loading"
+                    @click="updateSlug"
+                  >
+                    <Icon name="lucide:refresh-cw" class="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <!-- Descrição -->
+              <div class="space-y-2">
+                <Label for="description">Descrição</Label>
+                <Textarea
+                  id="description"
+                  v-model="form.description"
+                  placeholder="Escreva um breve resumo do seu artigo"
+                  :disabled="loading"
+                  required
+                  rows="3"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <!-- Coluna da Direita: Status (30%) -->
+          <Card class="md:col-span-4">
+            <CardHeader>
+              <CardTitle>Status</CardTitle>
+              <CardDescription>
+                Defina o status do artigo
+              </CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <!-- Status -->
+              <div class="space-y-2">
+                <Label>Status</Label>
+                <Select v-model="form.status" :disabled="loading">
+                  <SelectTrigger>
+                    <SelectValue :placeholder="form.status === 'draft' ? 'Rascunho' : 'Publicado'" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="draft">
+                        <div class="flex items-center">
+                          <Icon name="lucide:file-text" class="mr-2 h-4 w-4" />
+                          Rascunho
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="published">
+                        <div class="flex items-center">
+                          <Icon name="lucide:check-circle" class="mr-2 h-4 w-4" />
+                          Publicado
+                        </div>
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <!-- Categoria -->
+              <div class="space-y-2">
+                <Label>Categorias <span class="text-xs text-muted-foreground ms-2"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
+
+                <div class="flex gap-2 items-center">
+                  <Select v-model="form.category_id" :disabled="loading" class="flex-1">
+                    <SelectTrigger class="h-10">
+                      <SelectValue placeholder="Selecionar categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem v-for="category in categories" :key="category.id" :value="category.id.toString()">
+                          {{ category.title }}
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 w-10 rounded-md p-0 border-2 hover:bg-secondary hover:text-secondary-foreground transition-colors duration-200"
+                    :disabled="loading"
+                    @click="showNewCategoryInput = !showNewCategoryInput"
+                  >
+                    <Icon :name="showNewCategoryInput ? 'lucide:minus' : 'lucide:plus'" class="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 w-10 rounded-md p-0 border-2 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors duration-200"
+                    :disabled="!form.category_id || loadingDeleteCategory"
+                    title="Excluir categoria selecionada"
+                    @click="showDeleteCategoryDialog = true"
+                  >
+                    <Icon name="lucide:trash-2" class="h-4 w-4" />
+                  </Button>
+                </div>
+                <div v-if="showNewCategoryInput" class="mt-3 space-y-3 border-l-2 border-primary pl-3 py-1 bg-primary/5 rounded-sm animate-in slide-in-from-left duration-300">
+                  <div class="flex gap-2">
+                    <Input
+                      v-model="newCategory"
+                      placeholder="Digite o nome da categoria"
+                      :disabled="loadingNewCategory"
+                      class="flex-1 focus-visible:ring-primary"
+                      @keyup.enter.prevent="addCategory"
+                    />
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      class="h-10"
+                      :disabled="loadingNewCategory"
+                      @click="addCategory"
+                    >
+                      <Icon name="lucide:check" class="h-4 w-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </div>
+                  <p v-if="categoryError" class="text-sm text-destructive flex items-center">
+                    <Icon name="lucide:alert-circle" class="h-3.5 w-3.5 mr-1" />
+                    {{ categoryError }}
+                  </p>
+                </div>
+                <p class="text-sm text-muted-foreground">
+                  Selecione uma categoria para o artigo<br> (opcional)
+                </p>
+                <!-- Modal de confirmação de exclusão -->
+                <div v-if="showDeleteCategoryDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                  <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
+                    <h2 class="mb-2 text-lg font-bold">
+                      Excluir Categoria
+                    </h2>
+                    <p class="mb-4">
+                      Tem certeza que deseja excluir a categoria selecionada? Esta ação não pode ser desfeita.
+                    </p>
+                    <div class="flex justify-end gap-2">
+                      <Button variant="outline" @click="showDeleteCategoryDialog = false">
+                        Cancelar
+                      </Button>
+                      <Button variant="destructive" :disabled="loadingDeleteCategory" @click="deleteSelectedCategory">
+                        Excluir
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tags -->
+              <div class="space-y-2">
+                <Label>Tags <span class="text-xs text-muted-foreground ms-2"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
+                <div class="space-y-3">
+                  <!-- Mostrar skeleton durante o carregamento -->
+                  <template v-if="loadingTags">
+                    <div class="flex items-center overflow-x-auto whitespace-nowrap rounded-md border px-3 py-2">
+                      <div class="flex items-center gap-1.5 max-w-full">
+                        <Skeleton class="h-6 w-16 rounded-sm" />
+                        <Skeleton class="h-6 w-14 rounded-sm" />
+                        <Skeleton class="h-6 w-20 rounded-sm" />
+                        <div class="flex-1" />
+                      </div>
+                    </div>
+                    <Skeleton class="h-5 w-40" />
+                  </template>
+                  
+                  <!-- Campo de entrada normal quando não estiver carregando -->
+                  <template v-else>
+                    <div class="relative">
+                      <div class="flex items-center overflow-x-auto whitespace-nowrap rounded-md border px-3 py-2 focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-1">
+                        <!-- Tags em linha -->
+                        <TransitionGroup name="fade-tag" tag="div" class="flex items-center gap-1.5 max-w-full">
+                          <div 
+                            v-for="tag in articleTags" 
+                            :key="tag.id" 
+                            class="inline-flex shrink-0 items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium"
+                          >
+                            {{ tag.title }}
+                            <button 
+                              type="button"
+                              class="ml-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
+                              @click="removeTag(tag.id)"
+                            >
+                              <Icon name="lucide:x" class="h-2.5 w-2.5" />
+                              <span class="sr-only">Remover</span>
+                            </button>
+                          </div>
+                        </TransitionGroup>
+                        
+                        <!-- Input na mesma linha -->
+                        <input
+                          v-model="searchTagTerm"
+                          class="min-w-[150px] flex-1 border-0 bg-transparent px-1 py-0.5 text-sm outline-none focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-50"
+                          @keydown.enter.prevent="addNewTagFromInput($event)"
+                          @focus="showTagSuggestions = true"
+                          @blur="hideTagSuggestions"
+                        />
+                      </div>
+                    </div>
+
+                    <p class="text-sm text-muted-foreground">
+                      Digite e pressione enter para adicionar <br> (opcional)
+                    </p>
+                    
+                    <!-- Sugestões de tags -->
+                    <div 
+                      v-if="showTagSuggestions && filteredTags.length > 0" 
+                      class="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-auto"
+                    >
+                      <div
+                        v-for="tag in filteredTags"
+                        :key="tag.id"
+                        class="px-3 py-2 hover:bg-muted cursor-pointer"
+                        @mousedown.prevent="addExistingTag(tag)"
+                      >
+                        {{ tag.title }}
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <!-- Editor de Conteúdo (Largura Total) -->
+        <Card>
+          <CardHeader>
+            <CardTitle>Conteúdo</CardTitle>
+            <CardDescription>
+              Edite o conteúdo do seu artigo usando o editor abaixo
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tiny
+              v-model="form.content"
+              :height="500"
+              :disabled="loading"
+            />
+          </CardContent>
+        </Card>
+      </form>
+
+      <!-- Loading State -->
+      <div v-else class="space-y-8">
+        <div class="grid grid-cols-1 gap-8 md:grid-cols-12">
+          <Card class="md:col-span-8">
+            <CardHeader>
+              <Skeleton class="h-6 w-[200px]" />
+              <Skeleton class="h-4 w-[300px]" />
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <Skeleton class="h-10 w-full" />
+              <Skeleton class="h-10 w-full" />
+              <Skeleton class="h-24 w-full" />
+            </CardContent>
+          </Card>
+          <Card class="md:col-span-4">
+            <CardHeader>
+              <Skeleton class="h-6 w-[150px]" />
+              <Skeleton class="h-4 w-[200px]" />
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <!-- Status Skeleton -->
+              <div class="space-y-2">
+                <Skeleton class="h-5 w-16" />
+                <Skeleton class="h-10 w-full" />
+              </div>
+              
+              <!-- Categoria Skeleton -->
+              <div class="space-y-2">
+                <Skeleton class="h-5 w-24" />
+                <div class="flex gap-2">
+                  <Skeleton class="h-10 w-full" />
+                  <Skeleton class="h-10 w-10" />
+                  <Skeleton class="h-10 w-10" />
+                </div>
+                <Skeleton class="h-5 w-60" />
+              </div>
+              
+              <!-- Tags Skeleton -->
+              <div class="space-y-2">
+                <Skeleton class="h-5 w-16" />
+                <Skeleton class="h-10 w-full" />
+                <Skeleton class="h-5 w-40" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton class="h-6 w-[180px]" />
+            <Skeleton class="h-4 w-[250px]" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton class="h-[500px] w-full" />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+    <ArticleFloatingMenu
+      :on-save="saveArticle"
+      :on-back="() => navigateTo('/articles')"
+      :on-cancel="() => navigateTo('/articles')"
+      :is-loading="loading"
+      :show="showFloatingMenu"
+    />
+  </div>
+</template>
 
 <style>
 .tox-tinymce {
@@ -417,5 +719,26 @@ async function deleteSelectedCategory() {
 .dark .tox:not(.tox-tinymce-inline) .tox-editor-header {
   background-color: hsl(var(--background));
   border-bottom-color: hsl(var(--border));
+}
+
+.fade-tag-enter-active,
+.fade-tag-leave-active {
+  transition: opacity 0.25s, transform 0.25s;
+}
+.fade-tag-enter-from {
+  opacity: 0;
+  transform: scale(0.85);
+}
+.fade-tag-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+.fade-tag-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}
+.fade-tag-leave-to {
+  opacity: 0;
+  transform: scale(0.85);
 }
 </style>

@@ -9,7 +9,6 @@ definePageMeta({
 
 const router = useRouter()
 
-
 // Verificar se o usuário já está autenticado ao carregar a página
 // onMounted(() => {
 //   if (isAuthenticated.value) {

@@ -18,14 +18,16 @@ function handleDeleteClick(article: any) {
 }
 
 async function handleDeleteConfirm() {
-  if (!articleToDelete.value) return
+  if (!articleToDelete.value)
+    return
   const success = await deleteArticle(articleToDelete.value.id)
   if (success) {
     toast({ title: 'Sucesso', description: 'Artigo excluído com sucesso!' })
     showDeleteDialog.value = false
     articleToDelete.value = null
     await fetchArticles()
-  } else {
+  }
+  else {
     toast({ title: 'Erro', description: error.value || 'Erro ao excluir artigo', variant: 'destructive' })
   }
 }
@@ -42,7 +44,7 @@ onMounted(() => {
       <h1 class="text-2xl font-bold">
         Meus Artigos
       </h1>
-      <Button 
+      <Button
         class="bg-primary hover:bg-primary/90"
         @click="() => navigateTo('/articles/new')"
       >
@@ -59,7 +61,9 @@ onMounted(() => {
             <TableRow>
               <TableHead>Título</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead class="text-right">Ações</TableHead>
+              <TableHead class="text-right">
+                Ações
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -133,13 +137,21 @@ onMounted(() => {
     </Card>
 
     <!-- Diálogo de confirmação de exclusão -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div class="bg-white dark:bg-zinc-900 rounded-lg p-6 shadow-lg w-full max-w-md">
-        <h2 class="text-lg font-bold mb-2">Excluir Artigo</h2>
-        <p class="mb-4">Tem certeza que deseja excluir o artigo "{{ articleToDelete?.title }}"? Esta ação não pode ser desfeita.</p>
+    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
+        <h2 class="mb-2 text-lg font-bold">
+          Excluir Artigo
+        </h2>
+        <p class="mb-4">
+          Tem certeza que deseja excluir o artigo "{{ articleToDelete?.title }}"? Esta ação não pode ser desfeita.
+        </p>
         <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">Cancelar</Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">Excluir</Button>
+          <Button variant="outline" @click="showDeleteDialog = false">
+            Cancelar
+          </Button>
+          <Button variant="destructive" @click="handleDeleteConfirm">
+            Excluir
+          </Button>
         </div>
       </div>
     </div>

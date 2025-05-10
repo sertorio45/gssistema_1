@@ -105,7 +105,7 @@ onMounted(async () => {
     <SidebarContent>
       <template v-if="isLoadingMenu">
         <SidebarGroup v-for="n in 4" :key="n">
-          <SidebarMenuSkeleton showIcon class="mb-1" />
+          <SidebarMenuSkeleton show-icon class="mb-1" />
           <SidebarMenuSkeleton class="mb-1 ml-6" />
           <SidebarMenuSkeleton class="mb-1 ml-6" />
         </SidebarGroup>

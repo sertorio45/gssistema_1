@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useSupabaseClient } from '#imports'
 import { useToast } from '~/components/ui/toast'
 import UserForm from './UserForm.vue'
 
@@ -107,8 +106,8 @@ defineExpose({
       </DialogHeader>
 
       <UserForm
-        ref="userForm"
         v-if="selectedUser"
+        ref="userForm"
         :initial-form="{
           email: selectedUser.email,
           password: '',
@@ -138,4 +137,4 @@ defineExpose({
       </DialogFooter>
     </DialogContent>
   </Dialog>
-</template> 
+</template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useSupabaseClient } from '#imports'
 import { useToast } from '~/components/ui/toast'
 import UserForm from '~/components/users/UserForm.vue'
 
@@ -117,4 +116,4 @@ defineExpose({
       </DialogFooter>
     </DialogContent>
   </Dialog>
-</template> 
+</template>

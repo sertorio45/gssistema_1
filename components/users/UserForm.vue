@@ -24,6 +24,11 @@ const props = defineProps<{
   isEditing?: boolean
 }>()
 
+const emit = defineEmits<{
+  (e: 'submit', form: UserForm): void
+  (e: 'cancel'): void
+}>()
+
 const form = ref<UserForm>(props.initialForm || {
   email: '',
   password: '',
@@ -107,11 +112,6 @@ defineExpose({
   form: form.value,
   validate,
 })
-
-const emit = defineEmits<{
-  (e: 'submit', form: UserForm): void
-  (e: 'cancel'): void
-}>()
 
 function handleSubmit() {
   if (validate()) {
@@ -215,4 +215,4 @@ function handleCancel() {
       </div>
     </div>
   </div>
-</template> 
+</template>

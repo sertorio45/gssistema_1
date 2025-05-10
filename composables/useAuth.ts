@@ -1,5 +1,4 @@
 import { useSupabaseClient, useSupabaseUser } from '#imports'
-import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
   const client = useSupabaseClient()
@@ -30,7 +29,7 @@ export function useAuth() {
       }
 
       userRole.value = data?.role || null
-    } 
+    }
     catch (error) {
       console.error('Erro ao buscar papel do usuário:', error)
       userRole.value = null
@@ -46,7 +45,7 @@ export function useAuth() {
   watch(user, (newUser) => {
     if (newUser) {
       updateUserRole()
-    } 
+    }
     else {
       userRole.value = null
     }

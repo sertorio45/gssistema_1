@@ -27,7 +27,8 @@ function updateLogo() {
     nextTick(() => {
       if (import.meta.client && document.documentElement.classList.contains('dark')) {
         logoSrc.value = logoDark
-      } else {
+      }
+      else {
         logoSrc.value = logoLight
       }
       isReady.value = true
@@ -55,15 +56,15 @@ watch(() => colorMode.value, () => {
         <NuxtImg
           :src="logoSrc"
           alt="Logo"
-          class="py-3 px-2"
+          class="px-2 py-3"
           width="190px"
           loading="eager"
           :placeholder="[50, 25, 75, 5]"
         />
       </template>
       <template v-else>
-        <div class="flex items-center gap-3 py-3 px-2 w-[190px]">
-          <Skeleton class="w-10 h-10 rounded-full" />
+        <div class="w-[190px] flex items-center gap-3 px-2 py-3">
+          <Skeleton class="h-10 w-10 rounded-full" />
           <Skeleton class="h-6 flex-1 rounded-md" />
         </div>
       </template>

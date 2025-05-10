@@ -8,9 +8,9 @@ export default defineEventHandler(async () => {
     {
       auth: {
         autoRefreshToken: false,
-        persistSession: false
-      }
-    }
+        persistSession: false,
+      },
+    },
   )
 
   const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers()
@@ -21,12 +21,12 @@ export default defineEventHandler(async () => {
   }
 
   // Combina dados de usuários e roles
-  const users = usersData.users.map(user => {
+  const users = usersData.users.map((user) => {
     const role = rolesData.find(role => role.user_id === user.id)
     return {
       id: user.id,
       email: user.email,
-      role: role ? role.role : 'cliente'
+      role: role ? role.role : 'cliente',
     }
   })
 

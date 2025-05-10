@@ -1,6 +1,6 @@
+import process from 'node:process'
 // server/api/admin/users.ts
 import { createClient } from '@supabase/supabase-js'
-import process from 'node:process'
 import { readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
@@ -40,7 +40,8 @@ export default defineEventHandler(async (event) => {
       message: 'Usuário criado com sucesso',
       user: newUser,
     }
-  } catch (error: any) {
+  }
+  catch (error: any) {
     return {
       success: false,
       error: error.message || 'Erro ao criar usuário',

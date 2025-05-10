@@ -34,14 +34,16 @@ async function loadData() {
     if (usersData.value?.users) {
       users.value = usersData.value.users
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Erro ao carregar dados:', error)
     toast({
       title: 'Erro',
       description: 'Não foi possível carregar os dados',
       variant: 'destructive',
     })
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }
@@ -76,7 +78,8 @@ async function deleteUser() {
     isDeleteAlertOpen.value = false
     selectedUser.value = null
     await loadData()
-  } catch (error: any) {
+  }
+  catch (error: any) {
     console.error('Erro ao excluir usuário:', error)
     toast({
       title: 'Erro',
@@ -99,8 +102,8 @@ onMounted(() => {
       <h1 class="text-2xl font-bold">
         Gerenciamento de Usuários
       </h1>
-      <Button 
-        class="bg-primary hover:bg-primary/90" 
+      <Button
+        class="bg-primary hover:bg-primary/90"
         @click="createUserDialog?.open()"
       >
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
@@ -176,8 +179,8 @@ onMounted(() => {
                 <TableCell class="text-right">
                   <div class="flex justify-end gap-2">
                     <Button
-                      variant="ghost" 
-                      size="icon" 
+                      variant="ghost"
+                      size="icon"
                       class="h-8 w-8 text-muted-foreground hover:text-primary"
                       @click="editUserDialog?.open(user)"
                     >
@@ -201,10 +204,10 @@ onMounted(() => {
     </Card>
 
     <!-- Dialog para criar usuário -->
-    <CreateUserDialog ref="createUserDialog" @userCreated="loadData" />
+    <CreateUserDialog ref="createUserDialog" @user-created="loadData" />
 
     <!-- Dialog para editar usuário -->
-    <EditUserDialog ref="editUserDialog" @userUpdated="loadData" />
+    <EditUserDialog ref="editUserDialog" @user-updated="loadData" />
 
     <!-- Alert Dialog para confirmação de exclusão -->
     <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">

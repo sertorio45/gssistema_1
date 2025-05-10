@@ -39,13 +39,16 @@ MIT
 ### Sistema de Autenticação
 
 #### Configuração do Supabase Auth
+
 O sistema utiliza Supabase para autenticação, com as seguintes configurações:
+
 - Variáveis de ambiente necessárias:
   - `SUPABASE_URL`
   - `SUPABASE_KEY`
   - `SUPABASE_SERVICE_KEY` (apenas backend)
 
 #### Funcionalidades de Autenticação
+
 - Login com email e senha
 - Registro de novos usuários
 - Recuperação de senha
@@ -53,13 +56,17 @@ O sistema utiliza Supabase para autenticação, com as seguintes configurações
 - Proteção de rotas
 
 #### Middleware de Autorização
+
 O sistema possui três middlewares principais:
+
 1. `auth`: Verifica autenticação básica
+
    - Redireciona para /login se não autenticado
    - Permite acesso a rotas públicas sem autenticação
    - Rotas públicas: ['/login', '/register', '/forgot-password', '/403', '/confirm']
 
 2. `role`: Verifica permissões baseadas em roles
+
    - Verifica JWT token para roles
    - Redireciona para /403 se não tiver permissão
    - Permite definir roles necessárias por rota
@@ -69,6 +76,7 @@ O sistema possui três middlewares principais:
    - Redireciona para home se já autenticado
 
 #### Rotas de Autenticação
+
 - `/login`: Página de login principal
 - `/register`: Registro de novos usuários
 - `/forgot-password`: Recuperação de senha
@@ -76,32 +84,37 @@ O sistema possui três middlewares principais:
 - `/401`: Página de não autorizado
 
 #### Composable useAuth
+
 Oferece as seguintes funcionalidades:
+
 ```ts
 const {
-  login,                // Login com email/senha
-  logout,               // Logout do usuário
-  isAuthenticated,      // Estado de autenticação
-  currentUser,          // Dados do usuário atual
-  currentRole,          // Role do usuário atual
-  checkSession,         // Verifica sessão atual
-  loading,              // Estado de carregamento
-  error,                // Erros de autenticação
-  hasRole,             // Verifica se tem role específica
-  hasAnyRole,          // Verifica se tem alguma das roles
-  updateUserRole        // Atualiza role do usuário
+  login, // Login com email/senha
+  logout, // Logout do usuário
+  isAuthenticated, // Estado de autenticação
+  currentUser, // Dados do usuário atual
+  currentRole, // Role do usuário atual
+  checkSession, // Verifica sessão atual
+  loading, // Estado de carregamento
+  error, // Erros de autenticação
+  hasRole, // Verifica se tem role específica
+  hasAnyRole, // Verifica se tem alguma das roles
+  updateUserRole // Atualiza role do usuário
 } = useAuth()
 ```
 
 ### Sistema de Usuários
 
 #### Níveis de Acesso
+
 O sistema possui três níveis de acesso:
+
 - `admin`: Acesso total ao sistema
 - `funcionario`: Acesso às funcionalidades operacionais
 - `cliente`: Acesso limitado às funcionalidades básicas
 
 #### Estrutura de Dados do Usuário
+
 ```ts
 interface User {
   id: string
@@ -116,7 +129,9 @@ interface User {
 ```
 
 #### API de Usuários
+
 Endpoints administrativos (requer role 'admin'):
+
 - `GET /api/admin/users`: Lista todos os usuários
 - `POST /api/admin/users`: Cria novo usuário com:
   - email
@@ -127,7 +142,9 @@ Endpoints administrativos (requer role 'admin'):
 - `DELETE /api/admin/users/[id]`: Remove usuário
 
 #### Tabelas do Banco
+
 1. `auth.users`: Gerenciada pelo Supabase Auth
+
    - Armazena dados básicos do usuário
    - Gerenciada automaticamente pelo Supabase
 
@@ -141,7 +158,9 @@ Endpoints administrativos (requer role 'admin'):
    ```
 
 #### Componentes de Usuário
+
 - `UserForm.vue`: Formulário de criação/edição de usuário
+
   - Campos: nome, email, senha
   - Validação de força de senha
   - Geração de senha segura

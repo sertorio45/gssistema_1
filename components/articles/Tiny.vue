@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import Editor from '@tinymce/tinymce-vue'
-import { ref, watch, onMounted } from 'vue'
-
+import { onMounted, ref, watch } from 'vue'
 
 interface Props {
   modelValue: string
@@ -116,15 +115,16 @@ const editorConfig = {
 }
 
 // Função para atualizar o tema do editor
-const updateEditorTheme = () => {
-  if (!editorRef.value) return
+function updateEditorTheme() {
+  if (!editorRef.value)
+    return
 
   const isDark = colorMode.value === 'dark'
-  
+
   // Atualiza a skin e o CSS do editor
   editorRef.value.skin = isDark ? 'oxide-dark' : 'oxide'
   editorRef.value.content_css = isDark ? 'dark' : 'default'
-  
+
   // Atualiza as cores do corpo do editor
   const body = editorRef.value.getBody()
   if (body) {
@@ -189,7 +189,7 @@ onMounted(() => {
 
 /* Menus e dropdowns */
 .tox .tox-menubar {
-background-color: hsl(var(--background));
+  background-color: hsl(var(--background));
 }
 
 .tox .tox-menu {

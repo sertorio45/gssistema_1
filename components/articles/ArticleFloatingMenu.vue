@@ -12,31 +12,31 @@ defineProps<{
   <Transition name="fade">
     <div
       v-if="show"
-      class="fixed bottom-3 right-1/6 z-50 flex -translate-x-1/2 transform items-center gap-4 rounded-full bg-primary px-6 py-3 shadow-2xl dark:bg-primary max-w-[calc(100%-2rem)] sm:max-w-md"
+      class="fixed bottom-3 right-1/6 z-50 max-w-[calc(100%-2rem)] flex transform items-center gap-4 rounded-full bg-primary px-6 py-3 shadow-2xl sm:max-w-md -translate-x-1/2 dark:bg-primary"
     >
       <Button
         variant="ghost"
-        @click="onBack"
         :disabled="isLoading"
-        class="flex items-center gap-2 text-secondary bg-transparent shadow-none"
+        class="flex items-center gap-2 bg-transparent text-secondary shadow-none"
+        @click="onBack"
       >
         <Icon name="lucide:arrow-left" class="h-4 w-4" />
         Voltar
       </Button>
       <Button
         variant="ghost"
-        @click="onCancel"
         :disabled="isLoading"
-        class="flex items-center gap-2 text-secondary bg-transparent shadow-none"
+        class="flex items-center gap-2 bg-transparent text-secondary shadow-none"
+        @click="onCancel"
       >
         <Icon name="lucide:x" class="h-4 w-4" />
         Cancelar
       </Button>
       <Button
         variant="default"
-        @click="onSave"
         :disabled="isLoading"
-        class="flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-primary"
+        class="flex items-center gap-2 bg-secondary text-primary hover:bg-secondary/90"
+        @click="onSave"
       >
         <Icon v-if="isLoading" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
         <Icon v-else name="lucide:save" class="h-4 w-4" />
@@ -58,4 +58,4 @@ defineProps<{
 @media (max-width: 640px) {
   /* Remover estilos específicos de mobile se o posicionamento centralizado já funcionar bem */
 }
-</style> 
+</style>

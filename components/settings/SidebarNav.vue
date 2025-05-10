@@ -43,7 +43,7 @@ onMounted(() => {
 <template>
   <nav class="flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-1">
     <template v-if="isLoadingMenu">
-      <Skeleton v-for="n in 5" :key="n" class="h-8 w-full mb-2" />
+      <Skeleton v-for="n in 5" :key="n" class="mb-2 h-8 w-full" />
     </template>
     <template v-else>
       <Button

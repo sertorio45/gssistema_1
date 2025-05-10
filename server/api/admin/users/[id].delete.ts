@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const { error } = await supabase.auth.admin.deleteUser(id)
-    
+
     if (error) {
       throw error
     }
@@ -30,10 +30,11 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: 'Usuário excluído com sucesso',
     }
-  } catch (error: any) {
+  }
+  catch (error: any) {
     return {
       success: false,
       error: error.message || 'Erro ao excluir usuário',
     }
   }
-}) 
+})
