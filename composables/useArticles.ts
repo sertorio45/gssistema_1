@@ -106,10 +106,6 @@ export function useArticles() {
     const tags = payload.tags
     delete payload.tags
 
-    // Log para debug
-    console.log('[DEBUG] Updates:', payload)
-    console.log('[DEBUG] Tags a serem atualizadas:', tags)
-
     const { error: updateError } = await client
       .from('article')
       .update(payload)
@@ -123,8 +119,6 @@ export function useArticles() {
 
     // Atualizar relacionamentos de tags se existirem
     if (tags && Array.isArray(tags)) {
-      console.log('[DEBUG] Atualizando relacionamentos de tags')
-
       // Primeiro remover todos os relacionamentos existentes
       const { error: deleteRelationError } = await client
         .from('article_tags')
@@ -139,7 +133,6 @@ export function useArticles() {
 
       // Adicionar novos relacionamentos
       if (tags.length > 0) {
-        console.log('[DEBUG] Adicionando novos relacionamentos:', tags)
         const tagRelationships = tags.map((tagId: string) => ({
           article_id: id,
           tag_id: tagId,
@@ -203,33 +196,104 @@ export function useArticles() {
     loading.value = false
   }
 
-  const createCategory = async (category: any) => {
-    loading.value = true
-    error.value = null
-    const { data, error: createError } = await client
-      .from('article_category')
-      .insert([category])
-    loading.value = false
-    if (createError) {
-      error.value = createError.message
-      return null
+  const checkCategoryExists = async (title: string, excludeId?: string) => {
+    try {
+      if (!title?.trim()) {
+        error.value = 'O título da categoria é obrigatório'
+        return true
+      }
+
+      const normalizedTitle = title.trim().toLowerCase()
+      
+      const { data, error: checkError } = await client
+        .from('article_category')
+        .select('id, title')
+        .ilike('title', normalizedTitle)
+
+      if (checkError) {
+        console.error('Erro ao verificar categoria:', checkError)
+        error.value = 'Erro ao verificar duplicidade de categoria'
+        return false
+      }
+
+      if (!data || data.length === 0) {
+        return false
+      }
+
+      // Se estiver editando, verifica se o título encontrado pertence ao mesmo registro
+      if (excludeId) {
+        return data.some(cat => cat.id !== excludeId && cat.title.toLowerCase() === normalizedTitle)
+      }
+
+      return true
+    } catch (err) {
+      console.error('Erro ao verificar categoria:', err)
+      error.value = 'Erro ao verificar duplicidade de categoria'
+      return false
     }
-    return data
+  }
+
+  const createCategory = async (category: any) => {
+    try {
+      loading.value = true
+      error.value = null
+
+      const normalizedTitle = category.title?.trim()
+      if (!normalizedTitle) {
+        error.value = 'O título da categoria é obrigatório'
+        return false
+      }
+
+      // Verificar se já existe uma categoria com o mesmo título
+      const exists = await checkCategoryExists(normalizedTitle)
+      if (exists) {
+        error.value = 'Já existe uma categoria com este nome'
+        return false
+      }
+
+      const { data, error: createError } = await client
+        .from('article_category')
+        .insert([{ ...category, title: normalizedTitle }])
+        .select()
+
+      if (createError) {
+        console.error('Erro ao criar categoria:', createError)
+        error.value = 'Erro ao criar categoria'
+        return false
+      }
+
+      return data && data.length > 0
+    } catch (err) {
+      console.error('Erro ao criar categoria:', err)
+      error.value = 'Erro ao criar categoria'
+      return false
+    } finally {
+      loading.value = false
+    }
   }
 
   const updateCategory = async (id: string, updates: any) => {
     loading.value = true
     error.value = null
-    const { data, error: updateError } = await client
+
+    // Verificar se já existe outra categoria com o mesmo título
+    const exists = await checkCategoryExists(updates.title, id)
+    if (exists) {
+      loading.value = false
+      error.value = 'Já existe uma categoria com este nome'
+      return false
+    }
+
+    const { error: updateError } = await client
       .from('article_category')
       .update(updates)
       .eq('id', id)
     loading.value = false
     if (updateError) {
       error.value = updateError.message
-      return null
+      return false
     }
-    return data
+    return true
   }
 
   const deleteCategory = async (id: string) => {
@@ -255,42 +319,109 @@ export function useArticles() {
     const { data, error: fetchError } = await client
       .from('article_tag')
       .select('*')
-      .order('title')
     tags.value = data || []
     error.value = fetchError?.message || null
     loading.value = false
   }
 
+  const checkTagExists = async (title: string, excludeId?: string) => {
+    try {
+      if (!title?.trim()) {
+        error.value = 'O título da tag é obrigatório'
+        return true
+      }
+
+      const normalizedTitle = title.trim().toLowerCase()
+      
+      const { data, error: checkError } = await client
+        .from('article_tag')
+        .select('id, title')
+        .ilike('title', normalizedTitle)
+
+      if (checkError) {
+        console.error('Erro ao verificar tag:', checkError)
+        error.value = 'Erro ao verificar duplicidade de tag'
+        return false
+      }
+
+      if (!data || data.length === 0) {
+        return false
+      }
+
+      // Se estiver editando, verifica se o título encontrado pertence ao mesmo registro
+      if (excludeId) {
+        return data.some(tag => tag.id !== excludeId && tag.title.toLowerCase() === normalizedTitle)
+      }
+
+      return true
+    } catch (err) {
+      console.error('Erro ao verificar tag:', err)
+      error.value = 'Erro ao verificar duplicidade de tag'
+      return false
+    }
+  }
+
   const createTag = async (tag: any) => {
+    try {
+      loading.value = true
+      error.value = null
+
+      const normalizedTitle = tag.title?.trim()
+      if (!normalizedTitle) {
+        error.value = 'O título da tag é obrigatório'
+        return false
+      }
+
+      // Verificar se já existe uma tag com o mesmo título
+      const exists = await checkTagExists(normalizedTitle)
+      if (exists) {
+        error.value = 'Já existe uma tag com este nome'
+        return false
+      }
+
+      const { data, error: createError } = await client
+        .from('article_tag')
+        .insert([{ ...tag, title: normalizedTitle }])
+        .select()
+
+      if (createError) {
+        console.error('Erro ao criar tag:', createError)
+        error.value = 'Erro ao criar tag'
+        return false
+      }
+
+      return data && data.length > 0
+    } catch (err) {
+      console.error('Erro ao criar tag:', err)
+      error.value = 'Erro ao criar tag'
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const updateTag = async (id: string, updates: any) => {
     loading.value = true
     error.value = null
-    // Verificar se a tag já existe
-    const { data: existingTags } = await client
-      .from('article_tag')
-      .select('id')
-      .eq('title', tag.title.trim())
-      .limit(1)
 
-    if (existingTags && existingTags.length > 0) {
+    // Verificar se já existe outra tag com o mesmo título
+    const exists = await checkTagExists(updates.title, id)
+    if (exists) {
       loading.value = false
-      return existingTags[0] // Retornar a tag existente
+      error.value = 'Já existe uma tag com este nome'
+      return false
     }
 
-    // Criar nova tag se não existir
-    const { data, error: createError } = await client
+    const { error: updateError } = await client
       .from('article_tag')
-      .insert([{
-        title: tag.title.trim(),
-        status: tag.status || 'published',
-      }])
-      .select()
-
+      .update(updates)
+      .eq('id', id)
     loading.value = false
-    if (createError) {
-      error.value = createError.message
-      return null
+    if (updateError) {
+      error.value = updateError.message
+      return false
     }
-    return data ? data[0] : null
+    return true
   }
 
   const deleteTag = async (id: string) => {
@@ -308,66 +439,31 @@ export function useArticles() {
     return true
   }
 
-  // Relacionamentos entre artigos e tags
+  // Relacionamentos de tags
   const fetchArticleTags = async (articleId: string) => {
     loading.value = true
     error.value = null
-
-    // Primeiro, obtenha todas as relações artigo-tag para o artigo específico
-    const { data: relations, error: relationsError } = await client
+    const { data, error: fetchError } = await client
       .from('article_tags')
       .select('tag_id')
       .eq('article_id', articleId)
-
-    if (relationsError) {
-      loading.value = false
-      error.value = relationsError.message
-      return []
-    }
-
-    // Se não houver relações, retorne um array vazio
-    if (!relations || relations.length === 0) {
-      loading.value = false
-      return []
-    }
-
-    // Extraia os IDs das tags
-    const tagIds = relations.map(relation => relation.tag_id)
-
-    // Agora busque os detalhes de todas as tags relacionadas
-    const { data: tags, error: tagsError } = await client
-      .from('article_tag')
-      .select('id, title')
-      .in('id', tagIds)
-
     loading.value = false
-
-    if (tagsError) {
-      error.value = tagsError.message
+    if (fetchError) {
+      error.value = fetchError.message
       return []
     }
-
-    // Retorne as tags formatadas para uso no componente
-    return tags ? tags.map(tag => ({
-      id: tag.id,
-      title: tag.title,
-      value: tag.title, // Adicionar valor para exibição no componente
-    })) : []
+    return data.map((item: any) => item.tag_id)
   }
 
   const addTagToArticle = async (articleId: string, tagId: string) => {
     loading.value = true
     error.value = null
-    const { error: relationError } = await client
+    const { error: createError } = await client
       .from('article_tags')
-      .insert([{
-        article_id: articleId,
-        tag_id: tagId,
-      }])
-
+      .insert([{ article_id: articleId, tag_id: tagId }])
     loading.value = false
-    if (relationError) {
-      error.value = relationError.message
+    if (createError) {
+      error.value = createError.message
       return false
     }
     return true
@@ -381,7 +477,6 @@ export function useArticles() {
       .delete()
       .eq('article_id', articleId)
       .eq('tag_id', tagId)
-
     loading.value = false
     if (deleteError) {
       error.value = deleteError.message
@@ -405,6 +500,7 @@ export function useArticles() {
     tags,
     fetchTags,
     createTag,
+    updateTag,
     deleteTag,
     fetchArticleTags,
     addTagToArticle,

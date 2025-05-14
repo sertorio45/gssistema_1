@@ -22,12 +22,12 @@ export const navMenu: NavMenu[] = [
           {
             title: 'Categorias',
             icon: 'i-lucide-circle',
-            link: '/articles/categories',
+            link: '/articles/category',
           },
           {
             title: 'Tags',
             icon: 'i-lucide-circle',
-            link: '/articles/tags',
+            link: '/articles/tag',
           },
         ],
       },

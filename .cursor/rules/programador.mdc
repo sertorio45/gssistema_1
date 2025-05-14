@@ -15,4 +15,6 @@ alwaysApply: true
 
 # Regras gerais
 
-- 
+- Trabalhar sempre o fron, informacoes em ingles.
+- Deixar sempre o código organizado e criando itens reutilizaveis globalmente usando nuxt 3
+- Sempre organize cada módulo criado, exemplo, articles, organize as pastas de tudo que for criado e renomeie com "articles"
