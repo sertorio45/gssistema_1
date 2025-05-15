@@ -54,7 +54,7 @@ export default defineNuxtConfig({
       callback: '/confirm',
       exclude: [],
     },
-    redirect: false,
+    redirect: true,
     url: process.env.SUPABASE_URL,
     key: process.env.SUPABASE_KEY,
   },

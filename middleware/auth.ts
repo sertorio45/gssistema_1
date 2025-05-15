@@ -6,7 +6,10 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
 
   // Verificar se a página atual não é pública e o usuário não está autenticado
   if (!publicPages.includes(to.path) && !user.value) {
-    // Redirecionar para a página de login
-    return navigateTo('/login')
+    // Redirecionar para a página de login com informação da rota original
+    return navigateTo({
+      path: '/login',
+      query: { redirect: to.fullPath },
+    })
   }
 })

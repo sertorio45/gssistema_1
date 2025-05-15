@@ -30,7 +30,10 @@ async function onSubmit(event: Event) {
   const { success } = await login(email.value, password.value)
 
   if (success) {
-    router.push('/')
+    // Verifica se há uma rota de redirecionamento na query string
+    const route = useRoute()
+    const redirectPath = route.query.redirect as string
+    router.push(redirectPath || '/')
   }
 }
 </script>
