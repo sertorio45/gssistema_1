@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useToast } from '~/components/ui/toast'
+import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import { columns } from '@/components/users/columns'
 import CreateUserDialog from '~/components/users/CreateUserDialog.vue'
+import DataTable from '@/components/users/DataTable.vue'
 import EditUserDialog from '~/components/users/EditUserDialog.vue'
 
 const createUserDialog = ref<InstanceType<typeof CreateUserDialog> | null>(null)
@@ -25,8 +28,10 @@ const users = ref<User[]>([])
 const isLoading = ref(true)
 const isDeleteAlertOpen = ref(false)
 const selectedUser = ref<User | null>(null)
+const selectedItems = ref([])
+const showMultiDeleteDialog = ref(false)
 
-// Carregar dados
+// Load data
 async function loadData() {
   isLoading.value = true
   try {
@@ -36,10 +41,10 @@ async function loadData() {
     }
   }
   catch (error) {
-    console.error('Erro ao carregar dados:', error)
+    console.error('Error loading data:', error)
     toast({
-      title: 'Erro',
-      description: 'Não foi possível carregar os dados',
+      title: 'Error',
+      description: 'Failed to load data',
       variant: 'destructive',
     })
   }
@@ -48,13 +53,13 @@ async function loadData() {
   }
 }
 
-// Abrir diálogo de confirmação de exclusão
-function openDeleteAlert(user: User) {
+// Open delete confirmation dialog
+function handleDeleteClick(user: User) {
   selectedUser.value = user
   isDeleteAlertOpen.value = true
 }
 
-// Excluir usuário
+// Delete user
 async function deleteUser() {
   if (!selectedUser.value) {
     return
@@ -66,165 +71,176 @@ async function deleteUser() {
     })
 
     if (!data.value?.success) {
-      throw new Error(data.value?.error || 'Erro ao excluir usuário')
+      throw new Error('Error deleting user')
     }
 
     toast({
-      title: 'Sucesso',
-      description: 'Usuário excluído com sucesso',
+      title: 'Success',
+      description: 'User deleted successfully',
     })
 
-    // Fechar confirmação e recarregar dados
+    // Close confirmation and reload data
     isDeleteAlertOpen.value = false
     selectedUser.value = null
     await loadData()
   }
   catch (error: any) {
-    console.error('Erro ao excluir usuário:', error)
+    console.error('Error deleting user:', error)
     toast({
-      title: 'Erro',
-      description: error?.message || 'Não foi possível excluir o usuário',
+      title: 'Error',
+      description: error?.message || 'Failed to delete user',
       variant: 'destructive',
     })
   }
 }
 
-// Carregar dados ao montar o componente
+// Update selected items
+function updateSelectedItems(items: any) {
+  selectedItems.value = items
+}
+
+// Show multi-delete dialog
+function showMultiDeleteConfirmation() {
+  showMultiDeleteDialog.value = true
+}
+
+// Delete multiple users
+async function handleMultiDeleteConfirm() {
+  const itemIds = selectedItems.value.map((index: number) => users.value[index].id)
+  let allSuccess = true
+
+  for (const id of itemIds) {
+    try {
+      const { data } = await useFetch(`/api/admin/users/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!data.value?.success) {
+        allSuccess = false
+      }
+    }
+    catch (error) {
+      console.error(`Error deleting user ${id}:`, error)
+      allSuccess = false
+    }
+  }
+
+  if (allSuccess) {
+    toast({
+      title: 'Success',
+      description: `${itemIds.length} users deleted successfully!`,
+    })
+  }
+  else {
+    toast({
+      title: 'Warning',
+      description: 'Some users could not be deleted.',
+      variant: 'destructive',
+    })
+  }
+
+  showMultiDeleteDialog.value = false
+  selectedItems.value = []
+  await loadData()
+}
+
+// Load data when component mounts
 onMounted(() => {
   loadData()
 })
 </script>
 
 <template>
-  <!-- Topo abaixo de breadcrumb -->
   <div class="p-6">
     <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-bold">
-        Gerenciamento de Usuários
-      </h1>
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">
+          User Management
+        </h1>
+        <p class="text-muted-foreground">
+          Manage system users
+        </p>
+      </div>
       <Button
         class="bg-primary hover:bg-primary/90"
         @click="createUserDialog?.open()"
       >
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-        Novo Usuário
+        New User
       </Button>
     </div>
 
-    <!-- Tabela de usuários -->
-    <Card class="border shadow-sm">
-      <CardContent class="p-0">
-        <Table>
-          <TableHeader class="bg-muted/50">
-            <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Função</TableHead>
-              <TableHead class="text-right">
-                Ações
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <template v-if="isLoading">
-              <TableRow v-for="i in 5" :key="i">
-                <TableCell><Skeleton class="h-5 w-[250px]" /></TableCell>
-                <TableCell><Skeleton class="h-5 w-[180px]" /></TableCell>
-                <TableCell class="text-right">
-                  <div class="flex justify-end gap-2">
-                    <Skeleton class="h-8 w-8 rounded" />
-                    <Skeleton class="h-8 w-8 rounded" />
-                  </div>
-                </TableCell>
-              </TableRow>
-            </template>
-            <TableRow v-else-if="users.length === 0">
-              <TableCell colspan="3" class="h-24 text-center">
-                <div class="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <Icon name="lucide:users-x" class="h-8 w-8" />
-                  <p>Nenhum usuário encontrado.</p>
-                </div>
-              </TableCell>
-            </TableRow>
-            <template v-else>
-              <TableRow v-for="user in users" :key="user.id" class="transition-colors hover:bg-muted/30">
-                <TableCell class="text-muted-foreground">
-                  {{ user.email }}
-                </TableCell>
-                <TableCell>
-                  <div
-                    class="inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium"
-                    :class="{
-                      'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300': user.role === 'admin',
-                      'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300': user.role === 'funcionario',
-                      'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300': user.role === 'cliente',
-                    }"
-                  >
-                    <Icon
-                      :name="{
-                        admin: 'lucide:shield',
-                        funcionario: 'lucide:briefcase',
-                        cliente: 'lucide:user',
-                      }[user.role]"
-                      class="mr-1 h-3.5 w-3.5"
-                    />
-                    {{
-                      {
-                        admin: 'Administrador',
-                        funcionario: 'Funcionário',
-                        cliente: 'Cliente',
-                      }[user.role]
-                    }}
-                  </div>
-                </TableCell>
-                <TableCell class="text-right">
-                  <div class="flex justify-end gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-8 w-8 text-muted-foreground hover:text-primary"
-                      @click="editUserDialog?.open(user)"
-                    >
-                      <Icon name="lucide:pencil" class="h-4 w-4" />
-                      <span class="sr-only">Editar</span>
-                    </Button>
-                    <Button
-                      variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      @click="openDeleteAlert(user)"
-                    >
-                      <Icon name="lucide:trash-2" class="h-4 w-4" />
-                      <span class="sr-only">Excluir</span>
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </template>
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <!-- User table with the new DataTable -->
+    <div v-if="isLoading" class="space-y-4">
+      <Card class="border shadow-sm">
+        <CardContent class="p-4">
+          <div class="space-y-2">
+            <Skeleton class="h-8 w-[250px]" />
+            <Skeleton class="h-8 w-full" />
+            <Skeleton class="h-8 w-full" />
+            <Skeleton class="h-8 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+    <DataTable
+      v-else
+      :data="users"
+      :columns="columns"
+      @delete="handleDeleteClick"
+      @edit="user => editUserDialog?.open(user)"
+      @selectionChange="updateSelectedItems"
+    />
 
-    <!-- Dialog para criar usuário -->
+    <!-- Action bar for multiple items -->
+    <MultiActionBar
+      v-if="selectedItems.length > 0"
+      :count="selectedItems.length"
+      :on-delete="showMultiDeleteConfirmation"
+    />
+
+    <!-- Dialog to create user -->
     <CreateUserDialog ref="createUserDialog" @user-created="loadData" />
 
-    <!-- Dialog para editar usuário -->
+    <!-- Dialog to edit user -->
     <EditUserDialog ref="editUserDialog" @user-updated="loadData" />
 
-    <!-- Alert Dialog para confirmação de exclusão -->
+    <!-- Alert Dialog for individual delete confirmation -->
     <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
-            {{ selectedUser?.email }} e removerá seus dados do sistema.
+            This action cannot be undone. This will permanently delete the user
+            {{ selectedUser?.email }} and remove their data from the system.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel @click="isDeleteAlertOpen = false">
-            Cancelar
+            Cancel
           </AlertDialogCancel>
           <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="deleteUser">
-            Excluir
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <!-- Multiple delete confirmation dialog -->
+    <AlertDialog :open="showMultiDeleteDialog" @update:open="showMultiDeleteDialog = $event">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Multiple Users</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete {{ selectedItems.length }} users? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel @click="showMultiDeleteDialog = false">
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="handleMultiDeleteConfirm">
+            Delete
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
