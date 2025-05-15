@@ -28,8 +28,6 @@ const editorConfig = {
   content_css: (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'tinymce-5'),
   base_url: '/tinymce',
   suffix: '.min',
-  language: 'pt_BR',
-  language_url: '/tinymce/langs/pt_BR.js',
   plugins: [
     'advlist',
     'autolink',
@@ -150,6 +148,7 @@ onMounted(() => {
       :model-value="modelValue"
       :init="editorConfig"
       :disabled="disabled"
+      tinymce-script-src="/tinymce/tinymce.min.js"
       @update:model-value="emit('update:modelValue', $event)"
     />
   </div>
@@ -248,59 +247,45 @@ onMounted(() => {
 
 /* Botões */
 .tox .tox-dialog__footer-end button {
-  background: hsl(var(--primary));
+  background-color: hsl(var(--primary));
+  border-color: hsl(var(--primary));
   color: hsl(var(--primary-foreground));
   border-radius: var(--radius);
-  padding: 0.5rem 1rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
 }
 
 .tox .tox-dialog__footer-end button:hover {
-  background: hsl(var(--primary) / 0.9);
+  background-color: hsl(var(--primary) / 0.9);
+  border-color: hsl(var(--primary) / 0.9);
 }
 
 .tox .tox-dialog__footer-end button.tox-button--secondary {
-  background: hsl(var(--secondary));
-  color: hsl(var(--secondary-foreground));
+  background-color: transparent;
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
 }
 
 .tox .tox-dialog__footer-end button.tox-button--secondary:hover {
-  background: hsl(var(--secondary) / 0.9);
-}
-
-/* Área de edição */
-.tox .tox-edit-area__iframe {
-  background: hsl(var(--background));
-}
-
-/* Seleção de texto */
-.tox .tox-edit-area__iframe ::selection {
-  background: hsl(var(--accent));
+  background-color: hsl(var(--accent));
+  border-color: hsl(var(--accent));
   color: hsl(var(--accent-foreground));
 }
 
-/* Placeholder */
-.tox .tox-edit-area__iframe ::placeholder {
+/* Listagens */
+.tox .tox-collection--list .tox-collection__group {
+  border-color: hsl(var(--border));
+}
+
+/* Outros ajustes para modo escuro */
+.dark .tox .tox-toolbar,
+.dark .tox .tox-toolbar__primary,
+.dark .tox .tox-toolbar__overflow,
+.dark .tox .tox-menubar {
+  background-color: hsl(var(--background));
+}
+
+.dark .tox .tox-statusbar {
+  background-color: hsl(var(--background));
+  border-top-color: hsl(var(--border));
   color: hsl(var(--muted-foreground));
-}
-
-/* Scrollbar */
-.tox .tox-edit-area__iframe ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.tox .tox-edit-area__iframe ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
-}
-
-.tox .tox-edit-area__iframe ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
-  border-radius: 4px;
-}
-
-.tox .tox-edit-area__iframe ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
 }
 </style>

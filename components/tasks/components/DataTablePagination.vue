@@ -18,18 +18,18 @@ const props = defineProps<DataTablePaginationProps<any>>()
       <div class="flex items-center space-x-2">
         <p class="text-sm font-medium">Linhas por página</p>
         <Select
-          v-model="table.getState().pagination.pageSize"
-          :options="[10, 20, 30, 40, 50]"
-          @update:model-value="table.setPageSize"
+          :model-value="String(table.getState().pagination.pageSize)"
+          :options="['10', '20', '30', '40', '50']"
+          @update:model-value="(value) => table.setPageSize(Number(value))"
         >
           <SelectTrigger class="h-8 w-[70px]">
-            <SelectValue :placeholder="table.getState().pagination.pageSize" />
+            <SelectValue :placeholder="String(table.getState().pagination.pageSize)" />
           </SelectTrigger>
           <SelectContent side="top">
             <SelectItem
               v-for="pageSize in [10, 20, 30, 40, 50]"
               :key="pageSize"
-              :value="pageSize"
+              :value="String(pageSize)"
             >
               {{ pageSize }}
             </SelectItem>
