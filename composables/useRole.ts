@@ -28,7 +28,8 @@ export function useRole() {
     const { data: { session } } = await client.auth.getSession()
     if (session?.access_token) {
       const decoded = decodeJWT(session.access_token)
-      userRole.value = decoded?.user_roles || decoded?.user_role || null
+      // Verificar app_metadata.role primeiro, depois fallback para métodos anteriores
+      userRole.value = decoded?.app_metadata?.role || decoded?.user_roles || decoded?.user_role || null
     }
     else {
       userRole.value = null

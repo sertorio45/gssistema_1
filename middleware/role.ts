@@ -18,13 +18,13 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     // Decodificar o JWT para obter as informações da role
     const decodedToken = decodeJWT(session.access_token)
 
-    // Verificar se o token contém a informação de user_role
-    if (!decodedToken || !('user_role' in decodedToken)) {
-      console.error('Token não contém informações de role')
+    // Verificar se o token contém a informação de role no app_metadata
+    if (!decodedToken || !decodedToken.app_metadata || !decodedToken.app_metadata.role) {
+      console.error('Token não contém informações de role no app_metadata')
       return navigateTo('/')
     }
 
-    const userRole = decodedToken.user_role
+    const userRole = decodedToken.app_metadata.role
     const requiredRoles = Array.isArray(to.meta.requiredRoles)
       ? to.meta.requiredRoles
       : [to.meta.requiredRoles]

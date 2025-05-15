@@ -8,6 +8,26 @@ export function useAuth() {
   const error = ref<string | null>(null)
   const userRole = ref<string | null>(null)
 
+  // Função para decodificar JWT
+  function decodeJWT(token: string) {
+    try {
+      const base64Url = token.split('.')[1]
+      if (!base64Url) {
+        return null
+      }
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+      const jsonPayload = decodeURIComponent(
+        atob(base64).split('').map((c) => {
+          return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
+        }).join(''),
+      )
+      return JSON.parse(jsonPayload)
+    }
+    catch {
+      return null
+    }
+  }
+
   // Função para atualizar o papel do usuário
   const updateUserRole = async () => {
     if (!user.value) {
@@ -16,11 +36,24 @@ export function useAuth() {
     }
 
     try {
-      // Forçar uma nova consulta sem cache
+      // Obter a sessão atual para extrair o token
+      const { data: { session } } = await client.auth.getSession()
+      
+      if (session?.access_token) {
+        // Decodificar o token para extrair app_metadata.role
+        const decoded = decodeJWT(session.access_token)
+        
+        if (decoded?.app_metadata?.role) {
+          userRole.value = decoded.app_metadata.role
+          return
+        }
+      }
+      
+      // Fallback: se não encontrar role no token, busca da tabela user_roles
       const { data, error } = await client
-        .from('users')
+        .from('user_roles')
         .select('role')
-        .eq('id', user.value.id)
+        .eq('user_id', user.value.id)
         .single()
         .throwOnError()
 

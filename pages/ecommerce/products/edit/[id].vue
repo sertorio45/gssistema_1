@@ -3,10 +3,12 @@ definePageMeta({
   layout: 'default',
   middleware: ['auth'],
 })
+
+const route = useRoute()
 </script>
 
 <template>
   <div>
-    <EcommerceProductProductForm />
+    <EcommerceProductProductForm :id="route.params.id" />
   </div>
 </template> 

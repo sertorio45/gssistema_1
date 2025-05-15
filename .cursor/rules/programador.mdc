@@ -18,3 +18,6 @@ alwaysApply: true
 - Trabalhar sempre o fron, informacoes em ingles.
 - Deixar sempre o código organizado e criando itens reutilizaveis globalmente usando nuxt 3
 - Sempre organize cada módulo criado, exemplo, articles, organize as pastas de tudo que for criado e renomeie com "articles"
+- Arquivo para menus está em constants/menus.ts, sempre acrescente as logicas lá.
+- Importante sempre manter bibliotecas e components dos temas intactos.
+- Todas as páginas de listagem, deve ser criado com datatables padrão como na pagina Tasks.

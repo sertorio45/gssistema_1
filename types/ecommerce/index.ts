@@ -1,16 +1,11 @@
-import type { ProductImage } from './product-image'
-
-export type ProductStatus = 'draft' | 'active' | 'inactive' | 'archived'
-export type InventoryPolicy = 'deny' | 'continue'
+export type ProductStatus = 'draft' | 'published' | 'archived'
 
 export interface Category {
   id: string
   name: string
   slug: string
-  description?: string
-  parent_id?: string
-  meta_title?: string
-  meta_description?: string
+  description: string | null
+  parent_id: string | null
   created_at: string
   updated_at: string
 }
@@ -19,77 +14,101 @@ export interface Product {
   id: string
   title: string
   slug: string
-  description?: string
-  short_description?: string
-  sku?: string
-  status: ProductStatus
+  sku: string | null
+  description: string | null
   price: number
-  compare_at_price?: number
-  cost_price?: number
-  inventory_policy: InventoryPolicy
-  inventory_quantity: number
-  category_id?: string
-  weight?: number
-  weight_unit?: string
-  meta_title?: string
-  meta_description?: string
-  vendor?: string
-  images?: ProductImage[]
+  compare_at_price: number | null
+  status: ProductStatus
+  inventory: number
+  meta_title: string | null
+  meta_description: string | null
+  category_id: string | null
   created_at: string
   updated_at: string
   category?: Category
   variants?: Variant[]
+  images?: ProductImage[]
+  thumb?: ProductImage
+  gallery?: ProductImage[]
 }
 
 export interface Variant {
   id: string
   product_id: string
   title: string
-  sku?: string
+  sku: string | null
   price: number
-  compare_at_price?: number
-  cost_price?: number
-  inventory_quantity: number
-  weight?: number
-  weight_unit?: string
-  option1_name?: string
-  option1_value?: string
-  option2_name?: string
-  option2_value?: string
-  option3_name?: string
-  option3_value?: string
+  inventory: number
   created_at: string
   updated_at: string
-  images?: ProductImage[]
 }
+
+export type ImageType = 'thumb' | 'gallery'
 
 export interface ProductImage {
   id: string
   product_id: string
-  variant_id?: string
-  url: string
-  filename?: string
-  alt_text?: string
+  type: ImageType
+  path: string
+  alt: string | null
   position: number
-  width?: number
-  height?: number
   created_at: string
   updated_at: string
+  url?: string
 }
 
 export interface Integration {
   id: string
   platform: string
-  api_key?: string
-  api_secret?: string
-  store_url?: string
-  store_name?: string
-  is_active: boolean
-  settings: Record<string, any>
-  last_sync_at?: string
+  api_key: string | null
+  store_url: string | null
+  user_id: string
   created_at: string
   updated_at: string
 }
 
-export type CreateProductDTO = Omit<Product, 'id' | 'slug' | 'created_at' | 'updated_at'>
-export type UpdateProductDTO = Partial<CreateProductDTO> 
+export interface ProductFilters {
+  search?: string
+  category_id?: string
+  status?: ProductStatus
+  minPrice?: number
+  maxPrice?: number
+  sort?: 'title' | 'price' | 'created_at' | 'inventory'
+  order?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export interface ProductFormData {
+  title: string
+  slug?: string
+  sku?: string
+  description?: string
+  price: number
+  compare_at_price?: number
+  status: ProductStatus
+  inventory: number
+  meta_title?: string
+  meta_description?: string
+  category_id?: string
+}
+
+export interface VariantFormData {
+  title: string
+  sku?: string
+  price: number
+  inventory: number
+}
+
+export interface ImageUploadData {
+  file: File
+  alt?: string
+  type: ImageType
+  position?: number
+}
+
+export interface IntegrationFormData {
+  platform: string
+  api_key?: string
+  store_url?: string
+}
