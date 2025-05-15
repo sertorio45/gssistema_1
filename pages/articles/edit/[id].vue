@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSupabaseClient } from '#imports'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
@@ -33,6 +34,7 @@ definePageMeta({
 
 const route = useRoute()
 const { toast } = useToast()
+const client = useSupabaseClient()
 const {
   fetchArticleById,
   updateArticle,
@@ -241,22 +243,47 @@ async function addCategory() {
 async function deleteSelectedCategory() {
   if (!form.value.category_id)
     return
+
   loadingDeleteCategory.value = true
-  const success = await deleteCategory(form.value.category_id)
-  await fetchCategories()
-  if (success) {
-    toast({ title: 'Sucesso', description: 'Categoria excluída com sucesso!' })
-    form.value.category_id = ''
+
+  try {
+    // Obtenha o ID da categoria a ser excluída
+    const categoryIdToDelete = form.value.category_id
+    
+    // Primeiro, atualizamos diretamente o artigo para remover a referência à categoria
+    const { error: updateError } = await client
+      .from('article')
+      .update({ category_id: null })
+      .eq('id', form.value.id)
+    
+    if (updateError) {
+      throw new Error(`Falha ao desvincular a categoria do artigo: ${updateError.message}`)
+    }
+    
+    // Agora que o artigo não está mais vinculado, podemos excluir a categoria
+    const success = await deleteCategory(categoryIdToDelete)
+    await fetchCategories()
+    
+    if (success) {
+      toast({ title: 'Sucesso', description: 'Categoria excluída com sucesso!' })
+      form.value.category_id = '' // Limpa o seletor de categoria
+    }
+    else {
+      toast({ title: 'Erro', description: error.value || 'Erro ao excluir categoria', variant: 'destructive' })
+    }
+  } 
+  catch (error) {
+    toast({ title: 'Erro', description: 'Ocorreu um erro ao processar a exclusão', variant: 'destructive' })
+    console.error('Erro ao excluir categoria:', error)
+  } 
+  finally {
+    loadingDeleteCategory.value = false
+    showDeleteCategoryDialog.value = false
   }
-  else {
-    toast({ title: 'Erro', description: error.value || 'Erro ao excluir categoria', variant: 'destructive' })
-  }
-  loadingDeleteCategory.value = false
-  showDeleteCategoryDialog.value = false
 }
 
 // Adicionar tag existente ao artigo
-function addExistingTag(tag: { id: string; title: string; }) {
+function addExistingTag(tag: { id: string, title: string }) {
   // Verificar se a tag já está no artigo
   if (form.value.tagIds.includes(tag.id)) {
     return
@@ -279,36 +306,44 @@ function addExistingTag(tag: { id: string; title: string; }) {
 async function addNewTagFromInput(e: Event) {
   // Prevenir qualquer comportamento padrão
   e?.preventDefault()
-  
+
   const value = searchTagTerm.value.trim()
   if (!value) {
     return
   }
-  
+
   // Verificar se já existe uma tag com esse nome entre as sugestões
   const existingTag = filteredTags.value.find(tag => tag.title.toLowerCase() === value.toLowerCase())
   if (existingTag) {
     addExistingTag(existingTag)
     return
   }
-  
+
   // Verificar se já existe no artigo
   if (articleTags.value.some(tag => tag.title.toLowerCase() === value.toLowerCase())) {
     searchTagTerm.value = ''
     return
   }
-  
+
   // Criar nova tag
   try {
-    const newTag = await createTag({ title: value, status: 'published' })
-    if (newTag) {
-      // Adicionar a nova tag ao artigo
-      addExistingTag(newTag)
-      
-      // Atualizar lista completa de tags
+    const result = await createTag({ title: value, status: 'published' })
+    
+    // Se a criação foi bem-sucedida, buscar as tags novamente para obter a que foi criada
+    if (result) {
       await fetchTags()
+      
+      // Encontrar a tag recém-criada pelo título
+      const newTag = tags.value.find(tag => tag.title.toLowerCase() === value.toLowerCase())
+      
+      if (newTag) {
+        // Adicionar à lista de tags do artigo
+        addExistingTag(newTag)
+      }
     }
-  } catch (err) {
+  } 
+  catch (err) {
+    // Usar a variável de erro apropriada
     error.value = 'Erro ao criar tag'
   }
 }
@@ -465,7 +500,7 @@ function hideTagSuggestions() {
                 <div class="flex gap-2 items-center">
                   <Select v-model="form.category_id" :disabled="loading" class="flex-1">
                     <SelectTrigger class="h-10">
-                      <SelectValue placeholder="Selecionar categoria" />
+                      <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -522,7 +557,7 @@ function hideTagSuggestions() {
                   </p>
                 </div>
                 <p class="text-sm text-muted-foreground">
-                  Selecione uma categoria para o artigo<br> (opcional)
+                  Select a category for the article<br> (optional)
                 </p>
                 <!-- Modal de confirmação de exclusão -->
                 <div v-if="showDeleteCategoryDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">

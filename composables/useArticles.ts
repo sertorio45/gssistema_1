@@ -45,11 +45,6 @@ export function useArticles() {
       payload.category_id = payload.category
       delete payload.category
     }
-    if (!payload.category_id || payload.category_id === '') {
-      loading.value = false
-      error.value = 'Categoria é obrigatória.'
-      return false
-    }
     
     // Remover tags do payload antes de inserir o artigo
     const tags = payload.tags
@@ -96,12 +91,7 @@ export function useArticles() {
       payload.category_id = payload.category
       delete payload.category
     }
-    if (!payload.category_id || payload.category_id === '') {
-      loading.value = false
-      error.value = 'Categoria é obrigatória.'
-      return false
-    }
-
+    
     // Remover tags do payload antes de atualizar o artigo
     const tags = payload.tags
     delete payload.tags

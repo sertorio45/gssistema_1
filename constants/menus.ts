@@ -31,6 +31,33 @@ export const navMenu: NavMenu[] = [
           },
         ],
       },
+      {
+        title: 'Products',
+        icon: 'i-lucide-package',
+        roles: ['admin', 'funcionario', 'cliente'],
+        children: [
+          {
+            title: 'Ver produtos',
+            icon: 'i-lucide-circle',
+            link: '/ecommerce/products',
+          },
+          {
+            title: 'Criar',
+            icon: 'i-lucide-circle',
+            link: '/ecommerce/products/new',
+          },
+          {
+            title: 'Categorias',
+            icon: 'i-lucide-circle',
+            link: '/products/category',
+          },
+          {
+            title: 'Tags',
+            icon: 'i-lucide-circle',
+            link: '/products/tag',
+          },
+        ],
+      },
     ],
   },
 

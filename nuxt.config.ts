@@ -54,5 +54,19 @@ export default defineNuxtConfig({
       callback: '/confirm',
       exclude: [],
     },
+    redirect: false,
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_KEY,
+  },
+
+  app: {
+    head: {
+      title: 'GS Sistema',
+      meta: [
+        { charset: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'description', content: 'GS Sistema - Gestão Empresarial' },
+      ],
+    },
   },
 })
