@@ -167,3 +167,138 @@ Endpoints administrativos (requer role 'admin'):
 
 - `CreateUserDialog.vue`: Modal para criar usuário
 - `EditUserDialog.vue`: Modal para editar usuário
+
+# GS Sistema - SaaS e ERP Multi-Tenant
+
+Sistema SaaS e ERP para agência, com suporte a múltiplos tenants.
+
+## Configuração Multi-Tenant
+
+O sistema foi desenvolvido com suporte completo a multi-tenancy, permitindo que várias organizações utilizem o mesmo sistema de forma isolada e segura.
+
+### Implementação no Banco de Dados
+
+As tabelas do sistema são projetadas para serem isoladas por tenant, com políticas de Row Level Security (RLS) no Supabase garantindo que cada tenant só possa acessar seus próprios dados.
+
+### Estrutura
+
+- Cada usuário está associado a um tenant específico
+- Todas as tabelas principais possuem uma coluna `tenant_id` para separação de dados
+- As políticas de RLS aplicam as restrições necessárias:
+  - Admins: Acesso total aos dados do próprio tenant
+  - Funcionários: Acesso total aos dados do próprio tenant
+  - Clientes: Acesso aos dados do próprio tenant, com restrições adicionais quando necessário
+  - Público: Acesso apenas a dados marcados como públicos
+
+## Executando Migrações no Supabase
+
+Para executar as migrações e configurar o banco de dados:
+
+```bash
+# Login no Supabase
+npx supabase login
+
+# Aplicar migrações ao projeto remoto
+npx supabase db push
+
+# Verificar status das migrações
+npx supabase migration list
+```
+
+### Criar um Novo Tenant
+
+Você pode criar um novo tenant usando a função SQL `create_tenant_with_admin`:
+
+```sql
+SELECT * FROM public.create_tenant_with_admin(
+  'Nome do Tenant', 
+  'slug-do-tenant', 
+  'email@exemplo.com', 
+  'senha-segura'
+);
+```
+
+Esta função cria um novo tenant e um usuário admin para esse tenant.
+
+## Desenvolvendo Novas Funcionalidades
+
+Ao desenvolver novas tabelas ou funcionalidades:
+
+1. Use a função `add_tenant_id_to_table` para adicionar suporte multi-tenant:
+
+```sql
+SELECT public.add_tenant_id_to_table('nome_da_tabela');
+```
+
+2. Sempre verifique se o tenant_id está sendo usado nas consultas.
+
+3. Ao criar novas páginas que exigem tenant, adicione a meta tag:
+
+```js
+definePageMeta({
+  middleware: ['auth', 'tenant'],
+  requiresTenant: true
+})
+```
+
+# GS Sistema
+
+Sistema ERP/SaaS para gerenciamento de agência.
+
+## Multitenancy
+
+O sistema foi configurado para suportar multitenancy, permitindo isolamento de dados entre diferentes clientes (tenants).
+
+### Estrutura de Roles
+
+- **Admin**: Acesso total ao sistema, pode ver e gerenciar todos os tenants.
+- **Funcionário**: Acesso aos dados do tenant selecionado atualmente.
+- **Cliente**: Acesso apenas aos dados do seu próprio tenant.
+
+### Como aplicar as migrações
+
+Para aplicar as migrações do Supabase, siga os seguintes passos:
+
+1. Configure as variáveis de ambiente:
+
+```bash
+export SUPABASE_DB_URL="postgres://postgres:senha@db.url:5432/postgres"
+export SUPABASE_AUTH_TOKEN="seu-token-de-acesso"
+export SUPABASE_PROJECT_REF="ref-do-projeto"
+```
+
+2. Execute o script de migração:
+
+```bash
+./scripts/apply-migrations.sh
+```
+
+### Como usar o sistema multitenancy
+
+1. **Administrador e Funcionários**:
+   - Podem selecionar diferentes tenants no menu lateral
+   - Podem criar, editar e gerenciar tenants na página Admin > Tenants
+
+2. **Clientes**:
+   - São automaticamente associados a um tenant específico
+   - Só podem ver os dados relacionados ao seu tenant
+
+### Políticas de Segurança (RLS)
+
+O sistema utiliza Row Level Security (RLS) do Supabase para garantir o isolamento de dados:
+
+- **Admin e Funcionário**: Acesso total (ALL) aos dados do tenant selecionado.
+- **Cliente**: Acesso total (ALL) apenas aos seus próprios dados dentro do tenant.
+- **Público**: SELECT apenas em dados públicos.
+
+## Desenvolvimento
+
+### Tecnologias
+
+- Nuxt 3
+- Shadcn para Nuxt
+- Unocss
+- TypeScript
+- Vue 3
+- Supabase (Autenticação e Banco de Dados)
+- Ícones: Lucide

@@ -30,23 +30,23 @@ export default {
           class="h-8 -ml-3 data-[state=open]:bg-accent"
         >
           <span>{{ title }}</span>
-          <Icon v-if="column.getIsSorted() === 'desc'" name="lucide:arrow-down" class="ml-2 h-4 w-4" />
-          <Icon v-else-if="column.getIsSorted() === 'asc'" name="lucide:arrow-up" class="ml-2 h-4 w-4" />
-          <Icon v-else name="lucide:arrow-up-down" class="ml-2 h-4 w-4" />
+          <Icon v-if="column.getIsSorted() === 'desc'" name="i-radix-icons-arrow-down" class="ml-2 h-4 w-4" />
+          <Icon v-else-if="column.getIsSorted() === 'asc'" name="i-radix-icons-arrow-up" class="ml-2 h-4 w-4" />
+          <Icon v-else name="i-radix-icons-caret-sort" class="ml-2 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuItem @click="column.toggleSorting(false)">
-          <Icon name="lucide:arrow-up" class="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+          <Icon name="i-radix-icons-arrow-up" class="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
           Asc
         </DropdownMenuItem>
         <DropdownMenuItem @click="column.toggleSorting(true)">
-          <Icon name="lucide:arrow-down" class="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+          <Icon name="i-radix-icons-arrow-down" class="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
           Desc
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem @click="column.toggleVisibility(false)">
-          <Icon name="lucide:eye-off" class="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+          <Icon name="i-radix-icons-eye-none" class="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
           Hide
         </DropdownMenuItem>
       </DropdownMenuContent>

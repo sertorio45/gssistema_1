@@ -1,5 +1,16 @@
 <script setup lang="ts">
+import { Icon } from '#components'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '~/components/ui/toast'
+import { ref } from 'vue'
 import UserForm from './UserForm.vue'
 
 const emit = defineEmits<{
@@ -49,6 +60,7 @@ async function handleSubmit() {
         description: 'Nenhum dado foi alterado',
         variant: 'default',
       })
+      isLoading.value = false
       return
     }
 
@@ -68,7 +80,7 @@ async function handleSubmit() {
 
     toast({
       title: 'Sucesso',
-      description: data.message,
+      description: 'Usuário atualizado com sucesso',
     })
 
     isOpen.value = false

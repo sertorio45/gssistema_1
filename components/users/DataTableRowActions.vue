@@ -1,55 +1,86 @@
 <script setup lang="ts">
+import { Icon } from '#components'
 import type { Row } from '@tanstack/vue-table'
 import type { User } from './columns'
-import { computed } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Icon } from '#components'
+import { computed, ref } from 'vue'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
 
 interface DataTableRowActionsProps {
   row: Row<User>
+  onEdit: () => void
+  onDelete: () => void
 }
 
 const props = defineProps<DataTableRowActionsProps>()
-const emit = defineEmits(['edit', 'delete'])
 const user = computed(() => props.row.original)
+const showDeleteDialog = ref(false)
 
 function handleEdit() {
-  emit('edit', user.value)
+  props.onEdit()
 }
 
 function handleDelete() {
-  emit('delete', user.value)
+  showDeleteDialog.value = true
+}
+
+function confirmDelete() {
+  props.onDelete()
+  showDeleteDialog.value = false
 }
 </script>
 
 <template>
-  <DropdownMenu>
-    <DropdownMenuTrigger as-child>
-      <Button
-        variant="ghost"
-        class="h-8 w-8 flex p-0 data-[state=open]:bg-muted"
-      >
-        <Icon name="lucide:more-horizontal" class="h-4 w-4" />
-        <span class="sr-only">Open menu</span>
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" class="w-[160px]">
-      <DropdownMenuItem @click="handleEdit">
-        <Icon name="lucide:pencil" class="mr-2 h-4 w-4" />
-        Edit
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem @click="handleDelete" class="text-destructive focus:text-destructive">
-        <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-        Delete
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
+  <div class="flex justify-end gap-2">
+    <Button
+      variant="ghost"
+      size="icon"
+      class="h-8 w-8 text-muted-foreground hover:text-primary"
+      @click="handleEdit"
+    >
+      <Icon name="lucide:pencil" class="h-4 w-4" />
+      <span class="sr-only">Edit</span>
+    </Button>
+    <Button
+      variant="ghost"
+      size="icon"
+      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+      @click="handleDelete"
+    >
+      <Icon name="lucide:trash-2" class="h-4 w-4" />
+      <span class="sr-only">Delete</span>
+    </Button>
+
+    <AlertDialog :open="showDeleteDialog" @update:open="showDeleteDialog = $event">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
+            {{ user.email }} e removerá seus dados do sistema.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel @click="showDeleteDialog = false">
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="confirmDelete"
+          >
+            Deletar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </div>
 </template> 

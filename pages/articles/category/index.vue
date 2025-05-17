@@ -102,7 +102,7 @@ function handleEditClick(category: Category) {
 }
 
 async function handleSaveCategory() {
-  if (!form.value.title.trim()) {
+  if (!form.value.title?.trim()) {
     toast({ title: 'Erro', description: 'Digite o nome da categoria', variant: 'destructive' })
     return
   }
@@ -110,8 +110,9 @@ async function handleSaveCategory() {
   let success = false
   if (isEditing.value && 'id' in form.value) {
     success = await updateCategory(form.value.id, {
-      title: form.value.title.trim(),
-      status: form.value.status,
+      name: form.value.title.trim(),
+      slug: generateSlug(form.value.title.trim()),
+      is_active: form.value.status === 'published',
     })
     if (success) {
       toast({ title: 'Sucesso', description: 'Categoria atualizada com sucesso!' })
@@ -119,8 +120,9 @@ async function handleSaveCategory() {
   }
   else {
     const newCategory: CategoryForm = {
-      title: form.value.title.trim(),
-      status: form.value.status,
+      name: form.value.title.trim(),
+      slug: generateSlug(form.value.title.trim()),
+      is_active: form.value.status === 'published',
     }
     success = await createCategory(newCategory)
     if (success) {
@@ -139,6 +141,19 @@ async function handleSaveCategory() {
       variant: 'destructive',
     })
   }
+}
+
+// Adicionar função de geração de slug
+function generateSlug(text: string): string {
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036F]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w-]+/g, '')
+    .replace(/-{2,}/g, '-')
 }
 
 onMounted(() => {

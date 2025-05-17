@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 import { useRole } from '@/composables/useRole'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useTenant } from '~/composables/useTenant'
 import { navMenu, navMenuBottom } from '~/constants/menus'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
@@ -10,28 +11,6 @@ function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): an
 
   return resolveComponent('LayoutSidebarNavLink')
 }
-
-const teams: {
-  name: string
-  logo: string
-  plan: string
-}[] = [
-  {
-    name: 'Acme Inc',
-    logo: 'i-lucide-gallery-vertical-end',
-    plan: 'Enterprise',
-  },
-  {
-    name: 'Acme Corp.',
-    logo: 'i-lucide-audio-waveform',
-    plan: 'Startup',
-  },
-  {
-    name: 'Evil Corp.',
-    logo: 'i-lucide-command',
-    plan: 'Free',
-  },
-]
 
 const user: {
   name: string
@@ -46,9 +25,32 @@ const user: {
 const { sidebar } = useAppSettings()
 
 // --- Lógica de role ---
-const { userRole, fetchUserRole, hasRole } = useRole()
+const { fetchUserRole, hasRole } = useRole()
 const filteredMenu = ref<NavMenu[]>([])
 const isLoadingMenu = ref(true)
+
+// --- Lógica de tenant ---
+const { listTenants, restoreLastTenant } = useTenant()
+const availableTenants = ref<any[]>([])
+const isLoadingTenants = ref(true)
+const showTenantSelector = computed(() => hasRole(['admin', 'funcionario']))
+
+// Carregar lista de tenants disponíveis
+async function loadTenants() {
+  if (!showTenantSelector.value) {
+    return
+  }
+  isLoadingTenants.value = true
+  try {
+    availableTenants.value = await listTenants()
+  }
+  catch (error) {
+    console.error('Error loading tenants:', error)
+  }
+  finally {
+    isLoadingTenants.value = false
+  }
+}
 
 function filterMenuByRole(menu: NavMenu[]) {
   return menu
@@ -89,9 +91,10 @@ function filterMenuByRole(menu: NavMenu[]) {
 
 onMounted(async () => {
   await fetchUserRole()
-  console.warn('Role do usuário:', userRole.value) // Debug
   filteredMenu.value = filterMenuByRole(navMenu)
-  console.warn('Menu filtrado:', filteredMenu.value) // Debug
+  // Carregar e restaurar tenant
+  await restoreLastTenant()
+  await loadTenants()
   isLoadingMenu.value = false
 })
 </script>
@@ -103,6 +106,23 @@ onMounted(async () => {
       <Search />
     </SidebarHeader>
     <SidebarContent>
+      <!-- Seletor de Tenant (Apenas admin e funcionario) -->
+      <SidebarGroup v-if="showTenantSelector" class="mb-4">
+        <SidebarGroupLabel>
+          Current Tenant
+        </SidebarGroupLabel>
+        <div class="px-4 py-2">
+          <div v-if="isLoadingTenants" class="flex items-center justify-center py-2">
+            <div class="w-5 h-5 border-2 border-primary rounded-full animate-spin border-t-transparent"></div>
+          </div>
+          <div v-else>
+            <!-- Tenant Dropdown -->
+            <TenantDropdown />
+          </div>
+        </div>
+      </SidebarGroup>
+
+      <!-- Menu Principal -->
       <template v-if="isLoadingMenu">
         <SidebarGroup v-for="n in 4" :key="n">
           <SidebarMenuSkeleton show-icon class="mb-1" />

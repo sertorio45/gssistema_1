@@ -40,34 +40,32 @@ export const columns: ColumnDef<User>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Role' }),
     cell: ({ row }) => {
       const role = row.getValue('role') as string
-      
-      const roleLabels: Record<string, string> = {
-        admin: 'Administrator',
-        funcionario: 'Employee',
-        cliente: 'Client',
-      }
-      
-      const roleIcons: Record<string, string> = {
-        admin: 'lucide:shield',
-        funcionario: 'lucide:briefcase',
-        cliente: 'lucide:user',
-      }
-      
-      const roleColors: Record<string, string> = {
-        admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-        funcionario: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-        cliente: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
-      }
-      
+      const isAdmin = role === 'admin'
+      const isEmployee = role === 'funcionario'
+      const isClient = role === 'cliente'
       return h('div', { class: 'flex w-[130px] items-center' }, [
         h('div', {
-          class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${roleColors[role] || ''}`,
+          class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${
+            isAdmin
+              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+              : isEmployee
+                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                : isClient
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-300'
+          }`,
         }, [
           h(resolveComponent('Icon'), {
-            name: roleIcons[role] || 'lucide:user',
+            name: isAdmin
+              ? 'lucide:shield'
+              : isEmployee
+                ? 'lucide:briefcase'
+                : isClient
+                  ? 'lucide:user'
+                  : 'lucide:user',
             class: 'mr-1 h-3.5 w-3.5',
           }),
-          roleLabels[role] || role,
+          isAdmin ? 'Administrator' : isEmployee ? 'Employee' : isClient ? 'Client' : role,
         ]),
       ])
     },
@@ -77,6 +75,10 @@ export const columns: ColumnDef<User>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => h(DataTableRowActions, { row }),
+    cell: ({ row, table }) => h(DataTableRowActions, {
+      row,
+      onEdit: () => table.options.meta?.onEdit?.(row.original),
+      onDelete: () => table.options.meta?.onDelete?.(row.original),
+    }),
   },
 ]

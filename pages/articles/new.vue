@@ -110,15 +110,24 @@ async function addCategory() {
     categoryError.value = 'Digite um nome para a categoria'
     return
   }
-  if (categories.value.some((cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase())) {
+  if (categories.value.some((cat: any) => 
+    ((cat.name && cat.name.toLowerCase() === newCategory.value.toLowerCase()) || 
+     (cat.title && cat.title.toLowerCase() === newCategory.value.toLowerCase()))
+  )) {
     categoryError.value = 'Categoria já existe'
     return
   }
   loadingNewCategory.value = true
-  await createCategory({ title: newCategory.value, status: 'published' })
+  await createCategory({ 
+    name: newCategory.value,
+    slug: generateSlug(newCategory.value),
+    is_active: true
+  })
   await fetchCategories()
   const nova = categories.value.find(
-    (cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase(),
+    (cat: any) => 
+      ((cat.name && cat.name.toLowerCase() === newCategory.value.toLowerCase()) || 
+       (cat.title && cat.title.toLowerCase() === newCategory.value.toLowerCase()))
   )
   if (nova) {
     form.value.category_id = nova.id.toString()

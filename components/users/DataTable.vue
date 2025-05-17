@@ -103,6 +103,10 @@ const table = useVueTable({
       return rowSelection.value
     },
   },
+  meta: {
+    onEdit: (user: User) => emit('edit', user),
+    onDelete: (user: User) => emit('delete', user),
+  },
 })
 
 // Function to create role badge display format
@@ -151,25 +155,6 @@ watch(() => props.data, () => {
   }
   emit('selectionChange', [])
 })
-
-// Add event listeners for action cell communication
-onMounted(() => {
-  const handleEditUser = (event: CustomEvent) => {
-    emit('edit', event.detail)
-  }
-  
-  const handleDeleteUser = (event: CustomEvent) => {
-    emit('delete', event.detail)
-  }
-  
-  document.addEventListener('edit-user', handleEditUser as EventListener)
-  document.addEventListener('delete-user', handleDeleteUser as EventListener)
-  
-  onUnmounted(() => {
-    document.removeEventListener('edit-user', handleEditUser as EventListener)
-    document.removeEventListener('delete-user', handleDeleteUser as EventListener)
-  })
-})
 </script>
 
 <template>
@@ -202,7 +187,7 @@ onMounted(() => {
               :colspan="props.columns.length"
               class="h-24 text-center"
             >
-              No users found.
+              No items found.
             </TableCell>
           </TableRow>
         </TableBody>

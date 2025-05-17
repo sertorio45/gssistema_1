@@ -23,8 +23,9 @@ const showMultiDeleteDialog = ref(false)
 const showModal = ref(false)
 const isEditing = ref(false)
 const form = ref<TagForm | TagUpdateForm>({
-  title: '',
-  status: 'published',
+  name: '',
+  slug: '',
+  is_active: true,
 })
 
 function handleDeleteClick(tag: Tag) {
@@ -85,8 +86,9 @@ function updateSelectedItems(items: number[]) {
 function handleCreateClick() {
   isEditing.value = false
   form.value = {
-    title: '',
-    status: 'published',
+    name: '',
+    slug: '',
+    is_active: true,
   }
   showModal.value = true
 }
@@ -95,23 +97,45 @@ function handleEditClick(tag: Tag) {
   isEditing.value = true
   form.value = {
     id: tag.id,
-    title: tag.title,
-    status: tag.status || 'published',
+    name: tag.name,
+    slug: tag.slug,
+    is_active: tag.is_active,
   } as TagUpdateForm
   showModal.value = true
 }
 
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function updateSlug() {
+  if (!isEditing.value || (isEditing.value && !form.value.slug)) {
+    form.value.slug = generateSlug(form.value.name)
+  }
+}
+
 async function handleSaveTag() {
-  if (!form.value.title.trim()) {
+  if (!form.value.name.trim()) {
     toast({ title: 'Erro', description: 'Digite o nome da tag', variant: 'destructive' })
     return
+  }
+
+  // Gerar slug se estiver vazio
+  if (!form.value.slug) {
+    form.value.slug = generateSlug(form.value.name)
   }
 
   let success = false
   if (isEditing.value && 'id' in form.value) {
     success = await updateTag(form.value.id, {
-      title: form.value.title.trim(),
-      status: form.value.status,
+      name: form.value.name.trim(),
+      slug: form.value.slug,
+      is_active: form.value.is_active,
     })
     if (success) {
       toast({ title: 'Sucesso', description: 'Tag atualizada com sucesso!' })
@@ -119,8 +143,9 @@ async function handleSaveTag() {
   }
   else {
     const newTag: TagForm = {
-      title: form.value.title.trim(),
-      status: form.value.status,
+      name: form.value.name.trim(),
+      slug: form.value.slug,
+      is_active: form.value.is_active,
     }
     success = await createTag(newTag)
     if (success) {
@@ -202,7 +227,7 @@ onMounted(() => {
           Excluir Tag
         </h2>
         <p class="mb-4">
-          Tem certeza que deseja excluir a tag "{{ tagToDelete?.title }}"? Esta ação não pode ser desfeita.
+          Tem certeza que deseja excluir a tag "{{ tagToDelete?.name }}"? Esta ação não pode ser desfeita.
         </p>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showDeleteDialog = false">
@@ -235,43 +260,53 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Modal para criar/editar tag -->
+    <!-- Modal de criação/edição de tag -->
     <Dialog :open="showModal" @update:open="showModal = $event">
-      <DialogContent class="sm:max-w-[525px]">
+      <DialogContent class="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{{ isEditing ? 'Editar Tag' : 'Nova Tag' }}</DialogTitle>
           <DialogDescription>
-            {{ isEditing ? 'Edite os dados da tag' : 'Preencha os dados da tag' }}
+            {{ isEditing ? 'Edite os dados da tag abaixo.' : 'Preencha os dados para criar uma nova tag.' }}
           </DialogDescription>
         </DialogHeader>
-        <form @submit.prevent="handleSaveTag">
-          <div class="space-y-6 py-4">
-            <div class="space-y-2">
-              <Label for="title">Nome</Label>
-              <Input id="title" v-model="form.title" placeholder="Nome da tag" :disabled="loading" required />
-            </div>
-            <div class="space-y-2">
-              <Label for="status">Status</Label>
-              <Select v-model="form.status" :disabled="loading">
-                <SelectTrigger id="status">
-                  <SelectValue :placeholder="form.status === 'published' ? 'Publicado' : 'Rascunho'" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="published">Publicado</SelectItem>
-                    <SelectItem value="draft">Rascunho</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
+        <div class="grid gap-4 py-4">
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="name" class="text-right">
+              Nome
+            </Label>
+            <Input id="name" v-model="form.name" class="col-span-3" @input="updateSlug" />
           </div>
-          <DialogFooter>
-            <Button variant="outline" type="button" @click="showModal = false">Cancelar</Button>
-            <Button type="submit" class="bg-primary" :disabled="loading">
-              <Icon name="lucide:save" class="mr-2 h-4 w-4" /> Salvar
-            </Button>
-          </DialogFooter>
-        </form>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="slug" class="text-right">
+              Slug
+            </Label>
+            <Input id="slug" v-model="form.slug" class="col-span-3" />
+          </div>
+          <div class="grid grid-cols-4 items-center gap-4">
+            <Label for="is_active" class="text-right">
+              Status
+            </Label>
+            <Select v-model="form.is_active">
+              <SelectTrigger class="col-span-3">
+                <SelectValue :placeholder="form.is_active ? 'Ativo' : 'Inativo'" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem :value="true">Ativo</SelectItem>
+                  <SelectItem :value="false">Inativo</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" @click="showModal = false">
+            Cancelar
+          </Button>
+          <Button type="submit" @click="handleSaveTag">
+            Salvar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   </div>

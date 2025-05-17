@@ -31,28 +31,6 @@ export const navMenu: NavMenu[] = [
           },
         ],
       },
-      {
-        title: 'E-commerce',
-        icon: 'i-lucide-shopping-bag',
-        roles: ['admin', 'funcionario'],
-        children: [
-          {
-            title: 'Products',
-            icon: 'i-lucide-package',
-            link: '/ecommerce/products',
-          },
-          {
-            title: 'Add Product',
-            icon: 'i-lucide-plus-circle',
-            link: '/ecommerce/products/new',
-          },
-          {
-            title: 'Integrations',
-            icon: 'i-lucide-plug',
-            link: '/ecommerce/integrations',
-          },
-        ],
-      },
     ],
   },
 
@@ -68,6 +46,11 @@ export const navMenu: NavMenu[] = [
             title: 'Users',
             icon: 'i-lucide-circle',
             link: '/admin/users',
+          },
+          {
+            title: 'Tenants',
+            icon: 'i-lucide-circle',
+            link: '/admin/tenants',
           },
         ],
       },
