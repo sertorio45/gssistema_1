@@ -40,15 +40,29 @@ export function useAuth() {
       const { data: { session } } = await client.auth.getSession()
       
       if (session?.access_token) {
-        // Decodificar o token para extrair app_metadata.role
+        // Decodificar o token para extrair app_metadata.tenant_roles
         const decoded = decodeJWT(session.access_token)
-        
-        if (decoded?.app_metadata?.role) {
-          userRole.value = decoded.app_metadata.role
-          return
+        const tenantRoles = decoded?.app_metadata?.tenant_roles || {}
+        // Obter tenant atual do store
+        let tenantSlug = null
+        try {
+          // Importação dinâmica para evitar ciclo
+          const { useTenantStore } = await import('~/stores/tenant')
+          tenantSlug = useTenantStore().tenantId
+        } catch {}
+        let role = null
+        if (tenantSlug && tenantRoles[tenantSlug]) {
+          role = tenantRoles[tenantSlug]
+        } else {
+          // Fallback: pega o primeiro role disponível
+          const firstTenant = Object.keys(tenantRoles)[0]
+          if (firstTenant) {
+            role = tenantRoles[firstTenant]
+          }
         }
+        userRole.value = role
+        return
       }
-      
       // Fallback: se não encontrar role no token, busca da tabela user_roles
       const { data, error } = await client
         .from('user_roles')

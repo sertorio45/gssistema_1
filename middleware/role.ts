@@ -7,27 +7,55 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     return
   }
 
+  // Rotas públicas que não precisam de autenticação/role
+  const publicPages = ['/login', '/register', '/forgot-password', '/403', '/404', '/confirm']
+
   try {
     // Obter o token da sessão
     const { data: { session } } = await client.auth.getSession()
 
     if (!session?.access_token) {
-      return navigateTo('/')
+      if (!publicPages.includes(to.path)) {
+        return navigateTo('/login')
+      }
+      return
     }
 
     // Decodificar o JWT para obter as informações da role
     const decodedToken = decodeJWT(session.access_token)
 
-    // Verificar se o token contém a informação de role no app_metadata
-    if (!decodedToken || !decodedToken.app_metadata || !decodedToken.app_metadata.role) {
-      console.error('Token não contém informações de role no app_metadata')
-      return navigateTo('/')
+    // Buscar role do tenant atual
+    const tenantRoles = decodedToken?.app_metadata?.tenant_roles || {}
+    let tenantSlug = null
+    try {
+      const { useTenantStore } = await import('~/stores/tenant')
+      tenantSlug = useTenantStore().tenantId
+    } catch {}
+    let userRole = null
+    if (tenantSlug && tenantRoles[tenantSlug]) {
+      userRole = tenantRoles[tenantSlug]
+    } else {
+      const firstTenant = Object.keys(tenantRoles)[0]
+      if (firstTenant) {
+        userRole = tenantRoles[firstTenant]
+        tenantSlug = firstTenant
+      }
     }
+    // Log para debug
+    // eslint-disable-next-line no-console
+    console.log('[middleware/role] tenantSlug:', tenantSlug, 'userRole:', userRole)
 
-    const userRole = decodedToken.app_metadata.role
     const requiredRoles = Array.isArray(to.meta.requiredRoles)
       ? to.meta.requiredRoles
       : [to.meta.requiredRoles]
+
+    // Se não encontrou role, só bloqueia se não for rota pública
+    if (!userRole) {
+      if (!publicPages.includes(to.path)) {
+        return navigateTo('/403')
+      }
+      return
+    }
 
     // Verificar se o usuário tem a role necessária
     if (!requiredRoles.includes(userRole)) {
@@ -37,7 +65,10 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
   }
   catch (error) {
     console.error('Erro ao verificar permissões:', error)
-    return navigateTo('/')
+    if (!publicPages.includes(to.path)) {
+      return navigateTo('/')
+    }
+    return
   }
 })
 

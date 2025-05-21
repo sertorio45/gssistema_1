@@ -28,8 +28,25 @@ export function useRole() {
     const { data: { session } } = await client.auth.getSession()
     if (session?.access_token) {
       const decoded = decodeJWT(session.access_token)
-      // Verificar app_metadata.role primeiro, depois fallback para métodos anteriores
-      userRole.value = decoded?.app_metadata?.role || decoded?.user_roles || decoded?.user_role || null
+      const tenantRoles = decoded?.app_metadata?.tenant_roles || {}
+      // Obter tenant atual do store
+      let tenantSlug = null
+      try {
+        // Importação dinâmica para evitar ciclo
+        const { useTenantStore } = await import('~/stores/tenant')
+        tenantSlug = useTenantStore().tenantId
+      } catch {}
+      let role = null
+      if (tenantSlug && tenantRoles[tenantSlug]) {
+        role = tenantRoles[tenantSlug]
+      } else {
+        // Fallback: pega o primeiro role disponível
+        const firstTenant = Object.keys(tenantRoles)[0]
+        if (firstTenant) {
+          role = tenantRoles[firstTenant]
+        }
+      }
+      userRole.value = role
     }
     else {
       userRole.value = null

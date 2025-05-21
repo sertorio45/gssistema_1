@@ -31,20 +31,31 @@ export default defineEventHandler(async (event) => {
     
     // Verificar se temos informações de role e tenant_id nas app_metadata
     const appMetadata = user.app_metadata || {}
-    const role = appMetadata.role || 'cliente'
-    const tenantId = appMetadata.tenant_id
-    
+    const tenantRoles = appMetadata.tenant_roles || {}
+    // Buscar tenantId do contexto (ex: header, store, etc) ou pegar o primeiro
+    let tenantId = null
+    // Tenta pegar do header X-Tenant-Id
+    tenantId = getHeader(event, 'X-Tenant-Id') || null
+    if (!tenantId) {
+      // Fallback: pega o primeiro tenant do objeto
+      const firstTenant = Object.keys(tenantRoles)[0]
+      if (firstTenant) {
+        tenantId = firstTenant
+      }
+    }
+    let role = null
+    if (tenantId && tenantRoles[tenantId]) {
+      role = tenantRoles[tenantId]
+    }
     // Adicionar essas informações ao evento para que estejam disponíveis nos handlers
     event.context.auth = {
       userId: user.id,
       role,
       tenantId
     }
-    
-    // Se usuário tem role 'cliente', verificamos se possuem tenant_id
-    // Administradores e funcionários podem acessar qualquer tenant
+    // Se usuário tem role 'cliente', verificamos se possuem tenantId
     if (role === 'cliente' && !tenantId) {
-      console.warn(`Cliente sem tenant_id definido: ${user.id}`)
+      console.warn(`Cliente sem tenantId definido: ${user.id}`)
     }
   }
   catch (error) {
