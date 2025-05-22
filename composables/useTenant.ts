@@ -28,7 +28,7 @@ export function useTenant() {
     
     try {
       const { data, error: err } = await supabase
-        .from('tenants')
+        .from('tenant')
         .select('*')
         .eq('slug', slug)
         .eq('is_active', true)
@@ -59,7 +59,7 @@ export function useTenant() {
   async function getTenantById(id: string): Promise<Tenant | null> {
     try {
       const { data, error: err } = await supabase
-        .from('tenants')
+        .from('tenant')
         .select('*')
         .eq('id', id)
         .single()
@@ -77,7 +77,7 @@ export function useTenant() {
   async function listTenants() {
     try {
       const { data, error: err } = await supabase
-        .from('tenants')
+        .from('tenant')
         .select('*')
         .order('name')
       

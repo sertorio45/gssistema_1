@@ -55,7 +55,7 @@ async function loadData() {
   isLoading.value = true
   try {
     const { data, error } = await supabase
-      .from('tenants')
+      .from('tenant')
       .select('*')
       .order('name')
 
@@ -92,7 +92,7 @@ async function deleteTenant() {
 
   try {
     const { error } = await supabase
-      .from('tenants')
+      .from('tenant')
       .delete()
       .eq('id', selectedTenant.value.id)
 
@@ -135,7 +135,7 @@ async function createTenant() {
     const slug = generateSlug(formData.value.name)
     
     const { error } = await supabase
-      .from('tenants')
+      .from('tenant')
       .insert([
         {
           name: formData.value.name,
@@ -188,7 +188,7 @@ async function updateTenant() {
 
   try {
     const { error } = await supabase
-      .from('tenants')
+      .from('tenant')
       .update({
         name: formData.value.name,
         is_active: isTenantActive.value,
@@ -239,7 +239,7 @@ async function handleMultiDeleteConfirm() {
   for (const id of itemIds) {
     try {
       const { error } = await supabase
-        .from('tenants')
+        .from('tenant')
         .delete()
         .eq('id', id)
       

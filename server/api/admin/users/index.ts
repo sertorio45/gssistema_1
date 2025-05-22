@@ -14,7 +14,7 @@ export default defineEventHandler(async () => {
   )
 
   const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers()
-  const { data: rolesData, error: rolesError } = await supabase.from('user_roles').select()
+  const { data: rolesData, error: rolesError } = await supabase.from('user_tenant_role').select()
 
   if (usersError || rolesError) {
     return { error: usersError?.message || rolesError?.message }
