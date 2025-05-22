@@ -1,4 +1,5 @@
 import { useSupabaseClient } from '#imports'
+import { ref } from 'vue'
 
 export function useArticles() {
   const client = useSupabaseClient()
@@ -7,13 +8,14 @@ export function useArticles() {
 
   // Listar artigos
   const articles = ref<any[]>([])
-  const fetchArticles = async () => {
+  const fetchArticles = async (tenantId?: string) => {
     loading.value = true
     error.value = null
-    const { data, error: fetchError } = await client
-      .from('articles')
-      .select('*')
-      // .eq('tenant_id', user.value?.tenant_id) // se usar multi-tenant
+    let query = client.from('articles').select('*')
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId)
+    }
+    const { data, error: fetchError } = await query
     articles.value = data || []
     error.value = fetchError?.message || null
     loading.value = false

@@ -1,121 +1,63 @@
 import { useSupabaseClient } from '#imports'
 import { computed, ref } from 'vue'
-import type { Ref } from 'vue'
-
-export interface Tenant {
-  id: string
-  name: string
-  slug: string
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
+import { useTenantStore } from '~/stores/tenant'
 
 export function useTenant() {
-  const currentTenant: Ref<Tenant | null> = ref(null)
-  const isLoading = ref(false)
-  const error = ref<Error | null>(null)
+  const tenantStore = useTenantStore()
   const supabase = useSupabaseClient()
-  
-  // Atualizar o tenant atual com base no slug
-  async function setCurrentTenantBySlug(slug: string) {
-    if (!slug) {
-      return
-    }
+  const tenants = ref<any[]>([])
 
-    isLoading.value = true
-    error.value = null
-    
-    try {
-      const { data, error: err } = await supabase
-        .from('tenant')
-        .select('*')
-        .eq('slug', slug)
-        .eq('is_active', true)
-        .single()
-      
-      if (err) {
-        throw new Error(err.message)
-      }
-      if (!data) {
-        throw new Error('Tenant não encontrado ou inativo')
-      }
-      
-      currentTenant.value = data as Tenant
-      
-      // Salvar no localStorage para persistência entre sessões
-      localStorage.setItem('currentTenantSlug', slug)
-    } 
-    catch (err: any) {
-      error.value = err
-      console.error('Erro ao buscar tenant:', err)
-    } 
-    finally {
-      isLoading.value = false
-    }
-  }
-
-  // Buscar tenant por ID
-  async function getTenantById(id: string): Promise<Tenant | null> {
-    try {
-      const { data, error: err } = await supabase
-        .from('tenant')
-        .select('*')
-        .eq('id', id)
-        .single()
-      
-      if (err) throw err
-      return data as Tenant
-    } 
-    catch (err) {
-      console.error('Erro ao buscar tenant por ID:', err)
-      return null
-    }
-  }
-
-  // Listar todos os tenants
+  // Lista todos os tenants disponíveis
   async function listTenants() {
-    try {
-      const { data, error: err } = await supabase
-        .from('tenant')
-        .select('*')
-        .order('name')
-      
-      if (err) throw err
-      return data as Tenant[]
-    } 
-    catch (err) {
-      console.error('Erro ao listar tenants:', err)
-      return []
+    const { data, error } = await supabase
+      .from('tenant')
+      .select('*')
+      .order('name')
+    if (error) throw error
+    tenants.value = data || []
+    return tenants.value
+  }
+
+  // Restaura o último tenant salvo no localStorage
+  function restoreLastTenant() {
+    if (import.meta.client) {
+      const lastTenantId = localStorage.getItem('current-tenant-id')
+      if (lastTenantId) {
+        tenantStore.setTenant(lastTenantId)
+      }
     }
   }
 
-  // Restaurar tenant de sessão anterior
-  async function restoreLastTenant() {
-    const savedSlug = localStorage.getItem('currentTenantSlug')
-    if (savedSlug) {
-      await setCurrentTenantBySlug(savedSlug)
+  // Seleciona o tenant pelo slug e salva no store/localStorage
+  async function setCurrentTenantBySlug(slug: string) {
+    const { data, error } = await supabase
+      .from('tenant')
+      .select('*')
+      .eq('slug', slug)
+      .single()
+    if (error) throw error
+    if (data && data.id) {
+      tenantStore.setTenant(data.id)
+      if (import.meta.client) {
+        localStorage.setItem('current-tenant-id', data.id)
+      }
+    } else {
+      throw new Error('Tenant não encontrado')
     }
   }
 
-  // Limpar tenant selecionado
-  function clearCurrentTenant() {
-    currentTenant.value = null
-    localStorage.removeItem('currentTenantSlug')
-  }
-
-  // Verificar se o tenant atual existe e está ativo
-  const hasTenant = computed(() => !!currentTenant.value?.is_active)
+  // Computed para retornar o objeto do tenant atual
+  const currentTenant = computed(() => {
+    return tenants.value.find(t => t.id === tenantStore.tenantId) || null
+  })
 
   return {
-    currentTenant,
-    isLoading,
-    error,
-    hasTenant,
-    setCurrentTenantBySlug,
-    getTenantById,
+    tenantId: computed(() => tenantStore.tenantId),
+    setTenant: tenantStore.setTenant,
+    clearTenant: tenantStore.clearTenant,
     listTenants,
     restoreLastTenant,
-    clearCurrentTenant
+    setCurrentTenantBySlug,
+    currentTenant,
   }
 } 

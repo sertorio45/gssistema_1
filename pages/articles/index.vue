@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { columns } from '~/components/articles/columns'
 import DataTable from '~/components/articles/DataTable.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import { useToast } from '~/components/ui/toast'
 import { useArticles } from '~/composables/useArticles'
+import { useTenant } from '~/composables/useTenant'
 
 const { articles, fetchArticles, deleteArticle, loading, error } = useArticles()
+const { tenantId } = useTenant()
 const { toast } = useToast()
 
 const showDeleteDialog = ref(false)
@@ -27,7 +29,7 @@ async function handleDeleteConfirm() {
     toast({ title: 'Sucesso', description: 'Artigo excluído com sucesso!' })
     showDeleteDialog.value = false
     articleToDelete.value = null
-    await fetchArticles()
+    await fetchArticles(tenantId.value || undefined)
   }
   else {
     toast({ title: 'Erro', description: error.value || 'Erro ao excluir artigo', variant: 'destructive' })
@@ -61,16 +63,19 @@ async function handleMultiDeleteConfirm() {
 
   showMultiDeleteDialog.value = false
   selectedItems.value = []
-  await fetchArticles()
+  await fetchArticles(tenantId.value || undefined)
 }
 
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-onMounted(() => {
-  fetchArticles()
-})
+// Buscar artigos sempre que o tenantId mudar
+watch(tenantId, async (id) => {
+  if (id) {
+    await fetchArticles(id)
+  }
+}, { immediate: true })
 </script>
 
 <template>
