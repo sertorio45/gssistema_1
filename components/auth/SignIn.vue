@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
 import PasswordInput from '~/components/PasswordInput.vue'
+import { useTenant } from '~/composables/useTenant'
 
 const email = ref('')
 const password = ref('')
@@ -8,6 +9,7 @@ const errorMessage = ref('')
 
 const { login, loading, error } = useAuth()
 const router = useRouter()
+const { setTenantFromJWT } = useTenant()
 
 // Observar erros de autenticação
 watchEffect(() => {
@@ -30,6 +32,7 @@ async function onSubmit(event: Event) {
   const { success } = await login(email.value, password.value)
 
   if (success) {
+    await setTenantFromJWT()
     // Verifica se há uma rota de redirecionamento na query string
     const route = useRoute()
     const redirectPath = route.query.redirect as string

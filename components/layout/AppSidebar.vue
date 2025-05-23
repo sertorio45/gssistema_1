@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
-import { useRole } from '@/composables/useRole'
 import { computed, onMounted, ref } from 'vue'
+import { useRole } from '@/composables/useRole'
+import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
+import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 import { navMenu, navMenuBottom } from '~/constants/menus'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
   if ('children' in item)
     return resolveComponent('LayoutSidebarNavGroup')
-
   return resolveComponent('LayoutSidebarNavLink')
 }
 
@@ -33,7 +33,8 @@ const isLoadingMenu = ref(true)
 const { listTenants, restoreLastTenant } = useTenant()
 const availableTenants = ref<any[]>([])
 const isLoadingTenants = ref(true)
-const showTenantSelector = computed(() => hasRole(['admin', 'funcionario']))
+const { currentRole } = useAuth()
+const showTenantSelector = computed(() => currentRole.value !== 'cliente')
 
 // Carregar lista de tenants disponíveis
 async function loadTenants() {
@@ -58,34 +59,36 @@ function filterMenuByRole(menu: NavMenu[]) {
       ...section,
       items: section.items
         .filter((item: NavLink | NavGroup | NavSectionTitle) => {
-          // Se for grupo
-          if ('children' in item) {
-            // Verifica se o grupo tem permissão
-            if (item.roles && !hasRole(item.roles)) {
-              return false
+          // Se for cliente, aplica filtro de roles normalmente
+          if (currentRole.value === 'cliente') {
+            if ('children' in item) {
+              if (item.roles && !hasRole(item.roles)) {
+                return false
+              }
+              return item.children.some(child => !child.roles || hasRole(child.roles))
             }
-            // Verifica se algum filho tem permissão
-            return item.children.some(child => !child.roles || hasRole(child.roles))
+            if ('link' in item) {
+              return !item.roles || hasRole(item.roles)
+            }
+            return true
           }
-          // Se for link
-          if ('link' in item) {
-            return !item.roles || hasRole(item.roles)
-          }
-          // Se for título de seção, sempre mostra
+          // Para admin/funcionário, não filtra por role (mostra tudo)
           return true
         })
-        // Se for grupo, filtra os filhos também
         .map((item: NavLink | NavGroup | NavSectionTitle) => {
           if ('children' in item) {
-            return {
-              ...item,
-              children: item.children.filter(child => !child.roles || hasRole(child.roles)),
+            if (currentRole.value === 'cliente') {
+              return {
+                ...item,
+                children: item.children.filter(child => !child.roles || hasRole(child.roles)),
+              }
             }
+            // Para admin/funcionário, mostra todos os filhos
+            return item
           }
           return item
         }),
     }))
-    // Remove se a seção ficou sem itens
     .filter((section: NavMenu) => section.items.length > 0)
 }
 

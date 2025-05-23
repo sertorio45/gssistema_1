@@ -1,5 +1,7 @@
 import { useSupabaseClient } from '#imports'
 import { ref } from 'vue'
+import { useAuth } from '~/composables/useAuth'
+import { useTenant } from '~/composables/useTenant'
 
 export function useArticles() {
   const client = useSupabaseClient()
@@ -8,13 +10,37 @@ export function useArticles() {
 
   // Listar artigos
   const articles = ref<any[]>([])
-  const fetchArticles = async (tenantId?: string) => {
+  const { tenantId } = useTenant()
+  const { currentRole } = useAuth()
+
+  const fetchArticles = async () => {
     loading.value = true
     error.value = null
     let query = client.from('articles').select('*')
-    if (tenantId) {
-      query = query.eq('tenant_id', tenantId)
+
+    // ADMIN/FUNCIONÁRIO: só mostra se houver tenant selecionado, filtrando pelo tenant_id
+    if (['admin', 'funcionario'].includes(currentRole.value || '')) {
+      if (tenantId.value) {
+        query = query.eq('tenant_id', tenantId.value)
+        const { data, error: fetchError } = await query
+        articles.value = data || []
+        error.value = fetchError?.message || null
+        loading.value = false
+        return
+      } else {
+        articles.value = []
+        loading.value = false
+        return
+      }
     }
+
+    // CLIENTE: sempre filtra pelo tenantId
+    if (!tenantId.value) {
+      articles.value = []
+      loading.value = false
+      return
+    }
+    query = query.eq('tenant_id', tenantId.value)
     const { data, error: fetchError } = await query
     articles.value = data || []
     error.value = fetchError?.message || null

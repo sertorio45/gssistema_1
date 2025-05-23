@@ -1,4 +1,5 @@
 import { useSupabaseClient, useSupabaseUser } from '#imports'
+import { useTenant } from '~/composables/useTenant'
 
 export function useAuth() {
   const client = useSupabaseClient()
@@ -152,6 +153,14 @@ export function useAuth() {
 
       // Após login bem-sucedido, verifique o role do usuário
       await updateUserRole()
+
+      const { data: userData } = await client.auth.getUser()
+      const tenantIdFromJwt = userData?.user?.user_metadata?.tenant_id
+      const { setTenantId } = useTenant()
+      if (tenantIdFromJwt) {
+        setTenantId(tenantIdFromJwt)
+        // Se necessário, disparar fetchArticles()
+      }
 
       return { success: true, data }
     }

@@ -1,20 +1,44 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { useSupabaseClient } from '#imports'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { columns } from '~/components/articles/columns'
 import DataTable from '~/components/articles/DataTable.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
-import { useToast } from '~/components/ui/toast'
-import { useArticles } from '~/composables/useArticles'
+import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
+import { useArticles } from '~/composables/useArticles'
+import { useClientArticles } from '~/composables/useClientArticles'
 
-const { articles, fetchArticles, deleteArticle, loading, error } = useArticles()
-const { tenantId } = useTenant()
-const { toast } = useToast()
+const { tenantId, currentTenant } = useTenant()
+const { currentRole } = useAuth()
+const supabase = useSupabaseClient()
 
 const showDeleteDialog = ref(false)
 const articleToDelete = ref<any | null>(null)
 const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
+
+const { articles, fetchArticles, loading } = useArticles()
+const { articles: clientArticles, loading: clientLoading, fetchClientArticles } = useClientArticles()
+
+// Para admin/funcionário: só busca artigos se houver tenant selecionado
+watch(tenantId, () => {
+  if (currentRole.value !== 'cliente') {
+    if (tenantId.value) {
+      fetchArticles()
+    }
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  if (currentRole.value === 'cliente') {
+    fetchClientArticles()
+  }
+  window.addEventListener('tenant-changed', () => fetchArticles())
+})
+onUnmounted(() => {
+  window.removeEventListener('tenant-changed', () => fetchArticles())
+})
 
 function handleDeleteClick(article: any) {
   articleToDelete.value = article
@@ -24,15 +48,12 @@ function handleDeleteClick(article: any) {
 async function handleDeleteConfirm() {
   if (!articleToDelete.value)
     return
-  const success = await deleteArticle(articleToDelete.value.id)
-  if (success) {
-    toast({ title: 'Sucesso', description: 'Artigo excluído com sucesso!' })
-    showDeleteDialog.value = false
-    articleToDelete.value = null
-    await fetchArticles(tenantId.value || undefined)
-  }
-  else {
-    toast({ title: 'Erro', description: error.value || 'Erro ao excluir artigo', variant: 'destructive' })
+  showDeleteDialog.value = false
+  articleToDelete.value = null
+  if (currentRole.value === 'cliente') {
+    await fetchClientArticles()
+  } else {
+    await fetchArticles()
   }
 }
 
@@ -41,41 +62,18 @@ function showMultiDeleteConfirmation() {
 }
 
 async function handleMultiDeleteConfirm() {
-  const itemIds = selectedItems.value.map((index: number) => articles.value[index].id)
-  let allSuccess = true
-
-  for (const id of itemIds) {
-    const success = await deleteArticle(id)
-    if (!success) {
-      allSuccess = false
-    }
-  }
-
-  if (allSuccess) {
-    toast({ title: 'Sucesso', description: `${itemIds.length} artigos excluídos com sucesso!` })
-  } else {
-    toast({
-      title: 'Aviso',
-      description: 'Alguns artigos não puderam ser excluídos.',
-      variant: 'destructive',
-    })
-  }
-
   showMultiDeleteDialog.value = false
   selectedItems.value = []
-  await fetchArticles(tenantId.value || undefined)
+  if (currentRole.value === 'cliente') {
+    await fetchClientArticles()
+  } else {
+    await fetchArticles()
+  }
 }
 
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
-
-// Buscar artigos sempre que o tenantId mudar
-watch(tenantId, async (id) => {
-  if (id) {
-    await fetchArticles(id)
-  }
-}, { immediate: true })
 </script>
 
 <template>
@@ -98,8 +96,7 @@ watch(tenantId, async (id) => {
       </Button>
     </div>
 
-    <!-- Tabela de artigos com o novo DataTable -->
-    <div v-if="loading" class="space-y-4">
+    <div v-if="currentRole === 'cliente' ? clientLoading : loading" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">
@@ -111,22 +108,33 @@ watch(tenantId, async (id) => {
         </CardContent>
       </Card>
     </div>
-    <DataTable
-      v-else
-      :data="articles || []"
-      :columns="columns"
-      @delete="handleDeleteClick"
-      @selectionChange="updateSelectedItems"
-    />
+    <template v-else>
+      <DataTable
+        v-if="currentRole === 'cliente'"
+        :data="clientArticles"
+        :columns="columns"
+        @delete="handleDeleteClick"
+        @selectionChange="updateSelectedItems"
+      />
+      <DataTable
+        v-else-if="tenantId"
+        :data="articles || []"
+        :columns="columns"
+        @delete="handleDeleteClick"
+        @selectionChange="updateSelectedItems"
+      />
+      <div v-else class="p-6 text-center text-muted-foreground">
+        Selecione um tenant para visualizar os artigos.
+      </div>
+    </template>
 
-    <!-- Barra de ações para múltiplos itens -->
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
       :on-delete="showMultiDeleteConfirmation"
     />
 
-    <!-- Diálogo de confirmação de exclusão individual -->
+    <!-- Diálogos de exclusão ... -->
     <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">

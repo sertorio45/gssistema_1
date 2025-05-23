@@ -13,14 +13,14 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
   }
   
   // Obter o composable de tenant
-  const { setCurrentTenantBySlug, hasTenant, currentTenant, error } = useTenant()
+  const { setCurrentTenantBySlug, currentTenant } = useTenant()
   
   // Se temos um slug na URL, tentar configurar o tenant atual
   if (tenantSlug) {
     await setCurrentTenantBySlug(tenantSlug)
     
     // Se não foi possível configurar o tenant e a rota o requer, redirecionar para erro
-    if (!hasTenant.value && requiresTenant) {
+    if (!currentTenant.value && requiresTenant) {
       console.error(`Tenant não encontrado ou inativo: ${tenantSlug}`)
       return navigateTo('/404')
     }
@@ -28,8 +28,8 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
   
   // Se a rota requer tenant mas não temos um tenant válido configurado
   // (seja porque não há slug na URL ou porque o tenant não foi encontrado)
-  if (requiresTenant && !hasTenant.value) {
+  if (requiresTenant && !currentTenant.value) {
     console.error('Esta rota requer um tenant válido')
-    return navigateTo('/select-tenant')
+    return navigateTo('/')
   }
 }) 

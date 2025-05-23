@@ -1,29 +1,56 @@
 import { useSupabaseClient } from '#imports'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
+import { useAuth } from '~/composables/useAuth'
 import { useTenantStore } from '~/stores/tenant'
+
+const tenantId = ref<string | null>(null)
+const tenants = ref<any[]>([])
+
+onMounted(() => {
+  const savedTenant = localStorage.getItem('tenantId')
+  if (savedTenant) {
+    tenantId.value = savedTenant
+  }
+})
+
+watch(tenantId, (newVal) => {
+  if (newVal) {
+    localStorage.setItem('tenantId', newVal)
+  } else {
+    localStorage.removeItem('tenantId')
+  }
+})
+
+function setTenantId(newTenantId: string | null) {
+  tenantId.value = newTenantId
+}
+
+async function listTenants() {
+  const supabase = useSupabaseClient()
+  const { data, error } = await supabase
+    .from('tenant')
+    .select('*')
+    .order('name')
+  if (error) throw error
+  tenants.value = data || []
+  return tenants.value
+}
+
+const currentTenant = computed(() => {
+  return tenants.value.find(t => t.id === tenantId.value) || null
+})
 
 export function useTenant() {
   const tenantStore = useTenantStore()
   const supabase = useSupabaseClient()
-  const tenants = ref<any[]>([])
-
-  // Lista todos os tenants disponíveis
-  async function listTenants() {
-    const { data, error } = await supabase
-      .from('tenant')
-      .select('*')
-      .order('name')
-    if (error) throw error
-    tenants.value = data || []
-    return tenants.value
-  }
+  const { currentRole } = useAuth()
 
   // Restaura o último tenant salvo no localStorage
   function restoreLastTenant() {
     if (import.meta.client) {
       const lastTenantId = localStorage.getItem('current-tenant-id')
       if (lastTenantId) {
-        tenantStore.setTenant(lastTenantId)
+        setTenant(lastTenantId)
       }
     }
   }
@@ -37,27 +64,49 @@ export function useTenant() {
       .single()
     if (error) throw error
     if (data && data.id) {
-      tenantStore.setTenant(data.id)
-      if (import.meta.client) {
-        localStorage.setItem('current-tenant-id', data.id)
-      }
+      setTenantId(data.id)
     } else {
       throw new Error('Tenant não encontrado')
     }
   }
 
-  // Computed para retornar o objeto do tenant atual
-  const currentTenant = computed(() => {
-    return tenants.value.find(t => t.id === tenantStore.tenantId) || null
-  })
+  // Função protegida: só permite setar tenant se não for cliente
+  function setTenant(tenantId: string) {
+    if (currentRole.value !== 'cliente') {
+      tenantStore.setTenant(tenantId)
+      if (import.meta.client) {
+        localStorage.setItem('current-tenant-id', tenantId)
+      }
+    }
+  }
+
+  // Nova função: seta o tenantId do JWT no store
+  async function setTenantFromJWT() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      const payload = JSON.parse(atob(session.access_token.split('.')[1]))
+      // Pega o primeiro tenantId do objeto tenant_roles
+      const tenantRoles = payload.app_metadata?.tenant_roles
+      const tenantId = tenantRoles ? Object.keys(tenantRoles)[0] : null
+      if (tenantId) {
+        tenantStore.setTenant(tenantId)
+        if (import.meta.client) {
+          localStorage.setItem('current-tenant-id', tenantId)
+        }
+      }
+    }
+  }
 
   return {
-    tenantId: computed(() => tenantStore.tenantId),
-    setTenant: tenantStore.setTenant,
+    tenantId,
+    setTenant,
     clearTenant: tenantStore.clearTenant,
     listTenants,
     restoreLastTenant,
     setCurrentTenantBySlug,
     currentTenant,
+    setTenantFromJWT,
+    setTenantId,
+    tenants,
   }
 } 
