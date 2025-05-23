@@ -4,14 +4,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { columns } from '~/components/articles/columns'
 import DataTable from '~/components/articles/DataTable.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
 import { useArticles } from '~/composables/useArticles'
+import { useAuth } from '~/composables/useAuth'
 import { useClientArticles } from '~/composables/useClientArticles'
+import { useTenant } from '~/composables/useTenant'
 
-const { tenantId, currentTenant } = useTenant()
+const { tenantId } = useTenant()
 const { currentRole } = useAuth()
-const supabase = useSupabaseClient()
 
 const showDeleteDialog = ref(false)
 const articleToDelete = ref<any | null>(null)
@@ -19,7 +18,7 @@ const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
 const { articles, fetchArticles, loading } = useArticles()
-const { articles: clientArticles, loading: clientLoading, fetchClientArticles } = useClientArticles()
+const { articles: clientArticles, fetchClientArticles } = useClientArticles()
 
 // Para admin/funcionário: só busca artigos se houver tenant selecionado
 watch(tenantId, () => {
@@ -52,7 +51,8 @@ async function handleDeleteConfirm() {
   articleToDelete.value = null
   if (currentRole.value === 'cliente') {
     await fetchClientArticles()
-  } else {
+  }
+  else {
     await fetchArticles()
   }
 }
@@ -66,7 +66,8 @@ async function handleMultiDeleteConfirm() {
   selectedItems.value = []
   if (currentRole.value === 'cliente') {
     await fetchClientArticles()
-  } else {
+  }
+  else {
     await fetchArticles()
   }
 }
@@ -96,7 +97,7 @@ function updateSelectedItems(items: any) {
       </Button>
     </div>
 
-    <div v-if="currentRole === 'cliente' ? clientLoading : loading" class="space-y-4">
+    <div v-if="currentRole !== 'cliente' && loading" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">
@@ -123,7 +124,7 @@ function updateSelectedItems(items: any) {
         @delete="handleDeleteClick"
         @selectionChange="updateSelectedItems"
       />
-      <div v-else class="p-6 text-center text-muted-foreground">
+      <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionário')" class="p-6 text-center text-muted-foreground">
         Selecione um tenant para visualizar os artigos.
       </div>
     </template>

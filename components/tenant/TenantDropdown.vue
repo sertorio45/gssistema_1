@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
@@ -115,33 +116,47 @@ onMounted(async () => {
           </div>
         </div>
         <div class="py-1.5">
-          <!-- Personal Account Section (Current Tenant) -->
-          <div class="px-3 py-1 text-xs font-semibold text-muted-foreground">
-            Current Account
-          </div>
-          <DropdownMenuItem
-            v-if="currentTenant"
-            class="flex items-center space-x-2 px-3 py-1.5 cursor-default"
-          >
-            <div class="flex items-center justify-center bg-primary text-primary-foreground h-6 w-6 rounded-full">
-              <span class="text-white font-medium text-xs">{{ currentTenant.name.charAt(0) }}</span>
+          <!-- Skeleton loading -->
+          <template v-if="isLoading">
+            <div class="space-y-2 px-3 py-2">
+              <div class="flex items-center space-x-2">
+                <Skeleton class="h-6 w-6 rounded-full" />
+                <Skeleton class="h-4 w-32" />
+              </div>
+              <div class="flex items-center space-x-2">
+                <Skeleton class="h-6 w-6 rounded-full" />
+                <Skeleton class="h-4 w-24" />
+              </div>
+              <div class="flex items-center space-x-2">
+                <Skeleton class="h-6 w-6 rounded-full" />
+                <Skeleton class="h-4 w-20" />
+              </div>
             </div>
-            <span class="font-medium text-sm">{{ currentTenant.name }}</span>
-            <span class="ml-auto text-primary">
-              <Icon name="lucide:check" class="h-3.5 w-3.5" />
-            </span>
-          </DropdownMenuItem>
-          <div v-else class="px-3 py-1.5 text-xs text-muted-foreground italic">
-            No tenant selected
-          </div>
-          <!-- Teams Section -->
-          <div class="mt-1.5 px-3 py-1 text-xs font-semibold text-muted-foreground">
-            Tenants
-          </div>
-          <div v-if="isLoading" class="flex justify-center py-2">
-            <div class="animate-spin rounded-full h-3.5 w-3.5 border-t-2 border-b-2 border-primary"></div>
-          </div>
+          </template>
           <template v-else>
+            <!-- Personal Account Section (Current Tenant) -->
+            <div class="px-3 py-1 text-xs font-semibold text-muted-foreground">
+              Current Account
+            </div>
+            <DropdownMenuItem
+              v-if="currentTenant"
+              class="flex items-center space-x-2 px-3 py-1.5 cursor-default"
+            >
+              <div class="flex items-center justify-center bg-primary text-primary-foreground h-6 w-6 rounded-full">
+                <span class="text-white font-medium text-xs">{{ currentTenant.name.charAt(0) }}</span>
+              </div>
+              <span class="font-medium text-sm">{{ currentTenant.name }}</span>
+              <span class="ml-auto text-primary">
+                <Icon name="lucide:check" class="h-3.5 w-3.5" />
+              </span>
+            </DropdownMenuItem>
+            <div v-else-if="currentRole !== 'cliente'" class="px-3 py-1.5 text-xs text-muted-foreground italic">
+              No tenant selected
+            </div>
+            <!-- Teams Section -->
+            <div class="mt-1.5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+              Tenants
+            </div>
             <div v-if="filteredTenants.length === 0" class="px-3 py-1.5 text-xs text-muted-foreground italic">
               No tenants found
             </div>
@@ -157,17 +172,17 @@ onMounted(async () => {
               </div>
               <span class="font-medium text-sm">{{ tenant.name }}</span>
             </DropdownMenuItem>
+            <!-- Create new tenant option -->
+            <div class="border-t my-1.5"></div>
+            <DropdownMenuItem asChild class="cursor-pointer">
+              <NuxtLink to="/admin/tenants" class="flex items-center space-x-2 px-3 py-1.5">
+                <div class="flex items-center justify-center bg-muted h-6 w-6 rounded-full">
+                  <Icon name="lucide:plus" class="h-3.5 w-3.5" />
+                </div>
+                <span class="font-medium text-sm">Manage Tenants</span>
+              </NuxtLink>
+            </DropdownMenuItem>
           </template>
-          <!-- Create new tenant option -->
-          <div class="border-t my-1.5"></div>
-          <DropdownMenuItem asChild class="cursor-pointer">
-            <NuxtLink to="/admin/tenants" class="flex items-center space-x-2 px-3 py-1.5">
-              <div class="flex items-center justify-center bg-muted h-6 w-6 rounded-full">
-                <Icon name="lucide:plus" class="h-3.5 w-3.5" />
-              </div>
-              <span class="font-medium text-sm">Manage Tenants</span>
-            </NuxtLink>
-          </DropdownMenuItem>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

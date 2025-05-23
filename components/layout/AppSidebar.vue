@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 import { computed, onMounted, ref } from 'vue'
 import { useRole } from '@/composables/useRole'
-import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 import { navMenu, navMenuBottom } from '~/constants/menus'
@@ -110,13 +110,13 @@ onMounted(async () => {
     </SidebarHeader>
     <SidebarContent>
       <!-- Seletor de Tenant (Apenas admin e funcionario) -->
-      <SidebarGroup v-if="showTenantSelector" class="mb-4">
-        <SidebarGroupLabel>
-          Current Tenant
-        </SidebarGroupLabel>
-        <div class="px-4 py-2">
-          <div v-if="isLoadingTenants" class="flex items-center justify-center py-2">
-            <div class="w-5 h-5 border-2 border-primary rounded-full animate-spin border-t-transparent"></div>
+      <SidebarGroup v-if="showTenantSelector" class="">
+        <div class="">
+          <div v-if="isLoadingTenants">
+            <SidebarGroup>
+              <SidebarMenuSkeleton show-icon class="mb-1" />
+              <SidebarMenuSkeleton class="mb-1 ml-6" />
+            </SidebarGroup>
           </div>
           <div v-else>
             <!-- Tenant Dropdown -->
