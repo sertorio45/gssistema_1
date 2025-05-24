@@ -44,16 +44,15 @@ export function useAuth() {
         // Decodificar o token para extrair app_metadata.tenant_roles
         const decoded = decodeJWT(session.access_token)
         const tenantRoles = decoded?.app_metadata?.tenant_roles || {}
-        // Obter tenant atual do store
-        let tenantSlug = null
+        // Obter tenantId atual do store
+        let tenantId = null
         try {
-          // Importação dinâmica para evitar ciclo
           const { useTenantStore } = await import('~/stores/tenant')
-          tenantSlug = useTenantStore().tenantId
+          tenantId = useTenantStore().tenantId
         } catch {}
         let role = null
-        if (tenantSlug && tenantRoles[tenantSlug]) {
-          role = tenantRoles[tenantSlug]
+        if (tenantId && tenantRoles[tenantId]) {
+          role = tenantRoles[tenantId]
         } else {
           // Fallback: pega o primeiro role disponível
           const firstTenant = Object.keys(tenantRoles)[0]

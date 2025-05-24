@@ -56,6 +56,9 @@ importers:
       embla-carousel-vue:
         specifier: ^8.5.2
         version: 8.6.0(vue@3.5.14(typescript@5.8.3))
+      lucide-vue:
+        specifier: ^0.511.0
+        version: 0.511.0(vue@3.5.14(typescript@5.8.3))
       ufo:
         specifier: ^1.6.1
         version: 1.6.1
@@ -3883,6 +3886,11 @@ packages:
     resolution: {integrity: sha512-XpxrCOAnPzuH1tlKUy3U6epKAmdMfs1iEeL6ziWulGVXzNKv6anorp0v6vCdhziqvCSQ2SsGLnbOXmZ/sjjl9g==}
     peerDependencies:
       vue: '>=3.0.1'
+
+  lucide-vue@0.511.0:
+    resolution: {integrity: sha512-vusjrzavHt8P309h1oO2HJwW3L2bBw+lNZXC0wZjNu0SdOQrr3H6KLaFen6YzCtMxyAQAAtVktoD1wAdVwTY+A==}
+    peerDependencies:
+      vue: ^2.6.12
 
   luxon@3.6.1:
     resolution: {integrity: sha512-tJLxrKJhO2ukZ5z0gyjY1zPh3Rh88Ej9P7jNrZiHMUXHae1yvI2imgOZtL1TO8TW6biMMKfTtAOoEJANgtWBMQ==}
@@ -10240,6 +10248,10 @@ snapshots:
       yallist: 3.1.1
 
   lucide-vue-next@0.482.0(vue@3.5.14(typescript@5.8.3)):
+    dependencies:
+      vue: 3.5.14(typescript@5.8.3)
+
+  lucide-vue@0.511.0(vue@3.5.14(typescript@5.8.3)):
     dependencies:
       vue: 3.5.14(typescript@5.8.3)
 

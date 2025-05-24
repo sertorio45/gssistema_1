@@ -26,24 +26,24 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
 
     // Buscar role do tenant atual
     const tenantRoles = decodedToken?.app_metadata?.tenant_roles || {}
-    let tenantSlug = null
+    let tenantId = null
     try {
       const { useTenantStore } = await import('~/stores/tenant')
-      tenantSlug = useTenantStore().tenantId
+      tenantId = useTenantStore().tenantId
     } catch {}
     let userRole = null
-    if (tenantSlug && tenantRoles[tenantSlug]) {
-      userRole = tenantRoles[tenantSlug]
+    if (tenantId && tenantRoles[tenantId]) {
+      userRole = tenantRoles[tenantId]
     } else {
       const firstTenant = Object.keys(tenantRoles)[0]
       if (firstTenant) {
         userRole = tenantRoles[firstTenant]
-        tenantSlug = firstTenant
+        tenantId = firstTenant
       }
     }
     // Log para debug
     // eslint-disable-next-line no-console
-    console.log('[middleware/role] tenantSlug:', tenantSlug, 'userRole:', userRole)
+    console.log('[middleware/role] tenantId:', tenantId, 'userRole:', userRole)
 
     const requiredRoles = Array.isArray(to.meta.requiredRoles)
       ? to.meta.requiredRoles

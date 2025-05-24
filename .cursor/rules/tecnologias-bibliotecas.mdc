@@ -1,0 +1,23 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Tecnologias e Bibliotecas Utilizadas
+
+Este projeto utiliza as seguintes tecnologias e bibliotecas principais:
+
+- **Nuxt 3**: Framework para aplicações Vue 3 com SSR, SSG e organização modular.
+- **Vue 3**: Biblioteca principal para construção de interfaces reativas.
+- **TypeScript**: Linguagem de tipagem estática sobre JavaScript, utilizada em todos os scripts.
+- **Shadcn para Nuxt**: Biblioteca de componentes UI baseada em shadcn/ui, adaptada para Nuxt 3.
+- **Unocss**: Utilitário de CSS atômico para estilização rápida e flexível.
+- **Lucide Icons**: Biblioteca de ícones SVG utilizada nos componentes.
+
+## Observações
+- O código dos módulos deve ser organizado e reutilizável, seguindo o padrão de diretórios do Nuxt 3.
+- Componentes e utilitários devem ser globais sempre que possível.
+- O frontend é todo em inglês, mas a comunicação e documentação podem ser em português.
+- As bibliotecas de tema e UI devem ser mantidas intactas.
+
+Para mais detalhes sobre a estrutura do projeto, consulte a regra de estrutura de pastas (se houver).

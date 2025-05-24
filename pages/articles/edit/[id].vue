@@ -26,6 +26,7 @@ import {
 } from '~/components/ui/tags-input'
 import { useToast } from '~/components/ui/toast'
 import { useArticles } from '~/composables/useArticles'
+import { useTenant } from '~/composables/useTenant'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -49,15 +50,22 @@ const {
   createTag,
   fetchArticleTags,
 } = useArticles()
+const { tenantId } = useTenant()
 
 interface ArticleForm {
   id: string
   title: string
   slug: string
   content: string
-  status: 'draft' | 'published'
-  description: string
+  meta_description: string
   category_id: string
+  tenant_id: string
+  author_id: string
+  thumb_url: string
+  tag_relations_id: string
+  publish_status: string
+  created_at?: string
+  update_at?: string
   tagIds: string[]
 }
 
@@ -66,9 +74,13 @@ const form = ref<ArticleForm>({
   title: '',
   slug: '',
   content: '',
-  description: '',
+  meta_description: '',
   category_id: '',
-  status: 'draft',
+  tenant_id: '',
+  author_id: '',
+  thumb_url: '',
+  tag_relations_id: '',
+  publish_status: 'draft',
   tagIds: [],
 })
 
@@ -138,10 +150,16 @@ async function loadArticle() {
       title: article.title,
       slug: article.slug,
       content: article.content,
-      description: article.meta_description,
-      status: article.status,
+      meta_description: article.meta_description,
       category_id: article.category_id ? article.category_id.toString() : '',
+      tenant_id: article.tenant_id || tenantId.value || '',
+      author_id: article.author_id || '',
+      thumb_url: article.thumb_url || '',
+      tag_relations_id: article.tag_relations_id ? article.tag_relations_id.toString() : '',
+      publish_status: article.publish_status || 'draft',
       tagIds: [],
+      created_at: article.created_at,
+      update_at: article.update_at,
     }
     await loadArticleTags()
   }
@@ -187,7 +205,7 @@ onMounted(() => {
 })
 
 async function saveArticle() {
-  if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
+  if (!form.value.title || !form.value.slug || !form.value.content || !form.value.meta_description) {
     toast({ title: 'Erro', description: 'Preencha todos os campos obrigatórios', variant: 'destructive' })
     return
   }
@@ -195,23 +213,26 @@ async function saveArticle() {
     title: form.value.title,
     slug: form.value.slug,
     content: form.value.content,
-    meta_description: form.value.description,
-    status: form.value.status,
-    tags: form.value.tagIds, // Envia apenas os IDs para o backend
+    meta_description: form.value.meta_description,
+    publish_status: form.value.publish_status,
+    author_id: form.value.author_id,
+    thumb_url: form.value.thumb_url,
+    tag_relations_id: form.value.tag_relations_id ? Number(form.value.tag_relations_id) : null,
+    tags: form.value.tagIds,
   }
-  if (form.value.category_id) {
+  if (tenantId.value && tenantId.value !== '') {
+    updates.tenant_id = tenantId.value
+  }
+  if (form.value.category_id && form.value.category_id !== '') {
     updates.category_id = form.value.category_id
   }
-  const success = await updateArticle(form.value.id, updates)
-  if (success) {
+  try {
+    await $fetch(`/api/articles/${form.value.id}`, { method: 'PUT', body: updates })
     toast({ title: 'Sucesso', description: 'Artigo atualizado com sucesso!' })
-    // Recarrega as tags e força a atualização do componente
     await loadArticleTags()
-    // Força o componente TagsInput a ser recriado
     tagInputKey.value++
-  }
-  else {
-    toast({ title: 'Erro', description: error.value || 'Ocorreu um erro ao atualizar o artigo', variant: 'destructive' })
+  } catch (e: any) {
+    toast({ title: 'Erro', description: e?.data?.message || 'Ocorreu um erro ao atualizar o artigo', variant: 'destructive' })
   }
 }
 
@@ -225,7 +246,7 @@ async function addCategory() {
     return
   }
   loadingNewCategory.value = true
-  await createCategory({ title: newCategory.value, status: 'published' })
+  await createCategory({ title: newCategory.value, publish_status: 'published' })
   await fetchCategories()
   const nova = categories.value.find(
     (cat: any) => cat.title.toLowerCase() === newCategory.value.toLowerCase(),
@@ -250,9 +271,9 @@ async function deleteSelectedCategory() {
     // Obtenha o ID da categoria a ser excluída
     const categoryIdToDelete = form.value.category_id
     
-    // Primeiro, atualizamos diretamente o artigo para remover a referência à categoria
+    // Atualiza o artigo para remover a referência à categoria
     const { error: updateError } = await client
-      .from('article')
+      .from('articles')
       .update({ category_id: null })
       .eq('id', form.value.id)
     
@@ -448,7 +469,7 @@ function hideTagSuggestions() {
                 <Label for="description">Descrição</Label>
                 <Textarea
                   id="description"
-                  v-model="form.description"
+                  v-model="form.meta_description"
                   placeholder="Escreva um breve resumo do seu artigo"
                   :disabled="loading"
                   required
@@ -470,9 +491,9 @@ function hideTagSuggestions() {
               <!-- Status -->
               <div class="space-y-2">
                 <Label>Status</Label>
-                <Select v-model="form.status" :disabled="loading">
+                <Select v-model="form.publish_status" :disabled="loading">
                   <SelectTrigger>
-                    <SelectValue :placeholder="form.status === 'draft' ? 'Rascunho' : 'Publicado'" />
+                    <SelectValue :placeholder="form.publish_status === 'draft' ? 'Rascunho' : 'Publicado'" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>

@@ -4,12 +4,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { columns } from '~/components/articles/columns'
 import DataTable from '~/components/articles/DataTable.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
-import { useArticles } from '~/composables/useArticles'
 import { useAuth } from '~/composables/useAuth'
-import { useClientArticles } from '~/composables/useClientArticles'
 import { useTenant } from '~/composables/useTenant'
 
-const { tenantId } = useTenant()
+const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
 const { currentRole } = useAuth()
 
 const showDeleteDialog = ref(false)
@@ -17,27 +15,40 @@ const articleToDelete = ref<any | null>(null)
 const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
-const { articles, fetchArticles, loading } = useArticles()
-const { articles: clientArticles, fetchClientArticles } = useClientArticles()
-
-// Para admin/funcionário: só busca artigos se houver tenant selecionado
-watch(tenantId, () => {
-  if (currentRole.value !== 'cliente') {
-    if (tenantId.value) {
-      fetchArticles()
-    }
-  }
+// Debug: logar tenantId e articlesRaw
+watch(tenantId, (val) => {
+  console.warn('[DEBUG] tenantId do cliente:', val)
 }, { immediate: true })
 
-onMounted(() => {
-  if (currentRole.value === 'cliente') {
-    fetchClientArticles()
+const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch('/api/articles')
+
+watch(articlesRaw, (val) => {
+  console.warn('[DEBUG] articlesRaw:', val)
+}, { immediate: true })
+
+const articles = computed(() => {
+  if (!articlesRaw.value) {
+    return []
   }
-  window.addEventListener('tenant-changed', () => fetchArticles())
+  if (Array.isArray(articlesRaw.value)) {
+    // Cliente: filtra pelo tenantId do JWT
+    if (currentRole.value === 'cliente' && tenantId.value) {
+      return articlesRaw.value.filter((a: any) => a.tenant_id === tenantId.value)
+    }
+    // Admin/funcionário: filtra pelo tenant selecionado
+    if ((currentRole.value === 'admin' || currentRole.value === 'funcionario') && tenantId.value) {
+      return articlesRaw.value.filter((a: any) => a.tenant_id === tenantId.value)
+    }
+    return []
+  }
+  // Se vier erro da API (status/message), retorna array vazio
+  if (typeof articlesRaw.value === 'object' && 'status' in articlesRaw.value) {
+    return []
+  }
+  return []
 })
-onUnmounted(() => {
-  window.removeEventListener('tenant-changed', () => fetchArticles())
-})
+
+// Para cliente, filtrar no backend (API já faz isso)
 
 function handleDeleteClick(article: any) {
   articleToDelete.value = article
@@ -48,13 +59,9 @@ async function handleDeleteConfirm() {
   if (!articleToDelete.value)
     return
   showDeleteDialog.value = false
+  await $fetch(`/api/articles/${articleToDelete.value.id}`, { method: 'DELETE' })
   articleToDelete.value = null
-  if (currentRole.value === 'cliente') {
-    await fetchClientArticles()
-  }
-  else {
-    await fetchArticles()
-  }
+  await refreshArticles()
 }
 
 function showMultiDeleteConfirmation() {
@@ -63,18 +70,49 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
+  for (const idx of selectedItems.value) {
+    const article = articles.value[idx]
+    if (article) {
+      await $fetch(`/api/articles/${article.id}`, { method: 'DELETE' })
+    }
+  }
   selectedItems.value = []
-  if (currentRole.value === 'cliente') {
-    await fetchClientArticles()
-  }
-  else {
-    await fetchArticles()
-  }
+  await refreshArticles()
 }
 
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
+
+onMounted(async () => {
+  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
+    await listTenants()
+    if (tenants.value.length > 0 && !tenantId.value) {
+      setCurrentTenantById(tenants.value[0].id)
+    }
+  }
+  if (currentRole.value === 'cliente') {
+    await setTenantFromJWT()
+    refreshArticles()
+  }
+})
+
+watch(currentRole, async (role) => {
+  if (role === 'admin' || role === 'funcionario') {
+    await listTenants()
+    if (tenants.value.length > 0 && !tenantId.value) {
+      setCurrentTenantById(tenants.value[0].id)
+    }
+  }
+  if (role === 'cliente') {
+    await setTenantFromJWT()
+    refreshArticles()
+  }
+})
+
+watch(tenantId, () => {
+  refreshArticles()
+})
 </script>
 
 <template>
@@ -97,7 +135,7 @@ function updateSelectedItems(items: any) {
       </Button>
     </div>
 
-    <div v-if="currentRole !== 'cliente' && loading" class="space-y-4">
+    <div v-if="loading" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">
@@ -111,21 +149,17 @@ function updateSelectedItems(items: any) {
     </div>
     <template v-else>
       <DataTable
-        v-if="currentRole === 'cliente'"
-        :data="clientArticles"
+        v-if="articles.length > 0"
+        :data="articles"
         :columns="columns"
         @delete="handleDeleteClick"
         @selectionChange="updateSelectedItems"
       />
-      <DataTable
-        v-else-if="tenantId"
-        :data="articles || []"
-        :columns="columns"
-        @delete="handleDeleteClick"
-        @selectionChange="updateSelectedItems"
-      />
-      <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionário')" class="p-6 text-center text-muted-foreground">
+      <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
         Selecione um tenant para visualizar os artigos.
+      </div>
+      <div v-else class="p-6 text-center text-muted-foreground">
+        Nenhum artigo encontrado.
       </div>
     </template>
 

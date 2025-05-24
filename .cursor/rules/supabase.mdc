@@ -1,0 +1,20 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Regras SUPABASE
+- Para todas logica criada, segue abaixo as policies que devem ser criadas:
+
+    Policies para usuários autenticados:
+
+    - Admin e Funcionário:
+    Acesso total (ALL) a todos os tenants, mesmo sem relacao ao id de usuário.
+
+    - Cliente:
+    Acesso total (ALL), mas somente aos dados relacionados ao tenant do usuário.
+
+    Policies para acesso público:
+
+    - Público (sem autenticação):
+    Apenas SELECT permitido, restrito aos dados públicos relacionados ao tenant.

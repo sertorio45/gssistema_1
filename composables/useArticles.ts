@@ -69,6 +69,11 @@ export function useArticles() {
     loading.value = true
     error.value = null
     const payload = { ...article }
+    if (tenantId.value) {
+      payload.tenant_id = tenantId.value
+    } else {
+      delete payload.tenant_id
+    }
     if (payload.category) {
       payload.category_id = payload.category
       delete payload.category
@@ -98,7 +103,7 @@ export function useArticles() {
       }))
 
       const { error: tagRelationError } = await client
-        .from('article_tag_relations')
+        .from('articles_tag_relations')
         .insert(tagRelationships)
 
       if (tagRelationError) {
@@ -115,6 +120,11 @@ export function useArticles() {
     loading.value = true
     error.value = null
     const payload = { ...updates }
+    if (tenantId.value) {
+      payload.tenant_id = tenantId.value
+    } else {
+      delete payload.tenant_id
+    }
     if (payload.category) {
       payload.category_id = payload.category
       delete payload.category
@@ -139,7 +149,7 @@ export function useArticles() {
     if (tags && Array.isArray(tags)) {
       // Primeiro remover todos os relacionamentos existentes
       const { error: deleteRelationError } = await client
-        .from('article_tag_relations')
+        .from('articles_tag_relations')
         .delete()
         .eq('article_id', id)
 
@@ -157,7 +167,7 @@ export function useArticles() {
         }))
 
         const { error: tagRelationError } = await client
-          .from('article_tag_relations')
+          .from('articles_tag_relations')
           .insert(tagRelationships)
 
         if (tagRelationError) {
@@ -179,7 +189,7 @@ export function useArticles() {
 
     // Primeiro remover relacionamentos de tags
     const { error: deleteTagsError } = await client
-      .from('article_tag_relations')
+      .from('articles_tag_relations')
       .delete()
       .eq('article_id', id)
 
@@ -207,7 +217,7 @@ export function useArticles() {
     loading.value = true
     error.value = null
     const { data, error: fetchError } = await client
-      .from('article_category')
+      .from('articles_category')
       .select('*')
     
     // Mapeamento para compatibilidade com interfaces antigas
@@ -215,7 +225,7 @@ export function useArticles() {
       categories.value = data.map(cat => ({
         ...cat,
         title: cat.name, // Para compatibilidade com componentes que usam title
-        status: cat.is_active ? 'published' : 'draft' // Para compatibilidade
+        publish_status: cat.is_active ? 'published' : 'draft' // Para compatibilidade
       }))
     } else {
       categories.value = []
@@ -235,9 +245,9 @@ export function useArticles() {
       const normalizedTitle = title.trim().toLowerCase()
       
       const { data, error: checkError } = await client
-        .from('article_category')
-        .select('id, name')
-        .ilike('name', normalizedTitle)
+        .from('articles_category')
+        .select('id, title')
+        .ilike('title', normalizedTitle)
 
       if (checkError) {
         error.value = checkError.message
@@ -266,14 +276,14 @@ export function useArticles() {
     
     // Compatibilidade: Se receber title, mapear para name
     if (categoryData.title && !categoryData.name) {
-      categoryData.name = categoryData.title
-      delete categoryData.title
+      categoryData.title = categoryData.title
+      delete categoryData.name
     }
     
-    // Compatibilidade: Se receber status, mapear para is_active
-    if (categoryData.status && categoryData.is_active === undefined) {
-      categoryData.is_active = categoryData.status === 'published'
-      delete categoryData.status
+    // Compatibilidade: Se receber publish_status, mapear para is_active
+    if (categoryData.publish_status && categoryData.is_active === undefined) {
+      categoryData.is_active = categoryData.publish_status === 'published'
+      delete categoryData.publish_status
     }
     
     // Garantir que slug existe
@@ -297,8 +307,12 @@ export function useArticles() {
       return false
     }
     
+    if (tenantId.value) {
+      categoryData.tenant_id = tenantId.value
+    }
+    
     const { error: createError } = await client
-      .from('article_category')
+      .from('articles_category')
       .insert([categoryData])
     loading.value = false
     
@@ -322,10 +336,10 @@ export function useArticles() {
       delete updateData.title
     }
     
-    // Compatibilidade: Se receber status, mapear para is_active
-    if (updateData.status && updateData.is_active === undefined) {
-      updateData.is_active = updateData.status === 'published'
-      delete updateData.status
+    // Compatibilidade: Se receber publish_status, mapear para is_active
+    if (updateData.publish_status && updateData.is_active === undefined) {
+      updateData.is_active = updateData.publish_status === 'published'
+      delete updateData.publish_status
     }
     
     // Garantir que slug existe
@@ -351,8 +365,12 @@ export function useArticles() {
       }
     }
     
+    if (tenantId.value) {
+      updateData.tenant_id = tenantId.value
+    }
+    
     const { error: updateError } = await client
-      .from('article_category')
+      .from('articles_category')
       .update(updateData)
       .eq('id', id)
     loading.value = false
@@ -388,7 +406,7 @@ export function useArticles() {
     }
     
     const { error: deleteError } = await client
-      .from('article_category')
+      .from('articles_category')
       .delete()
       .eq('id', id)
     loading.value = false
@@ -407,7 +425,7 @@ export function useArticles() {
     loading.value = true
     error.value = null
     const { data, error: fetchError } = await client
-      .from('article_tag')
+      .from('articles_tag')
       .select('*')
     tags.value = data || []
     error.value = fetchError?.message || null
@@ -424,9 +442,9 @@ export function useArticles() {
       const normalizedTitle = title.trim().toLowerCase()
       
       const { data, error: checkError } = await client
-        .from('article_tag')
-        .select('id, name')
-        .ilike('name', normalizedTitle)
+        .from('articles_tag')
+        .select('id, title')
+        .ilike('title', normalizedTitle)
 
       if (checkError) {
         error.value = checkError.message
@@ -459,8 +477,12 @@ export function useArticles() {
       return false
     }
     
+    if (tenantId.value) {
+      tag.tenant_id = tenantId.value
+    }
+    
     const { error: createError } = await client
-      .from('article_tag')
+      .from('articles_tag')
       .insert([tag])
     loading.value = false
     
@@ -486,8 +508,12 @@ export function useArticles() {
       }
     }
     
+    if (tenantId.value) {
+      updates.tenant_id = tenantId.value
+    }
+    
     const { error: updateError } = await client
-      .from('article_tag')
+      .from('articles_tag')
       .update(updates)
       .eq('id', id)
     loading.value = false
@@ -506,7 +532,7 @@ export function useArticles() {
     
     // Primeiro verificar se há artigos usando esta tag
     const { data: usageData, error: usageError } = await client
-      .from('article_tag_relations')
+      .from('articles_tag_relations')
       .select('id')
       .eq('tag_id', id)
     
@@ -523,7 +549,7 @@ export function useArticles() {
     }
     
     const { error: deleteError } = await client
-      .from('article_tag')
+      .from('articles_tag')
       .delete()
       .eq('id', id)
     loading.value = false
@@ -539,7 +565,7 @@ export function useArticles() {
   // Relacionamentos de tags com artigos
   const fetchArticleTags = async (articleId: string) => {
     const { data, error: fetchError } = await client
-      .from('article_tag_relations')
+      .from('articles_tag_relations')
       .select('tag_id')
       .eq('article_id', articleId)
     
@@ -553,7 +579,7 @@ export function useArticles() {
 
   const addTagToArticle = async (articleId: string, tagId: string) => {
     const { error: addError } = await client
-      .from('article_tag_relations')
+      .from('articles_tag_relations')
       .insert([{ article_id: articleId, tag_id: tagId }])
     
     if (addError) {
@@ -566,7 +592,7 @@ export function useArticles() {
 
   const removeTagFromArticle = async (articleId: string, tagId: string) => {
     const { error: removeError } = await client
-      .from('article_tag_relations')
+      .from('articles_tag_relations')
       .delete()
       .eq('article_id', articleId)
       .eq('tag_id', tagId)

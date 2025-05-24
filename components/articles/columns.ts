@@ -7,7 +7,7 @@ import DataTableRowActions from './DataTableRowActions.vue'
 export interface Article {
   id: string
   title: string
-  status: string
+  publish_status: string
 }
 
 export const columns: ColumnDef<Article>[] = [
@@ -34,11 +34,11 @@ export const columns: ColumnDef<Article>[] = [
     cell: ({ row }) => h('span', { class: 'max-w-[500px] truncate font-medium text-muted-foreground' }, row.getValue('title')),
   },
   {
-    accessorKey: 'status',
+    accessorKey: 'publish_status',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Status' }),
     cell: ({ row }) => {
-      const status = row.getValue('status')
-      const isPublished = status === 'published'
+      const publish_status = row.getValue('publish_status')
+      const isPublished = publish_status === 'published'
       
       return h('div', { class: 'flex w-[100px] items-center' }, [
         h('div', {

@@ -13,7 +13,7 @@ import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 
 const { toast } = useToast()
-const { listTenants, setCurrentTenantBySlug, currentTenant } = useTenant()
+const { listTenants, setCurrentTenantById, currentTenant } = useTenant()
 const { currentRole } = useAuth()
 
 const tenants = ref<any[]>([])
@@ -60,7 +60,7 @@ async function loadTenants() {
 // Select a tenant
 async function selectTenant(tenant: any) {
   try {
-    await setCurrentTenantBySlug(tenant.slug)
+    await setCurrentTenantById(tenant.id)
     toast({
       title: 'Tenant Selected',
       description: `You are now in tenant: ${tenant.name}`,

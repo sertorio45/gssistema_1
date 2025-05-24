@@ -31,7 +31,9 @@ async function listTenants() {
     .from('tenant')
     .select('*')
     .order('name')
-  if (error) throw error
+  if (error) {
+    throw error
+  }
   tenants.value = data || []
   return tenants.value
 }
@@ -42,6 +44,11 @@ const currentTenant = computed(() => {
 
 export function useTenant() {
   const tenantStore = useTenantStore()
+  // Sincronizar tenantId com o valor do Pinia store
+  watch(() => tenantStore.tenantId, (val) => {
+    tenantId.value = val
+  }, { immediate: true })
+
   const supabase = useSupabaseClient()
   const { currentRole } = useAuth()
 
@@ -55,6 +62,14 @@ export function useTenant() {
     }
   }
 
+  // Seleciona o tenant pelo UUID e salva no store/localStorage
+  function setCurrentTenantById(id: string) {
+    setTenantId(id)
+    if (import.meta.client) {
+      localStorage.setItem('current-tenant-id', id)
+    }
+  }
+
   // Seleciona o tenant pelo slug e salva no store/localStorage
   async function setCurrentTenantBySlug(slug: string) {
     const { data, error } = await supabase
@@ -62,7 +77,9 @@ export function useTenant() {
       .select('*')
       .eq('slug', slug)
       .single()
-    if (error) throw error
+    if (error) {
+      throw error
+    }
     if (data && data.id) {
       setTenantId(data.id)
     } else {
@@ -103,6 +120,7 @@ export function useTenant() {
     clearTenant: tenantStore.clearTenant,
     listTenants,
     restoreLastTenant,
+    setCurrentTenantById,
     setCurrentTenantBySlug,
     currentTenant,
     setTenantFromJWT,

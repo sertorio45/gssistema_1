@@ -24,7 +24,7 @@ const showModal = ref(false)
 const isEditing = ref(false)
 const form = ref<CategoryForm | CategoryUpdateForm>({
   title: '',
-  status: 'published',
+  publish_status: 'published',
 })
 
 function handleDeleteClick(category: Category) {
@@ -86,7 +86,7 @@ function handleCreateClick() {
   isEditing.value = false
   form.value = {
     title: '',
-    status: 'published',
+    publish_status: 'published',
   }
   showModal.value = true
 }
@@ -96,7 +96,7 @@ function handleEditClick(category: Category) {
   form.value = {
     id: category.id,
     title: category.title,
-    status: category.status || 'published',
+    publish_status: category.publish_status || 'published',
   } as CategoryUpdateForm
   showModal.value = true
 }
@@ -112,7 +112,7 @@ async function handleSaveCategory() {
     success = await updateCategory(form.value.id, {
       name: form.value.title.trim(),
       slug: generateSlug(form.value.title.trim()),
-      is_active: form.value.status === 'published',
+      is_active: form.value.publish_status === 'published',
     })
     if (success) {
       toast({ title: 'Sucesso', description: 'Categoria atualizada com sucesso!' })
@@ -122,7 +122,7 @@ async function handleSaveCategory() {
     const newCategory: CategoryForm = {
       name: form.value.title.trim(),
       slug: generateSlug(form.value.title.trim()),
-      is_active: form.value.status === 'published',
+      is_active: form.value.publish_status === 'published',
     }
     success = await createCategory(newCategory)
     if (success) {
@@ -266,10 +266,10 @@ onMounted(() => {
               <Input id="title" v-model="form.title" placeholder="Nome da categoria" :disabled="loading" required />
             </div>
             <div class="space-y-2">
-              <Label for="status">Status</Label>
-              <Select v-model="form.status" :disabled="loading">
-                <SelectTrigger id="status">
-                  <SelectValue :placeholder="form.status === 'published' ? 'Publicado' : 'Rascunho'" />
+              <Label for="publish_status">Status</Label>
+              <Select v-model="form.publish_status" :disabled="loading">
+                <SelectTrigger id="publish_status">
+                  <SelectValue :placeholder="form.publish_status === 'published' ? 'Publicado' : 'Rascunho'" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>

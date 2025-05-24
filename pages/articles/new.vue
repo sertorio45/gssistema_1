@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import Tiny from '~/components/articles/Tiny.vue'
 import { useToast } from '~/components/ui/toast'
-import { useArticles } from '~/composables/useArticles'
+import { useTenant } from '~/composables/useTenant'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -32,8 +32,8 @@ function generateSlug(text: string): string {
     .replace(/-{2,}/g, '-')
 }
 
-const { createArticle, loading, error, categories, fetchCategories, createCategory, deleteCategory, tags, fetchTags, createTag } = useArticles()
 const { toast } = useToast()
+const { tenantId } = useTenant()
 
 const form = ref<ArticleForm>({
   title: '',
@@ -63,8 +63,6 @@ function updateSlug() {
 }
 
 onMounted(() => {
-  fetchCategories()
-  fetchTags()
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
@@ -81,27 +79,20 @@ async function saveArticle() {
     content: form.value.content,
     meta_description: form.value.description,
     status: form.value.status,
-    tags: articleTags.value.map(tag => tag.id),
+    tenant_id: tenantId.value
   }
   if (form.value.category_id) {
     articleData.category_id = form.value.category_id
   }
-  const success = await createArticle(articleData)
-  if (success) {
+  try {
+    await $fetch('/api/articles', { method: 'POST', body: articleData })
     toast({ title: 'Sucesso', description: 'Artigo criado com sucesso!' })
     form.value = {
-      title: '',
-      slug: '',
-      content: '',
-      description: '',
-      category_id: '',
-      status: 'draft',
+      title: '', slug: '', content: '', description: '', category_id: '', status: 'draft',
     }
-    articleTags.value = []
     navigateTo('/articles')
-  }
-  else {
-    toast({ title: 'Erro', description: error.value || 'Ocorreu um erro ao salvar o artigo', variant: 'destructive' })
+  } catch (e: any) {
+    toast({ title: 'Erro', description: e?.data?.message || 'Ocorreu um erro ao salvar o artigo', variant: 'destructive' })
   }
 }
 
