@@ -5,6 +5,7 @@ import Tiny from '~/components/articles/Tiny.vue'
 import { useToast } from '~/components/ui/toast'
 import { useTenant } from '~/composables/useTenant'
 import { useRoute } from 'vue-router'
+import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -19,6 +20,13 @@ interface ArticleForm {
   publish_status: 'draft' | 'published'
   description: string
   category_id: string
+}
+
+interface ArticleCategory {
+  id: string
+  title: string
+  tenant_id: string
+  created_at?: string
 }
 
 function generateSlug(text: string): string {
@@ -48,6 +56,7 @@ const form = ref<ArticleForm>({
 
 const showFloatingMenu = ref(false)
 const loading = ref(true)
+const categories = ref<ArticleCategory[]>([])
 
 // Carregar artigo para edição
 async function loadArticle() {
@@ -76,11 +85,54 @@ async function loadArticle() {
   loading.value = false
 }
 
+// Função para buscar categorias
+async function fetchCategories() {
+  try {
+    const response = await $fetch('/api/articles/category', { method: 'GET' })
+    
+    // Recuperar o tenant store
+    const tenantStore = useTenantStore()
+    
+    // Verificar se a resposta é um array ou tem status de erro
+    if (response && typeof response === 'object' && 'status' in response) {
+      // Se for um objeto de erro
+      if (response.status !== 200) {
+        throw new TypeError(response.message || 'Erro ao buscar categorias')
+      }
+    }
+
+    // Verificar se a resposta é um array
+    if (Array.isArray(response)) {
+      // Filtrar categorias pelo tenant do Pinia
+      categories.value = response.filter(category => 
+        category.tenant_id === tenantStore.tenantId
+      )
+    } else {
+      // Se não for um array, tratar como erro
+      throw new TypeError('Resposta inválida ao buscar categorias')
+    }
+  } catch (error) {
+    console.error('Erro ao buscar categorias:', error)
+    toast({ 
+      title: 'Erro', 
+      description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias', 
+      variant: 'destructive' 
+    })
+    // Definir categorias como array vazio em caso de erro
+    categories.value = []
+  }
+}
+
 onMounted(async () => {
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
+  
   await loadArticle()
+  
+  // Buscar categorias após carregar o artigo
+  await fetchCategories()
+  
   loading.value = false
 })
 
@@ -235,20 +287,41 @@ async function saveArticle() {
               <div class="space-y-2">
                 <Label>Categorias <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
                 <div class="flex items-center gap-2">
-                  <Select disabled class="flex-1">
+                  <Select 
+                    v-model="form.category_id" 
+                    :disabled="loading"
+                    class="flex-1"
+                  >
                     <SelectTrigger class="h-10">
                       <SelectValue placeholder="Selecionar categoria" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="1">Categoria Exemplo</SelectItem>
+                        <SelectItem 
+                          v-for="category in categories" 
+                          :key="category.id" 
+                          :value="category.id"
+                        >
+                          {{ category.title }}
+                        </SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="outline" class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground" disabled>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground" 
+                    disabled
+                  >
                     <Icon name="lucide:plus" class="h-4 w-4" />
                   </Button>
-                  <Button type="button" variant="outline" class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground" disabled title="Excluir categoria selecionada">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground" 
+                    disabled 
+                    title="Excluir categoria selecionada"
+                  >
                     <Icon name="lucide:trash-2" class="h-4 w-4" />
                   </Button>
                 </div>

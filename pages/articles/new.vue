@@ -22,6 +22,13 @@ interface ArticleForm {
   category_id: string
 }
 
+interface ArticleCategory {
+  id: string
+  title: string
+  tenant_id: string
+  created_at?: string
+}
+
 function generateSlug(text: string): string {
   return text
     .toString()
@@ -56,10 +63,45 @@ const form = ref<ArticleForm>({
 
 const showFloatingMenu = ref(false)
 const loading = ref(false)
+const categories = ref<ArticleCategory[]>([])
 
 function updateSlug() {
   if (form.value.title) {
     form.value.slug = generateSlug(form.value.title)
+  }
+}
+
+async function fetchCategories() {
+  try {
+    const response = await $fetch('/api/articles/category', { method: 'GET' })
+    
+    // Verificar se a resposta é um array ou tem status de erro
+    if (response && typeof response === 'object' && 'status' in response) {
+      // Se for um objeto de erro
+      if (response.status !== 200) {
+        throw new TypeError(response.message || 'Erro ao buscar categorias')
+      }
+    }
+
+    // Verificar se a resposta é um array
+    if (Array.isArray(response)) {
+      // Filtrar categorias pelo tenant do Pinia
+      categories.value = response.filter(category => 
+        category.tenant_id === tenantStore.tenantId
+      )
+    } else {
+      // Se não for um array, tratar como erro
+      throw new TypeError('Resposta inválida ao buscar categorias')
+    }
+  } catch (error) {
+    console.error('Erro ao buscar categorias:', error)
+    toast({ 
+      title: 'Erro', 
+      description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias', 
+      variant: 'destructive' 
+    })
+    // Definir categorias como array vazio em caso de erro
+    categories.value = []
   }
 }
 
@@ -91,7 +133,8 @@ async function saveArticle() {
     content: form.value.content,
     meta_description: form.value.description,
     publish_status: form.value.publish_status || 'draft',
-    tenant_id: tenantStore.tenantId, // Usar diretamente do Pinia store
+    tenant_id: tenantStore.tenantId,
+    category_id: form.value.category_id,
   }
   
   try {
@@ -145,17 +188,22 @@ onMounted(async () => {
     await setTenantFromJWT()
   }
 
+  // Buscar categorias quando o tenant for definido
+  if (tenantStore.tenantId) {
+    await fetchCategories()
+  }
+
   // Manter a lógica de scroll existente
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
 
   // Adicionar listener para mudança de tenant
-  const handleTenantChanged = (event: Event) => {
+  const handleTenantChanged = async (event: Event) => {
     const customEvent = event as CustomEvent
     if (customEvent.detail?.tenantId) {
-      // Atualizar o tenant no store
       tenantStore.tenantId = customEvent.detail.tenantId
+      await fetchCategories()
     }
   }
   
@@ -290,13 +338,15 @@ watch(currentRole, async (role) => {
               <div class="space-y-2">
                 <Label>Categorias <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
                 <div class="flex items-center gap-2">
-                  <Select disabled class="flex-1">
+                  <Select v-model="form.category_id" :disabled="loading">
                     <SelectTrigger class="h-10">
                       <SelectValue placeholder="Selecionar categoria" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem value="1">Categoria Exemplo</SelectItem>
+                        <SelectItem v-for="category in categories" :value="category.id" :key="category.id">
+                          {{ category.title }}
+                        </SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
