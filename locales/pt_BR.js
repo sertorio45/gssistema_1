@@ -10,7 +10,7 @@ export default {
     loading: 'Carregando...',
     noData: 'Nenhum dado encontrado',
     confirm: 'Confirmar',
-    actions: 'Ações'
+    actions: 'Ações',
   },
   articles: {
     title: 'Artigos',
@@ -18,14 +18,14 @@ export default {
     tag: 'Tag',
     status: {
       published: 'Publicado',
-      draft: 'Rascunho'
+      draft: 'Rascunho',
     },
     form: {
       title: 'Título',
       content: 'Conteúdo',
       category: 'Categoria',
       tags: 'Tags',
-      status: 'Status'
-    }
-  }
-} 
+      status: 'Status',
+    },
+  },
+}

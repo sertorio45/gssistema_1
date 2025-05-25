@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { useSupabaseClient } from '#imports'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { columns } from '~/components/articles/columns'
 import DataTable from '~/components/articles/DataTable.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
+import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
 const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
 const { currentRole } = useAuth()
@@ -20,35 +20,13 @@ watch(tenantId, (val) => {
   console.warn('[DEBUG] tenantId do cliente:', val)
 }, { immediate: true })
 
-const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch('/api/articles')
+const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch<any[]>('/api/articles')
+
+const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id') // Filtrar os artigos com base no tenantId
 
 watch(articlesRaw, (val) => {
   console.warn('[DEBUG] articlesRaw:', val)
 }, { immediate: true })
-
-const articles = computed(() => {
-  if (!articlesRaw.value) {
-    return []
-  }
-  if (Array.isArray(articlesRaw.value)) {
-    // Cliente: filtra pelo tenantId do JWT
-    if (currentRole.value === 'cliente' && tenantId.value) {
-      return articlesRaw.value.filter((a: any) => a.tenant_id === tenantId.value)
-    }
-    // Admin/funcionário: filtra pelo tenant selecionado
-    if ((currentRole.value === 'admin' || currentRole.value === 'funcionario') && tenantId.value) {
-      return articlesRaw.value.filter((a: any) => a.tenant_id === tenantId.value)
-    }
-    return []
-  }
-  // Se vier erro da API (status/message), retorna array vazio
-  if (typeof articlesRaw.value === 'object' && 'status' in articlesRaw.value) {
-    return []
-  }
-  return []
-})
-
-// Para cliente, filtrar no backend (API já faz isso)
 
 function handleDeleteClick(article: any) {
   articleToDelete.value = article
@@ -153,7 +131,7 @@ watch(tenantId, () => {
         :data="articles"
         :columns="columns"
         @delete="handleDeleteClick"
-        @selectionChange="updateSelectedItems"
+        @selection-change="updateSelectedItems"
       />
       <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
         Selecione um tenant para visualizar os artigos.

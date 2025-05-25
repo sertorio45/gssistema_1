@@ -34,11 +34,13 @@ export function useRole() {
       try {
         const { useTenantStore } = await import('~/stores/tenant')
         tenantId = useTenantStore().tenantId
-      } catch {}
+      }
+      catch {}
       let role = null
       if (tenantId && tenantRoles[tenantId]) {
         role = tenantRoles[tenantId]
-      } else {
+      }
+      else {
         // Fallback: pega o primeiro role disponível
         const firstTenant = Object.keys(tenantRoles)[0]
         if (firstTenant) {

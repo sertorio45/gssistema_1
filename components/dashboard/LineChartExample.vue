@@ -19,4 +19,4 @@ const data = [
 
 <template>
   <LineChart :data="data" :categories="['revenue', 'profit']" index="month" />
-</template> 
+</template>

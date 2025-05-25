@@ -2,7 +2,6 @@
 import type { DialogContentEmits, DialogContentProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import type { SheetVariants } from '.'
-import { cn } from '@/lib/utils'
 import { X } from 'lucide-vue-next'
 import {
   DialogClose,
@@ -14,6 +13,7 @@ import {
   VisuallyHidden,
 } from 'radix-vue'
 import { computed } from 'vue'
+import { cn } from '@/lib/utils'
 import { sheetVariants } from '.'
 
 interface SheetContentProps extends DialogContentProps {

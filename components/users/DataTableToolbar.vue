@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import type { Table } from '@tanstack/vue-table'
 import type { User } from './columns'
+import { Icon } from '#components'
 import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Icon } from '#components'
 import {
   DropdownMenu,
-  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
 
 interface DataTableToolbarProps {
   table: Table<User>
@@ -70,4 +70,4 @@ const isFiltered = computed(() => props.table.getState().columnFilters.length > 
       </DropdownMenuContent>
     </DropdownMenu>
   </div>
-</template> 
+</template>

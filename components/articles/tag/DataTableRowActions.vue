@@ -40,4 +40,4 @@ function handleDelete() {
       <span class="sr-only">Excluir</span>
     </Button>
   </div>
-</template> 
+</template>

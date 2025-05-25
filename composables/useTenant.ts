@@ -1,5 +1,6 @@
+//Esse arquivo é responsável por gerenciar o tenantId e os tenants para a página de listagem de tenants
 import { useSupabaseClient } from '#imports'
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useTenantStore } from '~/stores/tenant'
 
@@ -16,7 +17,8 @@ onMounted(() => {
 watch(tenantId, (newVal) => {
   if (newVal) {
     localStorage.setItem('tenantId', newVal)
-  } else {
+  }
+  else {
     localStorage.removeItem('tenantId')
   }
 })
@@ -82,7 +84,8 @@ export function useTenant() {
     }
     if (data && data.id) {
       setTenantId(data.id)
-    } else {
+    }
+    else {
       throw new Error('Tenant não encontrado')
     }
   }
@@ -127,4 +130,4 @@ export function useTenant() {
     setTenantId,
     tenants,
   }
-} 
+}

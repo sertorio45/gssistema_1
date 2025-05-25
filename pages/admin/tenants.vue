@@ -1,9 +1,8 @@
 <script setup lang="ts">
+import type { Tenant } from '@/components/users/tenant-columns'
 import { Icon } from '#components'
 import { useSupabaseClient } from '#imports'
 import { onMounted, ref } from 'vue'
-import type { Tenant } from '@/components/users/tenant-columns'
-import { columns } from '@/components/users/tenant-columns'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,12 +15,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import DataTable from '@/components/users/DataTable.vue'
-import { useToast } from '~/components/ui/toast'
+import { columns } from '@/components/users/tenant-columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import { useToast } from '~/components/ui/toast'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -62,7 +62,7 @@ async function loadData() {
     if (error) {
       throw error
     }
-    
+
     tenants.value = data as Tenant[]
   }
   catch (error: any) {
@@ -133,7 +133,7 @@ function generateSlug(name: string) {
 async function createTenant() {
   try {
     const slug = generateSlug(formData.value.name)
-    
+
     const { error } = await supabase
       .from('tenant')
       .insert([
@@ -144,7 +144,7 @@ async function createTenant() {
         },
       ])
       .select()
-    
+
     if (error) {
       throw error
     }
@@ -173,10 +173,10 @@ async function createTenant() {
 function handleEditClick(tenant: Tenant) {
   editingTenant.value = tenant
   formData.value.name = tenant.name
-  
+
   // Explicitly set the boolean value from database
   isTenantActive.value = tenant.is_active === true
-  
+
   showEditDialog.value = true
 }
 
@@ -195,7 +195,7 @@ async function updateTenant() {
         updated_at: new Date().toISOString(),
       })
       .eq('id', editingTenant.value.id)
-    
+
     if (error) {
       throw error
     }
@@ -242,7 +242,7 @@ async function handleMultiDeleteConfirm() {
         .from('tenant')
         .delete()
         .eq('id', id)
-      
+
       if (error) {
         allSuccess = false
       }
@@ -323,7 +323,7 @@ onMounted(() => {
       :columns="columns"
       @delete="handleDeleteClick"
       @edit="handleEditClick"
-      @selectionChange="updateSelectedItems"
+      @selection-change="updateSelectedItems"
     />
 
     <!-- Multi-item action bar -->
@@ -337,30 +337,32 @@ onMounted(() => {
     <AlertDialog :open="showCreateDialog" @update:open="showCreateDialog = $event">
       <AlertDialogContent class="sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle class="text-xl">Create New Tenant</AlertDialogTitle>
+          <AlertDialogTitle class="text-xl">
+            Create New Tenant
+          </AlertDialogTitle>
           <AlertDialogDescription>
             Fill in the information below to create a new tenant.
             Tenants are used to separate data between different organizations.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        
-        <div class="space-y-6 py-4">
+
+        <div class="py-4 space-y-6">
           <div class="space-y-2">
             <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="name">
               Name <span class="text-destructive">*</span>
             </label>
-            <Input 
+            <Input
               id="name"
               v-model="formData.name"
-              placeholder="Enter tenant name" 
-              autoFocus
+              placeholder="Enter tenant name"
+              auto-focus
             />
             <p class="text-sm text-muted-foreground">
               The name will be displayed in the user interface.
             </p>
           </div>
-          
-          <div class="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+
+          <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
             <div class="space-y-0.5">
               <label class="text-sm font-medium leading-none" for="tenant-active">Active</label>
               <p class="text-sm text-muted-foreground">
@@ -369,10 +371,10 @@ onMounted(() => {
             </div>
             <Switch id="tenant-active" :checked="isTenantActive" @update:checked="isTenantActive = $event" />
           </div>
-          
+
           <div v-if="formData.name" class="space-y-2">
             <label class="text-sm font-medium leading-none">Slug</label>
-            <div class="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <div class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
               {{ generateSlug(formData.name) }}
             </div>
             <p class="text-sm text-muted-foreground">
@@ -380,15 +382,15 @@ onMounted(() => {
             </p>
           </div>
         </div>
-        
+
         <AlertDialogFooter>
           <AlertDialogCancel @click="showCreateDialog = false; resetForm()">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-primary text-primary-foreground hover:bg-primary/90"
-            @click="createTenant"
             :disabled="!formData.name"
+            @click="createTenant"
           >
             <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
             Create Tenant
@@ -401,26 +403,28 @@ onMounted(() => {
     <AlertDialog :open="showEditDialog" @update:open="showEditDialog = $event">
       <AlertDialogContent class="sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle class="text-xl">Edit Tenant</AlertDialogTitle>
+          <AlertDialogTitle class="text-xl">
+            Edit Tenant
+          </AlertDialogTitle>
           <AlertDialogDescription>
             Update the selected tenant information.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        
-        <div class="space-y-6 py-4">
+
+        <div class="py-4 space-y-6">
           <div class="space-y-2">
             <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="edit-name">
               Name <span class="text-destructive">*</span>
             </label>
-            <Input 
+            <Input
               id="edit-name"
               v-model="formData.name"
-              placeholder="Enter tenant name" 
-              autoFocus
+              placeholder="Enter tenant name"
+              auto-focus
             />
           </div>
-          
-          <div class="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+
+          <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
             <div class="space-y-0.5">
               <label class="text-sm font-medium leading-none" for="edit-tenant-active">Active</label>
               <p class="text-sm text-muted-foreground">
@@ -429,10 +433,10 @@ onMounted(() => {
             </div>
             <Switch id="edit-tenant-active" :checked="isTenantActive" @update:checked="isTenantActive = $event" />
           </div>
-          
+
           <div v-if="editingTenant" class="space-y-2">
             <label class="text-sm font-medium leading-none">Slug</label>
-            <div class="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <div class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
               {{ editingTenant.slug }}
             </div>
             <p class="text-sm text-muted-foreground">
@@ -440,15 +444,15 @@ onMounted(() => {
             </p>
           </div>
         </div>
-        
+
         <AlertDialogFooter>
           <AlertDialogCancel @click="showEditDialog = false; resetForm()">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-primary text-primary-foreground hover:bg-primary/90"
-            @click="updateTenant"
             :disabled="!formData.name"
+            @click="updateTenant"
           >
             <Icon name="lucide:save" class="mr-2 h-4 w-4" />
             Save Changes

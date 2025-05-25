@@ -21,4 +21,4 @@ export default defineEventHandler(async (event) => {
     return { status: 400, message: error.message }
   }
   return { success: true }
-}) 
+})

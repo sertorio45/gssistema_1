@@ -12,4 +12,4 @@ export const useTenantStore = defineStore('tenant', {
       this.tenantId = null
     },
   },
-}) 
+})

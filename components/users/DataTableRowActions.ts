@@ -1,8 +1,8 @@
 import type { Row } from '@tanstack/vue-table'
 import type { User } from './columns'
-import { h, computed } from 'vue'
-import { Button } from '../ui/button'
 import { resolveComponent, useEmitter } from '#imports'
+import { computed, h } from 'vue'
+import { Button } from '../ui/button'
 
 export const DataTableRowActions = {
   props: {
@@ -50,4 +50,4 @@ export const DataTableRowActions = {
       ]),
     ])
   },
-} 
+}

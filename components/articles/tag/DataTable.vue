@@ -1,16 +1,11 @@
 <script setup lang="ts">
 import type {
-  ColumnDef,
   ColumnFiltersState,
   SortingState,
   VisibilityState,
 } from '@tanstack/vue-table'
 
 import type { Tag } from './columns'
-import { columns } from './columns'
-import DataTablePagination from '@/components/tasks/components/DataTablePagination.vue'
-import DataTableToolbar from './DataTableToolbar.vue'
-import { valueUpdater } from '@/lib/utils'
 import {
   FlexRender,
   getCoreRowModel,
@@ -21,6 +16,10 @@ import {
   getSortedRowModel,
   useVueTable,
 } from '@tanstack/vue-table'
+import DataTablePagination from '@/components/tasks/components/DataTablePagination.vue'
+import { valueUpdater } from '@/lib/utils'
+import { columns } from './columns'
+import DataTableToolbar from './DataTableToolbar.vue'
 
 interface DataTableProps {
   data: Tag[]
@@ -109,4 +108,4 @@ const table = useVueTable({
 
     <DataTablePagination :table="table" />
   </div>
-</template> 
+</template>

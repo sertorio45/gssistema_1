@@ -91,5 +91,4 @@ export const columns: ColumnDef<any>[] = [
       onDelete: () => table.options.meta?.onDelete?.(row.original),
     }),
   },
-] 
-
+]

@@ -30,11 +30,13 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     try {
       const { useTenantStore } = await import('~/stores/tenant')
       tenantId = useTenantStore().tenantId
-    } catch {}
+    }
+    catch {}
     let userRole = null
     if (tenantId && tenantRoles[tenantId]) {
       userRole = tenantRoles[tenantId]
-    } else {
+    }
+    else {
       const firstTenant = Object.keys(tenantRoles)[0]
       if (firstTenant) {
         userRole = tenantRoles[firstTenant]
@@ -68,7 +70,6 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     if (!publicPages.includes(to.path)) {
       return navigateTo('/')
     }
-    return
   }
 })
 

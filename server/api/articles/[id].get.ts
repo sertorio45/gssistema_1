@@ -1,24 +1,29 @@
-import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import { defineEventHandler, getRouterParam } from 'h3'
 
 export default defineEventHandler(async (event) => {
+  // Autenticação do usuário
   const user = await serverSupabaseUser(event)
   if (!user) {
     return { status: 401, message: 'Unauthorized' }
   }
 
-  const client = await serverSupabaseClient(event)
+  // Cliente Supabase
+  const client = await serverSupabaseServiceRole(event)
   const id = getRouterParam(event, 'id')
   const { tenantId, role } = event.context.auth || {}
 
-  let query = client.from('articles').select('*').eq('id', id)
-  if (role === 'cliente') {
-    query = query.eq('tenant_id', tenantId)
+  // Buscar artigo completo
+  const { data: article, error } = await client
+    .from('articles')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error || !article) {
+    return { status: 404, message: 'Article not found' }
   }
 
-  const { data, error } = await query.single()
-  if (error) {
-    return { status: 404, message: error.message }
-  }
-  return data
-}) 
+
+  return { status: 200, data: article }
+})

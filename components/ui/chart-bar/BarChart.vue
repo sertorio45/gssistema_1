@@ -1,11 +1,9 @@
 <script setup lang="ts" generic="T extends Record<string, any>">
-import { Chart as ChartJS, CategoryScale, BarElement, LinearScale, Title, Legend, Tooltip } from 'chart.js'
+import { useColorMode } from '#imports'
+import { BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Title, Tooltip } from 'chart.js'
+import { computed, nextTick, ref, watch } from 'vue'
 import { Bar } from 'vue-chartjs'
 import { cn } from '@/lib/utils'
-import { computed, watch, onMounted, ref, nextTick } from 'vue'
-import { useColorMode } from '#imports'
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 // Props definition
 const props = withDefaults(defineProps<{
@@ -77,26 +75,32 @@ const props = withDefaults(defineProps<{
   showGridLine: true,
 })
 
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
+
 const colorMode = useColorMode()
 
 // Cores adaptadas para temas light e dark
-const getLightColors = () => [
-  'hsl(var(--primary))',
-  'hsl(var(--blue-400))',
-  'hsl(var(--cyan-400))',
-  'hsl(var(--green-500))',
-  'hsl(var(--yellow-500))',
-  'hsl(var(--red-400))',
-]
+function getLightColors() {
+  return [
+    'hsl(var(--primary))',
+    'hsl(var(--blue-400))',
+    'hsl(var(--cyan-400))',
+    'hsl(var(--green-500))',
+    'hsl(var(--yellow-500))',
+    'hsl(var(--red-400))',
+  ]
+}
 
-const getDarkColors = () => [
-  'rgba(255, 255, 255, 0.9)',
-  'hsl(var(--blue-200))',
-  'hsl(var(--cyan-200))',
-  'hsl(var(--green-200))',
-  'hsl(var(--yellow-200))',
-  'hsl(var(--red-200))',
-]
+function getDarkColors() {
+  return [
+    'rgba(255, 255, 255, 0.9)',
+    'hsl(var(--blue-200))',
+    'hsl(var(--cyan-200))',
+    'hsl(var(--green-200))',
+    'hsl(var(--yellow-200))',
+    'hsl(var(--red-200))',
+  ]
+}
 
 // Seleciona cores com base no tema atual
 const themeColors = computed(() => {
@@ -176,28 +180,28 @@ watch(() => colorMode.value, () => {
       chart.data.datasets.forEach((dataset: any, i: number) => {
         dataset.backgroundColor = colors.value[i % colors.value.length]
       })
-      
+
       // Atualizar configurações de cores
       if (chart.options.scales.x.ticks) {
-        chart.options.scales.x.ticks.color = 
-          colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        chart.options.scales.x.ticks.color
+          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
       }
-      
+
       if (chart.options.scales.y.ticks) {
-        chart.options.scales.y.ticks.color = 
-          colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        chart.options.scales.y.ticks.color
+          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
       }
-      
+
       if (chart.options.scales.y.grid) {
-        chart.options.scales.y.grid.color = 
-          colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'hsl(var(--muted) / 0.2)'
+        chart.options.scales.y.grid.color
+          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'hsl(var(--muted) / 0.2)'
       }
-      
+
       if (chart.options.plugins?.legend?.labels) {
-        chart.options.plugins.legend.labels.color = 
-          colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        chart.options.plugins.legend.labels.color
+          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
       }
-      
+
       // Atualizar gráfico
       chart.update()
     }

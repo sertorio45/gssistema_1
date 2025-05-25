@@ -16,7 +16,9 @@ const props = defineProps<DataTablePaginationProps<any>>()
     </div>
     <div class="flex items-center space-x-6 lg:space-x-8">
       <div class="flex items-center space-x-2">
-        <p class="text-sm font-medium">Linhas por página</p>
+        <p class="text-sm font-medium">
+          Linhas por página
+        </p>
         <Select
           :model-value="String(table.getState().pagination.pageSize)"
           :options="['10', '20', '30', '40', '50']"
@@ -36,7 +38,7 @@ const props = defineProps<DataTablePaginationProps<any>>()
           </SelectContent>
         </Select>
       </div>
-      <div class="flex w-[100px] items-center justify-center text-sm font-medium">
+      <div class="w-[100px] flex items-center justify-center text-sm font-medium">
         Página {{ table.getState().pagination.pageIndex + 1 }} de
         {{ table.getPageCount() }}
       </div>

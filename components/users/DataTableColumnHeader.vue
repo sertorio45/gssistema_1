@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { Column } from '@tanstack/vue-table'
 import type { User } from './columns'
-import { cn } from '@/lib/utils'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Button } from '@/components/ui/button'
 import { Icon } from '#components'
+import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 
 interface DataTableColumnHeaderProps {
   column: Column<User, any>
@@ -56,4 +56,4 @@ export default {
   <div v-else :class="$attrs.class">
     {{ title }}
   </div>
-</template> 
+</template>

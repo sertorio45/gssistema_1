@@ -9,11 +9,13 @@ O módulo de **article** gerencia artigos, categorias e tags, permitindo CRUD co
 ## Componentes
 
 ### Estrutura
+
 - `components/articles/` — Componentes principais de artigos
 - `components/articles/category/` — Componentes de categorias
 - `components/articles/tag/` — Componentes de tags
 
 ### Principais Componentes
+
 - **DataTable.vue**: Tabela de listagem de artigos, categorias ou tags, com paginação, busca e ações.
 - **DataTableToolbar.vue**: Barra de ferramentas para filtros, busca e ações em massa.
 - **DataTableRowActions.vue**: Ações rápidas (editar, excluir, etc) para cada linha.
@@ -36,6 +38,7 @@ O módulo de **article** gerencia artigos, categorias e tags, permitindo CRUD co
 ## Composables
 
 ### `useArticles.ts`
+
 - **Função:** Centraliza toda a lógica de CRUD de artigos, categorias e tags, além de relacionamentos e cache local.
 - **Principais métodos:**
   - `fetchArticles(tenantId?)`: Busca artigos, filtrando por tenant.
@@ -49,6 +52,7 @@ O módulo de **article** gerencia artigos, categorias e tags, permitindo CRUD co
   - **Cache:** Mantém artigos, categorias e tags em refs locais para evitar requisições desnecessárias.
 
 ### `useTenantArticles.ts`
+
 - **Função:** Integra o contexto de tenant ao gerenciamento de artigos, garantindo que todas as operações respeitem o tenant selecionado.
 - **Principais métodos:**
   - `loadArticlesByTenant()`: Carrega artigos do tenant atual.
@@ -103,4 +107,4 @@ O módulo de **article** gerencia artigos, categorias e tags, permitindo CRUD co
 
 ---
 
-Se precisar de exemplos de uso, fluxos visuais ou detalhes de integração com outros módulos, posso detalhar ainda mais! 
+Se precisar de exemplos de uso, fluxos visuais ou detalhes de integração com outros módulos, posso detalhar ainda mais!

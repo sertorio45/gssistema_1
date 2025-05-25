@@ -5,7 +5,6 @@ import type {
   SortingState,
   VisibilityState,
 } from '@tanstack/vue-table'
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import type { User } from './columns'
 import {
   FlexRender,
@@ -17,18 +16,11 @@ import {
   getSortedRowModel,
   useVueTable,
 } from '@tanstack/vue-table'
-import DataTableToolbar from './DataTableToolbar.vue'
-import DataTablePagination from './DataTablePagination.vue'
+import { computed, ref, watch } from 'vue'
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Icon } from '#components'
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import DataTablePagination from './DataTablePagination.vue'
+import DataTableToolbar from './DataTableToolbar.vue'
 
 interface DataTableProps {
   columns: ColumnDef<User, any>[]
@@ -64,28 +56,32 @@ const table = useVueTable({
   onSortingChange: (updater) => {
     if (typeof updater === 'function') {
       sorting.value = updater(sorting.value)
-    } else {
+    }
+    else {
       sorting.value = updater
     }
   },
   onColumnFiltersChange: (updater) => {
     if (typeof updater === 'function') {
       columnFilters.value = updater(columnFilters.value)
-    } else {
+    }
+    else {
       columnFilters.value = updater
     }
   },
   onColumnVisibilityChange: (updater) => {
     if (typeof updater === 'function') {
       columnVisibility.value = updater(columnVisibility.value)
-    } else {
+    }
+    else {
       columnVisibility.value = updater
     }
   },
   onRowSelectionChange: (updater) => {
     if (typeof updater === 'function') {
       rowSelection.value = updater(rowSelection.value)
-    } else {
+    }
+    else {
       rowSelection.value = updater
     }
   },
@@ -110,19 +106,19 @@ const table = useVueTable({
 })
 
 // Function to create role badge display format
-const _getRoleBadge = function(role: string) {
+function _getRoleBadge(role: string) {
   const roleLabels: Record<string, string> = {
     admin: 'Administrator',
     funcionario: 'Employee',
     cliente: 'Client',
   }
-  
+
   const roleIcons: Record<string, string> = {
     admin: 'lucide:shield',
     funcionario: 'lucide:briefcase',
     cliente: 'lucide:user',
   }
-  
+
   const roleColors: Record<string, string> = {
     admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
     funcionario: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
@@ -196,4 +192,4 @@ watch(() => props.data, () => {
 
     <DataTablePagination :table="table" />
   </div>
-</template> 
+</template>

@@ -1,5 +1,3 @@
-import defu from 'defu'
-
 export default defineAppConfig({
   icon: {
     size: '', // default <Icon> size applied

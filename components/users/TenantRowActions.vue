@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Icon } from '#components'
 import type { Row } from '@tanstack/vue-table'
 import type { Tenant } from './tenant-columns'
+import { Icon } from '#components'
 import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 
@@ -44,4 +44,4 @@ function handleDelete() {
       <span class="sr-only">Delete</span>
     </Button>
   </div>
-</template> 
+</template>

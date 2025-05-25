@@ -50,4 +50,4 @@ const statusOptions = [
     </div>
     <DataTableViewOptions :table="table" />
   </div>
-</template> 
+</template>

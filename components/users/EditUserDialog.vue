@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '#components'
+import { ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '~/components/ui/toast'
-import { ref } from 'vue'
 import UserForm from './UserForm.vue'
 
 const emit = defineEmits<{

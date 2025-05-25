@@ -211,9 +211,9 @@ Você pode criar um novo tenant usando a função SQL `create_tenant_with_admin`
 
 ```sql
 SELECT * FROM public.create_tenant_with_admin(
-  'Nome do Tenant', 
-  'slug-do-tenant', 
-  'email@exemplo.com', 
+  'Nome do Tenant',
+  'slug-do-tenant',
+  'email@exemplo.com',
   'senha-segura'
 );
 ```
@@ -276,6 +276,7 @@ export SUPABASE_PROJECT_REF="ref-do-projeto"
 ### Como usar o sistema multitenancy
 
 1. **Administrador e Funcionários**:
+
    - Podem selecionar diferentes tenants no menu lateral
    - Podem criar, editar e gerenciar tenants na página Admin > Tenants
 

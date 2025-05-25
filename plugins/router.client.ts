@@ -17,7 +17,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (window.location.pathname === '/404' || window.location.pathname === '/') {
       // Recupera a última rota armazenada
       const lastRoute = sessionStorage.getItem('lastRoute')
-      
+
       if (lastRoute && lastRoute !== '/login' && !lastRoute.includes('/confirm')) {
         // Navega de volta para a última rota conhecida
         setTimeout(() => {
@@ -27,4 +27,4 @@ export default defineNuxtPlugin((nuxtApp) => {
       }
     }
   })
-}) 
+})

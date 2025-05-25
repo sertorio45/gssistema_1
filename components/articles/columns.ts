@@ -1,7 +1,7 @@
 import type { ColumnDef } from '@tanstack/vue-table'
+import { h } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
 import { Checkbox } from '@/components/ui/checkbox'
-import { h } from 'vue'
 import DataTableRowActions from './DataTableRowActions.vue'
 
 export interface Article {
@@ -39,12 +39,12 @@ export const columns: ColumnDef<Article>[] = [
     cell: ({ row }) => {
       const publish_status = row.getValue('publish_status')
       const isPublished = publish_status === 'published'
-      
+
       return h('div', { class: 'flex w-[100px] items-center' }, [
         h('div', {
           class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${
-            isPublished 
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' 
+            isPublished
+              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
               : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
           }`,
         }, [
@@ -64,4 +64,4 @@ export const columns: ColumnDef<Article>[] = [
     id: 'actions',
     cell: ({ row }) => h(DataTableRowActions, { row }),
   },
-] 
+]

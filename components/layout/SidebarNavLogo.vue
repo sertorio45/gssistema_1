@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useColorMode } from '#imports'
-import { Skeleton } from '@/components/ui/skeleton'
 import { nextTick, onMounted, ref, watch } from 'vue'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const colorMode = useColorMode()
 

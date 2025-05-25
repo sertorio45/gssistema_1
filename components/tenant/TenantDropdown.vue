@@ -38,11 +38,16 @@ async function loadTenants() {
   isLoading.value = true
   try {
     tenants.value = await listTenants()
+    
     // Para cliente, filtra só o tenant vinculado
     if (currentRole.value === 'cliente' && currentTenant.value) {
       tenants.value = tenants.value.filter(t => t.id === currentTenant.value.id)
     }
-    // Para admin/funcionário, mostra todos (NÃO filtra)
+    
+    // Se não houver tenant selecionado, selecionar o primeiro da lista
+    if (!currentTenant.value && tenants.value.length > 0) {
+      await setCurrentTenantById(tenants.value[0].id)
+    }
   }
   catch (error: any) {
     console.error('Error loading tenants:', error)
@@ -60,43 +65,64 @@ async function loadTenants() {
 // Select a tenant
 async function selectTenant(tenant: any) {
   try {
+    // Manter o tenant selecionado independente da rota
     await setCurrentTenantById(tenant.id)
+    
     toast({
-      title: 'Tenant Selected',
-      description: `You are now in tenant: ${tenant.name}`,
+      title: 'Tenant Selecionado',
+      description: `Você está agora no tenant: ${tenant.name}`,
     })
-    // Close dropdown
+    
+    // Fechar dropdown
     isOpen.value = false
+    
     // Emitir evento global para atualizar o front
-    window.dispatchEvent(new CustomEvent('tenant-changed'))
+    window.dispatchEvent(new CustomEvent('tenant-changed', { 
+      detail: { tenantId: tenant.id },
+    }))
   }
   catch (error: any) {
     console.error('Error selecting tenant:', error)
     toast({
-      title: 'Error',
-      description: 'Could not select the tenant.',
+      title: 'Erro',
+      description: 'Não foi possível selecionar o tenant.',
       variant: 'destructive',
     })
   }
 }
 
-// Load tenants when component is mounted
+// Adicionar listener global para manter o tenant selecionado
 onMounted(async () => {
   await loadTenants()
+  
+  // Adicionar listener para manter o tenant selecionado
+  const handleTenantChanged = (event: Event) => {
+    const customEvent = event as CustomEvent
+    if (customEvent.detail?.tenantId) {
+      // Lógica adicional se necessário
+    }
+  }
+  
+  window.addEventListener('tenant-changed', handleTenantChanged)
+  
+  // Remover listener quando o componente for desmontado
+  return () => {
+    window.removeEventListener('tenant-changed', handleTenantChanged)
+  }
 })
 </script>
 
 <template>
   <div v-if="currentRole !== 'cliente'">
     <DropdownMenu v-model:open="isOpen">
-      <DropdownMenuTrigger class="flex items-center space-x-2 rounded-md px-3 py-2 outline-none focus:outline-none focus:ring-0 hover:bg-muted/50 w-full">
-        <div class="flex items-center justify-between w-full">
+      <DropdownMenuTrigger class="w-full flex items-center rounded-md px-3 py-2 outline-none space-x-2 hover:bg-muted/50 focus:outline-none focus:ring-0">
+        <div class="w-full flex items-center justify-between">
           <div class="flex items-center space-x-3">
-            <div class="flex items-center justify-center bg-primary text-primary-foreground h-8 w-8 rounded-full">
-              <span class="text-white font-medium text-xs">{{ currentTenant?.name?.charAt(0) || 'T' }}</span>
+            <div class="h-8 w-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <span class="text-xs text-white font-medium">{{ currentTenant?.name?.charAt(0) || 'T' }}</span>
             </div>
             <div class="flex flex-col items-start">
-              <span class="font-medium text-sm">{{ currentTenant?.name || 'Select Tenant' }}</span>
+              <span class="text-sm font-medium">{{ currentTenant?.name || 'Select Tenant' }}</span>
             </div>
           </div>
           <Icon name="lucide:chevron-down" class="h-4 w-4" />
@@ -106,19 +132,19 @@ onMounted(async () => {
         <!-- Search -->
         <div class="relative px-3 py-1.5">
           <div class="relative">
-            <Icon name="lucide:search" class="absolute left-2 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Icon name="lucide:search" class="absolute left-2 top-1/2 h-3.5 w-3.5 transform text-muted-foreground -translate-y-1/2" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search tenant..."
-              class="w-full pl-7 pr-2 py-1 text-xs rounded-md border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 h-7"
-            />
+              class="h-7 w-full border border-input rounded-md bg-background py-1 pl-7 pr-2 text-xs ring-offset-background disabled:cursor-not-allowed placeholder:text-muted-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-ring"
+            >
           </div>
         </div>
         <div class="py-1.5">
           <!-- Skeleton loading -->
           <template v-if="isLoading">
-            <div class="space-y-2 px-3 py-2">
+            <div class="px-3 py-2 space-y-2">
               <div class="flex items-center space-x-2">
                 <Skeleton class="h-6 w-6 rounded-full" />
                 <Skeleton class="h-4 w-32" />
@@ -135,17 +161,17 @@ onMounted(async () => {
           </template>
           <template v-else>
             <!-- Personal Account Section (Current Tenant) -->
-            <div class="px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <div class="px-3 py-1 text-xs text-muted-foreground font-semibold">
               Current Account
             </div>
             <DropdownMenuItem
               v-if="currentTenant"
-              class="flex items-center space-x-2 px-3 py-1.5 cursor-default"
+              class="flex cursor-default items-center px-3 py-1.5 space-x-2"
             >
-              <div class="flex items-center justify-center bg-primary text-primary-foreground h-6 w-6 rounded-full">
-                <span class="text-white font-medium text-xs">{{ currentTenant.name.charAt(0) }}</span>
+              <div class="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <span class="text-xs text-white font-medium">{{ currentTenant.name.charAt(0) }}</span>
               </div>
-              <span class="font-medium text-sm">{{ currentTenant.name }}</span>
+              <span class="text-sm font-medium">{{ currentTenant.name }}</span>
               <span class="ml-auto text-primary">
                 <Icon name="lucide:check" class="h-3.5 w-3.5" />
               </span>
@@ -154,7 +180,7 @@ onMounted(async () => {
               No tenant selected
             </div>
             <!-- Teams Section -->
-            <div class="mt-1.5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+            <div class="mt-1.5 px-3 py-1 text-xs text-muted-foreground font-semibold">
               Tenants
             </div>
             <div v-if="filteredTenants.length === 0" class="px-3 py-1.5 text-xs text-muted-foreground italic">
@@ -163,23 +189,23 @@ onMounted(async () => {
             <DropdownMenuItem
               v-for="tenant in filteredTenants"
               :key="tenant.id"
-              @click="selectTenant(tenant)"
               :disabled="!tenant.is_active || currentTenant?.id === tenant.id"
-              class="flex items-center space-x-2 px-3 py-1.5"
+              class="flex items-center px-3 py-1.5 space-x-2"
+              @click="selectTenant(tenant)"
             >
-              <div class="flex items-center justify-center bg-secondary text-secondary-foreground h-6 w-6 rounded-full">
-                <span class="text-white font-medium text-xs">{{ tenant.name.charAt(0) }}</span>
+              <div class="h-6 w-6 flex items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                <span class="text-xs text-white font-medium">{{ tenant.name.charAt(0) }}</span>
               </div>
-              <span class="font-medium text-sm">{{ tenant.name }}</span>
+              <span class="text-sm font-medium">{{ tenant.name }}</span>
             </DropdownMenuItem>
             <!-- Create new tenant option -->
-            <div class="border-t my-1.5"></div>
-            <DropdownMenuItem asChild class="cursor-pointer">
-              <NuxtLink to="/admin/tenants" class="flex items-center space-x-2 px-3 py-1.5">
-                <div class="flex items-center justify-center bg-muted h-6 w-6 rounded-full">
+            <div class="my-1.5 border-t" />
+            <DropdownMenuItem as-child class="cursor-pointer">
+              <NuxtLink to="/admin/tenants" class="flex items-center px-3 py-1.5 space-x-2">
+                <div class="h-6 w-6 flex items-center justify-center rounded-full bg-muted">
                   <Icon name="lucide:plus" class="h-3.5 w-3.5" />
                 </div>
-                <span class="font-medium text-sm">Manage Tenants</span>
+                <span class="text-sm font-medium">Manage Tenants</span>
               </NuxtLink>
             </DropdownMenuItem>
           </template>
@@ -187,4 +213,4 @@ onMounted(async () => {
       </DropdownMenuContent>
     </DropdownMenu>
   </div>
-</template> 
+</template>

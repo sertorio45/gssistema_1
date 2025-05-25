@@ -9,6 +9,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 ## Componentes
 
 ### 1. `TenantIndicator.vue`
+
 - **Função:** Exibe o tenant atualmente selecionado no topo da interface, com opções para trocar ou sair do tenant.
 - **Ações:**
   - Mostra o nome do tenant ativo.
@@ -17,6 +18,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
   - Se não houver tenant selecionado, exibe botão para selecionar.
 
 ### 2. `TenantDropdown.vue`
+
 - **Função:** Dropdown para trocar rapidamente de tenant, com busca e listagem dos tenants disponíveis.
 - **Ações:**
   - Busca dinâmica por nome ou slug.
@@ -25,6 +27,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
   - Link para gerenciamento completo em `/admin/tenants`.
 
 ### 3. `TenantSelector.vue`
+
 - **Função:** Página de seleção de tenant (caso utilizada), geralmente acessada ao login ou ao trocar de tenant.
 - **Ações:**
   - Busca por nome ou slug.
@@ -37,6 +40,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 ## Composable
 
 ### `useTenant.ts`
+
 - **Função:** Centraliza toda a lógica de tenants para uso global.
 - **Principais métodos:**
   - `listTenants()`: Busca todos os tenants do banco (Supabase).
@@ -50,6 +54,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 ## Store
 
 ### `stores/tenant.ts`
+
 - **Pinia Store** para gerenciamento global do tenant selecionado.
 - **Estado:** `tenantId` (string ou null).
 - **Ações:**
@@ -61,6 +66,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 ## Middleware
 
 ### `middleware/tenant.ts`
+
 - **Função:** Garante que rotas que exigem tenant tenham um tenant válido selecionado.
 - **Fluxo:**
   - Se a rota requer tenant (`meta.requiresTenant`), verifica se há slug na URL ou tenant ativo.
@@ -71,6 +77,7 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 ## Página Administrativa
 
 ### `pages/admin/tenants.vue`
+
 - **Função:** CRUD completo de tenants (apenas para admin).
 - **Funcionalidades:**
   - Listagem em datatable (padrão do sistema).
@@ -85,7 +92,8 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 ## Menu
 
 ### `constants/menus.ts`
-- **Entrada de menu:**  
+
+- **Entrada de menu:**
   - Administração > Tenants (`/admin/tenants`)
   - Apenas visível para usuários com papel `admin`.
 
@@ -122,4 +130,47 @@ O módulo de **tenant** implementa multi-tenancy, permitindo que diferentes orga
 - **[2024-05-23]** O selector de tenant agora aparece para admin/funcionário mesmo sem tenant selecionado.
 - **[2024-05-23]** O frontend e middleware garantem que o contexto de tenant é opcional para admin/funcionário, mas obrigatório para cliente.
 
-Se precisar de exemplos de uso, fluxos visuais ou detalhes de integração com outros módulos, posso detalhar ainda mais! 
+Se precisar de exemplos de uso, fluxos visuais ou detalhes de integração com outros módulos, posso detalhar ainda mais!
+
+---
+
+## Filtro Multi-Tenant/Role Reutilizável
+
+### Composable: `useTenantRoleFilter.ts`
+
+- **Função:** Permite filtrar qualquer array de dados (ex: artigos, CRM, categorias, etc) conforme o tenant e o papel do usuário (admin, funcionário, cliente).
+- **Local:** `composables/useTenantRoleFilter.ts`
+- **Como usar:**
+  1. Importe o composable na sua página:
+     ```ts
+     import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
+     ```
+  2. Busque os dados normalmente (ex: com useFetch):
+     ```ts
+     const { data: itemsRaw } = useFetch<any[]>('/api/sua-rota')
+     ```
+  3. Aplique o filtro:
+     ```ts
+     const { filteredData: items } = useTenantRoleFilter<any>(itemsRaw as any, 'tenant_id')
+     ```
+  4. Use `items` no seu template:
+     ```vue
+     <DataTable :data="items" ... />
+     ```
+- **Vantagens:**
+  - Centraliza a regra de negócio de multi-tenancy.
+  - Facilita manutenção e escalabilidade.
+  - Pronto para ser usado em qualquer listagem multi-tenant do sistema.
+
+### Exemplo prático em `pages/articles/index.vue`:
+
+```ts
+import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
+const { data: articlesRaw } = useFetch<any[]>('/api/articles')
+const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id')
+```
+
+No template:
+```vue
+<DataTable :data="articles" ... />
+```

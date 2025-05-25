@@ -39,7 +39,7 @@ export function useAuth() {
     try {
       // Obter a sessão atual para extrair o token
       const { data: { session } } = await client.auth.getSession()
-      
+
       if (session?.access_token) {
         // Decodificar o token para extrair app_metadata.tenant_roles
         const decoded = decodeJWT(session.access_token)
@@ -49,11 +49,13 @@ export function useAuth() {
         try {
           const { useTenantStore } = await import('~/stores/tenant')
           tenantId = useTenantStore().tenantId
-        } catch {}
+        }
+        catch {}
         let role = null
         if (tenantId && tenantRoles[tenantId]) {
           role = tenantRoles[tenantId]
-        } else {
+        }
+        else {
           // Fallback: pega o primeiro role disponível
           const firstTenant = Object.keys(tenantRoles)[0]
           if (firstTenant) {

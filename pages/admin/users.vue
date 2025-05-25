@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '#components'
 import { onMounted, ref } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,13 +11,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useToast } from '~/components/ui/toast'
 import { columns } from '@/components/users/columns'
 import DataTable from '@/components/users/DataTable.vue'
+import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import { useToast } from '~/components/ui/toast'
 import CreateUserDialog from '~/components/users/CreateUserDialog.vue'
 import EditUserDialog from '~/components/users/EditUserDialog.vue'
-import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 
 const createUserDialog = ref<InstanceType<typeof CreateUserDialog> | null>(null)
 const editUserDialog = ref<InstanceType<typeof EditUserDialog> | null>(null)
@@ -203,7 +203,7 @@ onMounted(() => {
       :columns="columns"
       @delete="handleDeleteClick"
       @edit="user => editUserDialog?.open(user)"
-      @selectionChange="updateSelectedItems"
+      @selection-change="updateSelectedItems"
     />
 
     <!-- Action bar for multiple items -->

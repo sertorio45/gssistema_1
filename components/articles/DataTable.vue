@@ -7,7 +7,6 @@ import type {
 } from '@tanstack/vue-table'
 
 import type { Article } from './columns'
-import { valueUpdater } from '@/lib/utils'
 import {
   FlexRender,
   getCoreRowModel,
@@ -19,6 +18,7 @@ import {
   useVueTable,
 } from '@tanstack/vue-table'
 import DataTablePagination from '@/components/tasks/components/DataTablePagination.vue'
+import { valueUpdater } from '@/lib/utils'
 import DataTableToolbar from './DataTableToolbar.vue'
 
 interface DataTableProps {
@@ -106,4 +106,4 @@ function handleDelete(article: Article) {
 
     <DataTablePagination :table="table" />
   </div>
-</template> 
+</template>

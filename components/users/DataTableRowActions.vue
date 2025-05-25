@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Icon } from '#components'
 import type { Row } from '@tanstack/vue-table'
 import type { User } from './columns'
+import { Icon } from '#components'
 import { computed, ref } from 'vue'
 import {
   AlertDialog,
@@ -73,7 +73,7 @@ function confirmDelete() {
           <AlertDialogCancel @click="showDeleteDialog = false">
             Cancelar
           </AlertDialogCancel>
-          <AlertDialogAction 
+          <AlertDialogAction
             class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             @click="confirmDelete"
           >
@@ -83,4 +83,4 @@ function confirmDelete() {
       </AlertDialogContent>
     </AlertDialog>
   </div>
-</template> 
+</template>

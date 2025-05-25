@@ -17,14 +17,14 @@ const statusOptions = [
     label: 'Publicado',
     value: 'published',
     icon: resolveComponent('Icon'),
-    iconProps: { name: 'lucide:check-circle', class: 'mr-2 h-4 w-4 text-muted-foreground' }
+    iconProps: { name: 'lucide:check-circle', class: 'mr-2 h-4 w-4 text-muted-foreground' },
   },
   {
     label: 'Rascunho',
     value: 'draft',
     icon: resolveComponent('Icon'),
-    iconProps: { name: 'lucide:clock', class: 'mr-2 h-4 w-4 text-muted-foreground' }
-  }
+    iconProps: { name: 'lucide:clock', class: 'mr-2 h-4 w-4 text-muted-foreground' },
+  },
 ]
 </script>
 
@@ -50,4 +50,4 @@ const statusOptions = [
     </div>
     <DataTableViewOptions :table="table" />
   </div>
-</template> 
+</template>

@@ -5,7 +5,7 @@
 export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.hook('app:created', () => {
     // Se estamos no cliente após um SSR
-    if (process.client) {
+    if (import.meta.client) {
       nuxtApp.hook('page:finish', () => {
         // Guarda o último path que foi navegado
         const currentPath = window.location.pathname + window.location.search
@@ -15,7 +15,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   })
 
   // Recupera o último path após reload
-  if (process.client && window.location.pathname === '/') {
+  if (import.meta.client && window.location.pathname === '/') {
     const lastPath = localStorage.getItem('lastPath')
     if (lastPath && lastPath !== '/' && lastPath !== '/login') {
       setTimeout(() => {
@@ -23,4 +23,4 @@ export default defineNuxtPlugin((nuxtApp) => {
       }, 100)
     }
   }
-}) 
+})
