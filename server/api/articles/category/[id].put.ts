@@ -6,12 +6,12 @@ export default defineEventHandler(async (event) => {
     // Cliente Supabase com service role
     const client = await serverSupabaseServiceRole(event)
     
-    // Obter ID do artigo da rota
+    // Obter ID da categoria da rota
     const id = getRouterParam(event, 'id')
     if (!id) {
       throw createError({
         statusCode: 400,
-        message: 'ID do artigo é obrigatório',
+        message: 'ID da categoria é obrigatório',
       })
     }
 
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     
     // Validar dados de entrada
-    const validationErrors = validateArticleUpdate(body)
+    const validationErrors = validateCategoryUpdate(body)
     if (validationErrors.length > 0) {
       throw createError({
         statusCode: 400,
@@ -57,35 +57,33 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Verificar se o artigo pertence ao tenant
-    const { data: existingArticle, error: existError } = await client
-      .from('articles')
+    // Verificar se a categoria pertence ao tenant
+    const { data: existingCategory, error: existError } = await client
+      .from('articles_category')
       .select('id, tenant_id')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
     
-    if (existError || !existingArticle) {
+    if (existError || !existingCategory) {
       throw createError({
         statusCode: 404,
-        message: 'Artigo não encontrado ou sem permissão de acesso',
+        message: 'Categoria não encontrada ou sem permissão de acesso',
       })
     }
 
     // Preparar dados para atualização
-    const articleToUpdate = {
+    const categoryToUpdate = {
       title: body.title,
       slug: body.slug,
-      content: body.content,
-      meta_description: body.meta_description,
       publish_status: body.publish_status || 'draft',
       tenant_id: tenantId,
     }
 
-    // Atualizar artigo
+    // Atualizar categoria
     const { data, error } = await client
-      .from('articles')
-      .update(articleToUpdate)
+      .from('articles_category')
+      .update(categoryToUpdate)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
@@ -94,7 +92,7 @@ export default defineEventHandler(async (event) => {
     if (error || !data) {
       throw createError({
         statusCode: 500,
-        message: error?.message || 'Erro ao atualizar artigo',
+        message: error?.message || 'Erro ao atualizar categoria',
       })
     }
 
@@ -105,7 +103,7 @@ export default defineEventHandler(async (event) => {
   }
   catch (error: any) {
     // Log detalhado do erro
-    console.error('Erro na atualização do artigo:', error)
+    console.error('Erro na atualização da categoria:', error)
     
     // Propagar o erro com detalhes
     throw createError({
@@ -116,7 +114,7 @@ export default defineEventHandler(async (event) => {
 })
 
 // Função de validação dos dados de entrada
-function validateArticleUpdate(data: any): string[] {
+function validateCategoryUpdate(data: any): string[] {
   const errors: string[] = []
 
   // Validar título

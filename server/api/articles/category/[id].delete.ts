@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   const { tenantId, role } = event.context.auth || {}
 
-  const { data: article } = await client.from('articles').select('tenant_id').eq('id', id).single()
+  const { data: article } = await client.from('articles_category').select('tenant_id').eq('id', id).single()
   if (!article || (role === 'cliente' && article.tenant_id !== tenantId)) {
     return { status: 403, message: 'Forbidden' }
   }

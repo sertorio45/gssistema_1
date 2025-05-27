@@ -80,6 +80,7 @@ export default defineEventHandler(async (event) => {
       meta_description: body.meta_description,
       publish_status: body.publish_status || 'draft',
       tenant_id: tenantId,
+      category_id: body.category_id,
     }
 
     // Atualizar artigo
@@ -132,6 +133,11 @@ function validateArticleUpdate(data: any): string[] {
   // Validar status de publicação
   if (data.publish_status && !['draft', 'published'].includes(data.publish_status)) {
     errors.push('Status de publicação inválido')
+  }
+
+  // Validar category_id
+  if (!data.category_id) {
+    errors.push('Categoria é obrigatória')
   }
 
   return errors

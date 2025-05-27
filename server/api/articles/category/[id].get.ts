@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
     .from('articles_category')
     .select('*')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .single()
 
   if (error || !article) {

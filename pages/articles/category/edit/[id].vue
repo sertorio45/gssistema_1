@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { useAsyncData } from '#app'
-import { onMounted, ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-
-import { useTenant } from '~/composables/useTenant'
-import { useTenantStore } from '~/stores/tenant'
-import { useToast } from '~/components/ui/toast'
-
+import { onMounted, ref } from 'vue'
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import Tiny from '~/components/articles/Tiny.vue'
+import { useToast } from '~/components/ui/toast'
+import { useTenant } from '~/composables/useTenant'
+import { useRoute } from 'vue-router'
+import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -25,8 +22,12 @@ interface ArticleForm {
   category_id: string
 }
 
-// Remover a definição não utilizada de ArticleCategory se não for usada em outro lugar
-// type _ArticleCategory = ArticleCategory // Se precisar manter a referência de tipo
+interface ArticleCategory {
+  id: string
+  title: string
+  tenant_id: string
+  created_at?: string
+}
 
 function generateSlug(text: string): string {
   return text
@@ -55,6 +56,7 @@ const form = ref<ArticleForm>({
 
 const showFloatingMenu = ref(false)
 const loading = ref(true)
+const categories = ref<ArticleCategory[]>([])
 
 // Carregar artigo para edição
 async function loadArticle() {
@@ -83,52 +85,45 @@ async function loadArticle() {
   loading.value = false
 }
 
-// Início da busca de categorias usando useAsyncData do Nuxt
-// Este bloco de código busca e filtra as categorias de artigos para o tenant atual
-const { 
-  data: categories, // Dados das categorias 
-  error,            // Objeto de erro caso ocorra falha na busca
-  pending           // Estado de carregamento 
-} = await useAsyncData('article-categories', async () => {
+// Função para buscar categorias
+async function fetchCategories() {
   try {
-    // Recuperar o tenant store para filtrar categorias
-    const tenantStore = useTenantStore()
-    
-    // Buscar categorias através da API
     const response = await $fetch('/api/articles/category', { 
       method: 'GET'
-    })
+     })
     
-    // Verificar se a resposta é um array válido
-    if (!Array.isArray(response)) {
-      throw new TypeError('Resposta inválida ao buscar categorias')
+    // Recuperar o tenant store
+    const tenantStore = useTenantStore()
+    
+    // Verificar se a resposta é um array ou tem status de erro
+    if (response && typeof response === 'object' && 'status' in response) {
+      // Se for um objeto de erro
+      if (response.status !== 200) {
+        throw new TypeError(response.message || 'Erro ao buscar categorias')
+      }
     }
 
-    // Filtrar categorias específicas do tenant atual
-    return response.filter(category => 
-      category.tenant_id === tenantStore.tenantId
-    )
+    // Verificar se a resposta é um array
+    if (Array.isArray(response)) {
+      // Filtrar categorias pelo tenant do Pinia
+      categories.value = response.filter(category => 
+        category.tenant_id === tenantStore.tenantId
+      )
+    } else {
+      // Se não for um array, tratar como erro
+      throw new TypeError('Resposta inválida ao buscar categorias')
+    }
   } catch (error) {
-    // Tratamento de erros na busca de categorias
     console.error('Erro ao buscar categorias:', error)
     toast({ 
       title: 'Erro', 
       description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias', 
       variant: 'destructive' 
     })
-    return [] // Retornar array vazio em caso de erro
+    // Definir categorias como array vazio em caso de erro
+    categories.value = []
   }
-}, {
-  // Configurações adicionais do useAsyncData
-  lazy: true,     // Carregamento preguiçoso 
-  default: () => [], // Valor padrão inicial
-}) 
-// Fim da busca de categorias usando useAsyncData
-
-// Tratamento adicional de estado de carregamento e erro
-// Estes computed são criados para facilitar o gerenciamento do estado
-const isLoading = computed(() => pending.value)    // Estado de carregamento
-const categoriesError = computed(() => error.value) // Objeto de erro
+}
 
 onMounted(async () => {
   window.addEventListener('scroll', () => {
@@ -136,6 +131,9 @@ onMounted(async () => {
   })
   
   await loadArticle()
+  
+  // Buscar categorias após carregar o artigo
+  await fetchCategories()
   
   loading.value = false
 })
