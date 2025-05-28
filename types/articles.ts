@@ -1,12 +1,10 @@
 export interface Tag {
   id: string
-  name: string
+  title: string
   slug: string
-  description?: string
-  is_active: boolean
-  created_at?: string
-  updated_at?: string
-  tenant_id?: string
+  description: string
+  publish_status: string
+  tenant_id: string
 }
 
 export interface Category {
@@ -15,6 +13,7 @@ export interface Category {
   slug: string
   description: string
   publish_status: string
+  tenant_id: string
 }
 
 export interface TagForm {

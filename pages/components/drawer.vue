@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { VisStackedBar, VisXYContainer } from '@unovis/vue'
+// import { VisStackedBar, VisXYContainer } from '@unocss/vis'
 
 const goal = ref(350)
 

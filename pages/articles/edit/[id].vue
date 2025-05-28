@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { useAsyncData } from '#app'
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-
-import { useTenant } from '~/composables/useTenant'
-import { useTenantStore } from '~/stores/tenant'
-import { useToast } from '~/components/ui/toast'
-
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import Tiny from '~/components/articles/Tiny.vue'
+import {
+  TagsInput,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+} from '~/components/ui/tags-input'
+import { useToast } from '~/components/ui/toast'
+import { useTenant } from '~/composables/useTenant'
+import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -60,21 +65,20 @@ const loading = ref(true)
 async function loadArticle() {
   loading.value = true
   try {
-    const response = await $fetch(`/api/articles/${route.params.id}`)
-    const { status, message } = response || {}
-    if (status && status !== 200) {
-      throw new Error(message || 'Erro ao buscar artigo')
+    const response: any = await $fetch(`/api/articles/${route.params.id}`)
+    if (response && typeof response === 'object' && 'status' in response && response.status !== 200) {
+      throw new Error(response.message || 'Erro ao buscar artigo')
     }
-    if (typeof response.data === 'object' && response.data !== null) {
-      const data = response.data
+    if (response && typeof response === 'object' && 'data' in response) {
+      const data: any = response.data
       form.value = {
-        id: data.id,
-        title: data.title,
-        slug: data.slug,
-        content: data.content,
+        id: data.id || '',
+        title: data.title || '',
+        slug: data.slug || '',
+        content: data.content || '',
         description: data.meta_description || data.description || '',
         category_id: data.category_id || '',
-        publish_status: data.publish_status || 'draft',
+        publish_status: data.publish_status || '',
       }
     }
   } catch (e: any) {
@@ -85,50 +89,146 @@ async function loadArticle() {
 
 // Início da busca de categorias usando useAsyncData do Nuxt
 // Este bloco de código busca e filtra as categorias de artigos para o tenant atual
-const { 
-  data: categories, // Dados das categorias 
-  error,            // Objeto de erro caso ocorra falha na busca
-  pending           // Estado de carregamento 
+const {
+  data: categories, // Dados das categorias
+  error: _error,    // Objeto de erro caso ocorra falha na busca
+  pending: _pending, // Estado de carregamento
 } = await useAsyncData('article-categories', async () => {
   try {
-    // Recuperar o tenant store para filtrar categorias
     const tenantStore = useTenantStore()
-    
-    // Buscar categorias através da API
-    const response = await $fetch('/api/articles/category', { 
-      method: 'GET'
+    const response = await $fetch('/api/articles/category', {
+      method: 'GET',
+      query: { tenant_id: tenantStore.tenantId },
     })
-    
-    // Verificar se a resposta é um array válido
-    if (!Array.isArray(response)) {
-      throw new TypeError('Resposta inválida ao buscar categorias')
-    }
-
-    // Filtrar categorias específicas do tenant atual
-    return response.filter(category => 
-      category.tenant_id === tenantStore.tenantId
-    )
-  } catch (error) {
-    // Tratamento de erros na busca de categorias
-    console.error('Erro ao buscar categorias:', error)
-    toast({ 
-      title: 'Erro', 
-      description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias', 
-      variant: 'destructive' 
-    })
-    return [] // Retornar array vazio em caso de erro
+    return Array.isArray(response) ? response : []
+  } catch (e) {
+    return []
   }
 }, {
-  // Configurações adicionais do useAsyncData
-  lazy: true,     // Carregamento preguiçoso 
-  default: () => [], // Valor padrão inicial
-}) 
+  lazy: true,
+  default: () => [],
+})
 // Fim da busca de categorias usando useAsyncData
 
-// Tratamento adicional de estado de carregamento e erro
-// Estes computed são criados para facilitar o gerenciamento do estado
-const isLoading = computed(() => pending.value)    // Estado de carregamento
-const categoriesError = computed(() => error.value) // Objeto de erro
+// Get relations
+const { data: relations } = await useAsyncData(
+  'article-relations',
+  async () => {
+    if (!tenantId.value || !route.params.id) return []
+
+    const res = await $fetch('/api/articles/tag/relations', {
+      method: 'GET',
+      query: {
+        tenant_id: tenantId.value,
+        article_id: route.params.id,
+      },
+    })
+    // Filtra relations para garantir que só retorna do tenant atual
+    return Array.isArray(res)
+      ? res.filter(r => r.tenant_id === tenantId.value)
+      : []
+  },
+  {
+    lazy: true,
+    default: () => [],
+  },
+)
+
+// Buscar todas as tags do tenant
+const { data: allTags } = await useAsyncData(
+  'all-article-tags',
+  async () => {
+    if (!tenantId.value) return []
+    const res = await $fetch('/api/articles/tag', {
+      method: 'GET',
+    })
+    // Filtra tags para garantir que só retorna do tenant atual
+    return Array.isArray(res)
+      ? res.filter(tag => tag.tenant_id === tenantId.value)
+      : []
+  },
+  {
+    lazy: true,
+    default: () => [],
+  },
+)
+
+// Computed para filtrar as tags relacionadas ao artigo
+const relatedTags = computed(() => {
+  const rels = Array.isArray(relations.value) ? relations.value : []
+  const tags = Array.isArray(allTags.value) ? allTags.value : []
+  if (!rels.length || !tags.length) return []
+  const tagIds = rels.map(r => r.tag_id)
+  // Só retorna tags do tenant atual
+  return tags.filter(tag => tagIds.includes(tag.id) && tag.tenant_id === tenantId.value)
+})
+
+// O v-model do input de tags deve ser um array de titles das tags selecionadas
+const selectedTagTitles = ref(relatedTags.value.map(tag => tag.title))
+
+// Limpa o input e adiciona tag ao pressionar Enter, espaço ou blur
+function onTagInputEvent(e: KeyboardEvent | FocusEvent) {
+  const input = e.target as HTMLInputElement
+  const value = input.value.trim().toLowerCase()
+  // Adiciona ao pressionar Enter, espaço ou blur
+  if (
+    (e instanceof KeyboardEvent
+      && (e.key === 'Enter'
+        || e.key === ' '))
+    || e.type === 'blur'
+  ) {
+    if (value && !selectedTagTitles.value.includes(value)) {
+      selectedTagTitles.value.push(value)
+    }
+    input.value = ''
+    if (e instanceof KeyboardEvent) {
+      e.preventDefault()
+    }
+  }
+}
+
+// Datalist só mostra tags do tenant que ainda não estão selecionadas
+const availableTags = computed(() => {
+  const all = Array.isArray(allTags.value) ? allTags.value : []
+  return all.filter(tag => !selectedTagTitles.value.includes(tag.title) && tag.tenant_id === tenantId.value)
+})
+
+// Quando o usuário altera as tags (adiciona ou remove), o v-model é atualizado automaticamente
+// Para garantir que o input permita adicionar/remover qualquer tag do tenant, use allTags no datalist
+
+watch(relatedTags, (newTags) => {
+  selectedTagTitles.value = newTags.map(tag => tag.title)
+})
+
+// Função para sincronizar tags e relações N:N
+async function syncTags(allTagsList: any[]) {
+  const tagIds = []
+  for (const title of selectedTagTitles.value) {
+    let tag: any = allTagsList.find((t: any) => t.title === title)
+    if (!tag) {
+      // Cria a tag se não existir
+      const created: any = await $fetch('/api/articles/tag', {
+        method: 'POST',
+        body: {
+          title,
+          slug: generateSlug(title),
+          tenant_id: tenantId.value,
+        },
+      })
+      tag = created?.body?.id ? created.body : created
+    }
+    if (tag && tag.id) tagIds.push(tag.id)
+  }
+  // Atualizar as relações no backend
+  await $fetch('/api/articles/tag/relations', {
+    method: 'POST',
+    body: {
+      article_id: route.params.id,
+      tenant_id: tenantId.value,
+      tag_ids: tagIds,
+    },
+  })
+}
 
 onMounted(async () => {
   window.addEventListener('scroll', () => {
@@ -146,6 +246,7 @@ function updateSlug() {
   }
 }
 
+
 // Salvar edição do artigo
 async function saveArticle() {
   if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
@@ -156,20 +257,28 @@ async function saveArticle() {
     title: form.value.title,
     slug: form.value.slug,
     content: form.value.content,
-    meta_description: form.value.description,
+    description: form.value.description,
     publish_status: form.value.publish_status,
     tenant_id: tenantId.value,
     category_id: form.value.category_id,
   }
   try {
     await $fetch(`/api/articles/${route.params.id}`, { method: 'PUT', body: articleData })
+    await syncTags(allTags.value)
     toast({ title: 'Sucesso', description: 'Artigo atualizado com sucesso!' })
     navigateTo('/articles')
   }
-  catch (e: any) {
-    toast({ title: 'Erro', description: e?.data?.message || 'Ocorreu um erro ao salvar o artigo', variant: 'destructive' })
+  catch (_e: any) {
+    toast({ title: 'Erro', description: _e?.data?.message || 'Ocorreu um erro ao salvar o artigo', variant: 'destructive' })
   }
 }
+
+const selectedTags = computed(() =>
+  Array.isArray(allTags.value)
+    ? allTags.value.filter(tag => selectedTagTitles.value.includes(tag.title))
+    : []
+)
+
 </script>
 
 <template>
@@ -337,19 +446,26 @@ async function saveArticle() {
               <!-- Tags (apenas HTML, sem lógica) -->
               <div class="space-y-2">
                 <Label>Tags <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
-                <div class="space-y-3">
-                  <div class="relative">
-                    <div class="flex items-center overflow-x-auto whitespace-nowrap border rounded-md px-3 py-2">
-                      <div class="max-w-full flex items-center gap-1.5">
-                        <span class="inline-flex shrink-0 items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium">Tag Exemplo</span>
-                        <div class="flex-1" />
-                      </div>
-                    </div>
-                    <p class="text-sm text-muted-foreground">
-                      Digite e pressione enter para adicionar <br> (opcional)
-                    </p>
-                  </div>
-                </div>
+                <TagsInput v-model="selectedTagTitles">
+                  <TagsInputItem
+                    v-for="title in selectedTagTitles"
+                    :key="title"
+                    :value="title"
+                  >
+                    <TagsInputItemText>{{ title }}</TagsInputItemText>
+                    <TagsInputItemDelete />
+                  </TagsInputItem>
+                  <TagsInputInput
+                    placeholder="Add a tag and press Enter, Space or Blur..."
+                    list="tags-list"
+                    @keydown.enter="onTagInputEvent"
+                    @keydown.space="onTagInputEvent"
+                    @blur="onTagInputEvent"
+                  />
+                </TagsInput>
+                <datalist id="tags-list">
+                  <option v-for="tag in availableTags" :key="tag.id" :value="tag.title">{{ tag.title }}</option>
+                </datalist>
               </div>
             </CardContent>
           </Card>
