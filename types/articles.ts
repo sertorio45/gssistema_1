@@ -11,16 +11,10 @@ export interface Tag {
 
 export interface Category {
   id: string
-  name: string
+  title: string
   slug: string
-  description?: string
-  parent_id?: string
-  is_active: boolean
-  created_at?: string
-  updated_at?: string
-  tenant_id?: string
-  title?: string
-  status?: string
+  description: string
+  publish_status: string
 }
 
 export interface TagForm {
@@ -31,13 +25,11 @@ export interface TagForm {
 }
 
 export interface CategoryForm {
-  name: string
+  id: string
+  title: string
   slug: string
-  description?: string
-  parent_id?: string
-  is_active: boolean
-  title?: string
-  status?: string
+  description: string
+  publish_status: string
 }
 
 export interface TagUpdateForm extends TagForm {

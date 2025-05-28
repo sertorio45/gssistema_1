@@ -34,10 +34,7 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/components': { redirect: '/components/accordion' },
-    '/settings': { redirect: '/settings/profile' },
-    '/articles/tag/new': { redirect: '/articles/tag' },
-    '/articles/category/new': { redirect: '/articles/category' },
+
   },
 
   imports: {

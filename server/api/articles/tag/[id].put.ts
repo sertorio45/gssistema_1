@@ -6,12 +6,12 @@ export default defineEventHandler(async (event) => {
     // Cliente Supabase com service role
     const client = await serverSupabaseServiceRole(event)
     
-    // Obter ID do artigo da rota
+    // Obter ID da tag da rota
     const id = getRouterParam(event, 'id')
     if (!id) {
       throw createError({
         statusCode: 400,
-        message: 'ID da categoria é obrigatório',
+        message: 'Tag ID is required',
       })
     }
 
@@ -19,11 +19,11 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     
     // Validar dados de entrada
-    const validationErrors = validateArticleUpdate(body)
+    const validationErrors = validateTagUpdate(body)
     if (validationErrors.length > 0) {
       throw createError({
         statusCode: 400,
-        message: `Erros de validação: ${validationErrors.join(', ')}`,
+        message: `Validation errors: ${validationErrors.join(', ')}`,
       })
     }
 
@@ -53,27 +53,27 @@ export default defineEventHandler(async (event) => {
     if (!tenantId) {
       throw createError({
         statusCode: 400,
-        message: 'Não foi possível identificar o tenant_id',
+        message: 'Could not identify tenant_id',
       })
     }
 
-    // Verificar se o artigo pertence ao tenant
-    const { data: existingArticle, error: existError } = await client
-      .from('articles_category')
+    // Verificar se a tag pertence ao tenant
+    const { data: existingTag, error: existError } = await client
+      .from('articles_tag')
       .select('id, tenant_id')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
     
-    if (existError || !existingArticle) {
+    if (existError || !existingTag) {
       throw createError({
         statusCode: 404,
-        message: 'Artigo não encontrado ou sem permissão de acesso',
+        message: 'Tag not found or no access permission',
       })
     }
 
     // Preparar dados para atualização
-    const articleCategoryToUpdate = {
+    const tagToUpdate = {
       title: body.title,
       slug: body.slug,
       description: body.description,
@@ -81,10 +81,10 @@ export default defineEventHandler(async (event) => {
       tenant_id: tenantId,
     }
 
-    // Atualizar artigo
+    // Atualizar tag
     const { data, error } = await client
-      .from('articles_category')
-      .update(articleCategoryToUpdate)
+      .from('articles_tag')
+      .update(tagToUpdate)
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
     if (error || !data) {
       throw createError({
         statusCode: 500,
-        message: error?.message || 'Erro ao atualizar artigo',
+        message: error?.message || 'Error updating tag',
       })
     }
 
@@ -104,23 +104,23 @@ export default defineEventHandler(async (event) => {
   }
   catch (error: any) {
     // Log detalhado do erro
-    console.error('Erro na atualização do artigo:', error)
+    console.error('Error updating tag:', error)
     
     // Propagar o erro com detalhes
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Erro interno do servidor',
+      message: error.message || 'Internal server error',
     })
   }
 })
 
 // Função de validação dos dados de entrada
-function validateArticleUpdate(data: any): string[] {
+function validateTagUpdate(data: any): string[] {
   const errors: string[] = []
 
   // Validar título
   if (!data.title || data.title.trim() === '') {
-    errors.push('Título é obrigatório')
+    errors.push('Title is required')
   }
 
   return errors

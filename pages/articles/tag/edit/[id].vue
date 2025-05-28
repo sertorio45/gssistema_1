@@ -47,7 +47,7 @@ const loading = ref(true)
 async function loadCategory() {
   loading.value = true
   try {
-    const response = await $fetch(`/api/articles/category/${route.params.id}?tenant_id=${useTenantStore().tenantId}`)
+    const response = await $fetch(`/api/articles/tag/${route.params.id}`)
     let data = response
     if (response && typeof response === 'object' && 'data' in response && response.data) {
       data = response.data
@@ -62,7 +62,7 @@ async function loadCategory() {
       }
     }
   } catch (e: any) {
-    toast({ title: 'Error', description: e.message || 'Error loading category', variant: 'destructive' })
+    toast({ title: 'Error', description: e.message || 'Error loading tag', variant: 'destructive' })
   }
   loading.value = false
 }
@@ -98,12 +98,12 @@ async function saveCategory() {
     tenant_id: tenantId,
   }
   try {
-    await $fetch(`/api/articles/category/${route.params.id}`, { method: 'PUT', body: categoryData })
+    await $fetch(`/api/articles/tag/${route.params.id}`, { method: 'PUT', body: categoryData })
     toast({ title: 'Success', description: 'Category updated successfully!' })
-    navigateTo('/articles/category')
+    navigateTo('/articles/tag')
   }
   catch (e: any) {
-    toast({ title: 'Error', description: e?.data?.message || 'Error updating category', variant: 'destructive' })
+    toast({ title: 'Error', description: e?.data?.message || 'Error updating tag', variant: 'destructive' })
   }
 }
 
@@ -116,11 +116,11 @@ async function saveCategory() {
     <div class="p-6">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">
-          Edit Category
+          Edit Tag
         </h1>
         <Button
           class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles/category')"
+          @click="() => navigateTo('/articles/tag')"
         >
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           Back
@@ -131,8 +131,8 @@ async function saveCategory() {
           <!-- Left column: Basic Info (70%) -->
           <Card class="md:col-span-8">
             <CardHeader>
-              <CardTitle>Category Information</CardTitle>
-              <CardDescription>Fill in the main information for the category</CardDescription>
+              <CardTitle>Tag Information</CardTitle>
+              <CardDescription>Fill in the main information for the tag</CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
@@ -140,7 +140,7 @@ async function saveCategory() {
                 <Input
                   id="title"
                   v-model="form.title"
-                  placeholder="Enter a category title"
+                  placeholder="Enter a tag title"
                   :disabled="loading"
                   required
                   @blur="updateSlug"
@@ -152,7 +152,7 @@ async function saveCategory() {
                   <Input
                     id="slug"
                     v-model="form.slug"
-                    placeholder="category-slug"
+                    placeholder="tag-slug"
                     :disabled="loading"
                     required
                   />
@@ -171,7 +171,7 @@ async function saveCategory() {
                 <Textarea
                   id="description"
                   v-model="form.description"
-                  placeholder="Write a short description for your category"
+                  placeholder="Write a short description for your tag"
                   :disabled="loading"
                   required
                   rows="3"
@@ -184,7 +184,7 @@ async function saveCategory() {
             <CardHeader>
               <CardTitle>Status</CardTitle>
               <CardDescription>
-                Set the publication status for this category
+                Set the publication status for this tag
               </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
@@ -241,8 +241,8 @@ async function saveCategory() {
     </div>
     <ArticleFloatingMenu
       :on-save="saveCategory"
-      :on-back="() => navigateTo('/articles/category')"
-      :on-cancel="() => navigateTo('/articles/category')"
+      :on-back="() => navigateTo('/articles/tag')"
+      :on-cancel="() => navigateTo('/articles/tag')"
       :is-loading="loading"
       :show="showFloatingMenu"
     />

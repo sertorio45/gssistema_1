@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import { useToast } from '~/components/ui/toast'
-import { useRoute } from 'vue-router'
 import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
@@ -10,8 +9,7 @@ definePageMeta({
   requiredRoles: ['admin', 'funcionario', 'cliente'],
 })
 
-interface CategoryForm {
-  id?: number
+interface TagForm {
   title: string
   slug: string
   description: string
@@ -31,9 +29,8 @@ function generateSlug(text: string): string {
 }
 
 const { toast } = useToast()
-const route = useRoute()
 
-const form = ref<CategoryForm>({
+const form = ref<TagForm>({
   title: '',
   slug: '',
   description: '',
@@ -41,41 +38,7 @@ const form = ref<CategoryForm>({
 })
 
 const showFloatingMenu = ref(false)
-const loading = ref(true)
-
-// Carregar categoria para edição
-async function loadCategory() {
-  loading.value = true
-  try {
-    const response = await $fetch(`/api/articles/category/${route.params.id}?tenant_id=${useTenantStore().tenantId}`)
-    let data = response
-    if (response && typeof response === 'object' && 'data' in response && response.data) {
-      data = response.data
-    }
-    if (data && typeof data === 'object' && 'id' in data) {
-      form.value = {
-        id: data.id,
-        title: data.title || '',
-        slug: data.slug || '',
-        description: data.description || '',
-        publish_status: data.publish_status || 'draft',
-      }
-    }
-  } catch (e: any) {
-    toast({ title: 'Error', description: e.message || 'Error loading category', variant: 'destructive' })
-  }
-  loading.value = false
-}
-
-onMounted(async () => {
-  window.addEventListener('scroll', () => {
-    showFloatingMenu.value = window.scrollY > 200
-  })
-  
-  await loadCategory()
-  
-  loading.value = false
-})
+const loading = ref(false)
 
 function updateSlug() {
   if (form.value.title) {
@@ -83,31 +46,37 @@ function updateSlug() {
   }
 }
 
-// Salvar edição da categoria
-async function saveCategory() {
+// Salvar nova categoria
+async function saveTag() {
   if (!form.value.title || !form.value.slug) {
     toast({ title: 'Error', description: 'Fill all required fields', variant: 'destructive' })
     return
   }
   const tenantId = useTenantStore().tenantId
-  const categoryData: any = {
+  const tagData: any = {
     title: form.value.title,
     slug: form.value.slug,
     description: form.value.description,
     publish_status: form.value.publish_status,
     tenant_id: tenantId,
   }
+  loading.value = true
   try {
-    await $fetch(`/api/articles/category/${route.params.id}`, { method: 'PUT', body: categoryData })
-    toast({ title: 'Success', description: 'Category updated successfully!' })
-    navigateTo('/articles/category')
+    await $fetch('/api/articles/tag', { method: 'POST', body: tagData })
+    toast({ title: 'Success', description: 'Tag created successfully!' })
+    navigateTo('/articles/tag')
   }
   catch (e: any) {
-    toast({ title: 'Error', description: e?.data?.message || 'Error updating category', variant: 'destructive' })
+    toast({ title: 'Error', description: e?.data?.message || 'Error creating tag', variant: 'destructive' })
   }
+  loading.value = false
 }
 
-
+onMounted(() => {
+  window.addEventListener('scroll', () => {
+    showFloatingMenu.value = window.scrollY > 200
+  })
+})
 
 </script>
 
@@ -116,23 +85,23 @@ async function saveCategory() {
     <div class="p-6">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">
-          Edit Category
+          Create Tag
         </h1>
         <Button
           class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles/category')"
+          @click="() => navigateTo('/articles/tag')"
         >
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           Back
         </Button>
       </div>
-      <form v-if="!loading" class="space-y-8" @submit.prevent="saveCategory">
+      <form v-if="!loading" class="space-y-8" @submit.prevent="saveTag">
         <div class="grid grid-cols-1 gap-8 md:grid-cols-12">
           <!-- Left column: Basic Info (70%) -->
           <Card class="md:col-span-8">
             <CardHeader>
-              <CardTitle>Category Information</CardTitle>
-              <CardDescription>Fill in the main information for the category</CardDescription>
+              <CardTitle>Tag Information</CardTitle>
+              <CardDescription>Fill in the main information for the tag</CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
@@ -140,7 +109,7 @@ async function saveCategory() {
                 <Input
                   id="title"
                   v-model="form.title"
-                  placeholder="Enter a category title"
+                  placeholder="Enter a tag title"
                   :disabled="loading"
                   required
                   @blur="updateSlug"
@@ -152,7 +121,7 @@ async function saveCategory() {
                   <Input
                     id="slug"
                     v-model="form.slug"
-                    placeholder="category-slug"
+                    placeholder="tag-slug"
                     :disabled="loading"
                     required
                   />
@@ -171,7 +140,7 @@ async function saveCategory() {
                 <Textarea
                   id="description"
                   v-model="form.description"
-                  placeholder="Write a short description for your category"
+                  placeholder="Write a short description for your tag"
                   :disabled="loading"
                   required
                   rows="3"
@@ -184,7 +153,7 @@ async function saveCategory() {
             <CardHeader>
               <CardTitle>Status</CardTitle>
               <CardDescription>
-                Set the publication status for this category
+                Set the publication status for this tag
               </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
@@ -209,7 +178,7 @@ async function saveCategory() {
         </div>
         <div class="flex justify-end">
           <Button type="submit" :disabled="loading" class="bg-primary hover:bg-primary/90">
-            Save Category
+            Create Tag
           </Button>
         </div>
       </form>
@@ -240,9 +209,9 @@ async function saveCategory() {
       </div>
     </div>
     <ArticleFloatingMenu
-      :on-save="saveCategory"
-      :on-back="() => navigateTo('/articles/category')"
-      :on-cancel="() => navigateTo('/articles/category')"
+      :on-save="saveTag"
+      :on-back="() => navigateTo('/articles/tag')"
+      :on-cancel="() => navigateTo('/articles/tag')"
       :is-loading="loading"
       :show="showFloatingMenu"
     />

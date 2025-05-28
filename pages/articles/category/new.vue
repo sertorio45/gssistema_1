@@ -1,32 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
-import Tiny from '~/components/articles/Tiny.vue'
 import { useToast } from '~/components/ui/toast'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
 import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
-  middleware: ['auth', 'role', 'tenant-check'],
-  requiredRoles: ['admin'],
+  middleware: ['auth', 'role'],
+  requiredRoles: ['admin', 'funcionario', 'cliente'],
 })
 
-interface ArticleForm {
-  id?: string
+interface CategoryForm {
   title: string
   slug: string
-  content: string
-  publish_status: 'draft' | 'published'
   description: string
-  category_id: string
-}
-
-interface ArticleCategory {
-  id: string
-  title: string
-  tenant_id: string
-  created_at?: string
+  publish_status: 'draft' | 'published' | 'arquived' | 'scheduled'
 }
 
 function generateSlug(text: string): string {
@@ -42,28 +29,16 @@ function generateSlug(text: string): string {
 }
 
 const { toast } = useToast()
-const tenantStore = useTenantStore()
-const { 
-  tenantId, 
-  tenants, 
-  setCurrentTenantById, 
-  listTenants, 
-  setTenantFromJWT 
-} = useTenant()
-const { currentRole } = useAuth()
 
-const form = ref<ArticleForm>({
+const form = ref<CategoryForm>({
   title: '',
   slug: '',
-  content: '',
   description: '',
-  category_id: '',
   publish_status: 'draft',
 })
 
 const showFloatingMenu = ref(false)
 const loading = ref(false)
-const categories = ref<ArticleCategory[]>([])
 
 function updateSlug() {
   if (form.value.title) {
@@ -71,166 +46,38 @@ function updateSlug() {
   }
 }
 
-async function fetchCategories() {
-  try {
-    const response = await $fetch('/api/articles/category', { method: 'GET' })
-    
-    // Verificar se a resposta é um array ou tem status de erro
-    if (response && typeof response === 'object' && 'status' in response) {
-      // Se for um objeto de erro
-      if (response.status !== 200) {
-        throw new TypeError(response.message || 'Erro ao buscar categorias')
-      }
-    }
-
-    // Verificar se a resposta é um array
-    if (Array.isArray(response)) {
-      // Filtrar categorias pelo tenant do Pinia
-      categories.value = response.filter(category => 
-        category.tenant_id === tenantStore.tenantId
-      )
-    } else {
-      // Se não for um array, tratar como erro
-      throw new TypeError('Resposta inválida ao buscar categorias')
-    }
-  } catch (error) {
-    console.error('Erro ao buscar categorias:', error)
-    toast({ 
-      title: 'Erro', 
-      description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias', 
-      variant: 'destructive' 
-    })
-    // Definir categorias como array vazio em caso de erro
-    categories.value = []
-  }
-}
-
-async function saveArticle() {
-  // Verificar se o tenant está selecionado usando o Pinia store
-  if (!tenantStore.tenantId) {
-    toast({ 
-      title: 'Erro', 
-      description: 'Selecione um tenant antes de criar o artigo', 
-      variant: 'destructive' 
-    })
+// Salvar nova categoria
+async function saveCategory() {
+  if (!form.value.title || !form.value.slug) {
+    toast({ title: 'Error', description: 'Fill all required fields', variant: 'destructive' })
     return
   }
-
-  // Validar campos obrigatórios
-  if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
-    toast({ 
-      title: 'Erro', 
-      description: 'Preencha todos os campos obrigatórios', 
-      variant: 'destructive' 
-    })
-    return
-  }
-  
-  loading.value = true
-  const articleData = {
+  const tenantId = useTenantStore().tenantId
+  const categoryData: any = {
     title: form.value.title,
     slug: form.value.slug,
-    content: form.value.content,
-    meta_description: form.value.description,
-    publish_status: form.value.publish_status || 'draft',
-    tenant_id: tenantStore.tenantId,
-    category_id: form.value.category_id,
+    description: form.value.description,
+    publish_status: form.value.publish_status,
+    tenant_id: tenantId,
   }
-  
+  loading.value = true
   try {
-    const _response = await $fetch('/api/articles', { 
-      method: 'POST', 
-      body: articleData 
-    })
-    
-    toast({ 
-      title: 'Sucesso', 
-      description: 'Artigo criado com sucesso!' 
-    })
-    
-    form.value = {
-      title: '',
-      slug: '',
-      content: '',
-      description: '',
-      category_id: '',
-      publish_status: 'draft',
-    }
-    
-    navigateTo('/articles')
+    await $fetch('/api/articles/category', { method: 'POST', body: categoryData })
+    toast({ title: 'Success', description: 'Category created successfully!' })
+    navigateTo('/articles/category')
   }
   catch (e: any) {
-    console.error('Erro ao salvar artigo:', e)
-    toast({ 
-      title: 'Erro', 
-      description: e?.data?.message || 'Ocorreu um erro ao salvar o artigo', 
-      variant: 'destructive' 
-    })
+    toast({ title: 'Error', description: e?.data?.message || 'Error creating category', variant: 'destructive' })
   }
-  finally {
-    loading.value = false
-  }
+  loading.value = false
 }
 
-onMounted(async () => {
-  // Lógica de inicialização de tenant
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    
-    // Se não houver tenant selecionado, mas existem tenants disponíveis
-    if (tenants.value.length > 0 && !tenantStore.tenantId) {
-      // Não selecionar automaticamente, manter o estado atual
-      console.warn('Nenhum tenant selecionado')
-    }
-  }
-  
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-  }
-
-  // Buscar categorias quando o tenant for definido
-  if (tenantStore.tenantId) {
-    await fetchCategories()
-  }
-
-  // Manter a lógica de scroll existente
+onMounted(() => {
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
-
-  // Adicionar listener para mudança de tenant
-  const handleTenantChanged = async (event: Event) => {
-    const customEvent = event as CustomEvent
-    if (customEvent.detail?.tenantId) {
-      tenantStore.tenantId = customEvent.detail.tenantId
-      await fetchCategories()
-    }
-  }
-  
-  window.addEventListener('tenant-changed', handleTenantChanged)
-  
-  // Remover listener quando o componente for desmontado
-  return () => {
-    window.removeEventListener('tenant-changed', handleTenantChanged)
-  }
 })
 
-// Watch para mudanças de papel do usuário
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    
-    // Se não houver tenant selecionado, mas existem tenants disponíveis
-    if (tenants.value.length > 0 && !tenantStore.tenantId) {
-      // Não selecionar automaticamente, manter o estado atual
-      console.warn('Nenhum tenant selecionado')
-    }
-  }
-  
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-  }
-})
 </script>
 
 <template>
@@ -238,44 +85,43 @@ watch(currentRole, async (role) => {
     <div class="p-6">
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">
-          Criando Artigo
+          Create Category
         </h1>
         <Button
           class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles')"
+          @click="() => navigateTo('/articles/category')"
         >
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-          Voltar
+          Back
         </Button>
       </div>
-      <form v-if="!loading" class="space-y-8" @submit.prevent="saveArticle">
+      <form v-if="!loading" class="space-y-8" @submit.prevent="saveCategory">
         <div class="grid grid-cols-1 gap-8 md:grid-cols-12">
+          <!-- Left column: Basic Info (70%) -->
           <Card class="md:col-span-8">
             <CardHeader>
-              <CardTitle>Informações Básicas</CardTitle>
-              <CardDescription>
-                Preencha as informações principais do artigo
-              </CardDescription>
+              <CardTitle>Category Information</CardTitle>
+              <CardDescription>Fill in the main information for the category</CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
-                <Label for="title">Título</Label>
+                <Label for="title">Title</Label>
                 <Input
                   id="title"
                   v-model="form.title"
-                  placeholder="Digite um título atrativo para seu artigo"
+                  placeholder="Enter a category title"
                   :disabled="loading"
                   required
                   @blur="updateSlug"
                 />
               </div>
               <div class="space-y-2">
-                <Label for="slug">URL do Artigo</Label>
+                <Label for="slug">Slug</Label>
                 <div class="flex gap-2">
                   <Input
                     id="slug"
                     v-model="form.slug"
-                    placeholder="url-do-artigo"
+                    placeholder="category-slug"
                     :disabled="loading"
                     required
                   />
@@ -290,11 +136,11 @@ watch(currentRole, async (role) => {
                 </div>
               </div>
               <div class="space-y-2">
-                <Label for="description">Descrição</Label>
+                <Label for="description">Description</Label>
                 <Textarea
                   id="description"
                   v-model="form.description"
-                  placeholder="Escreva um breve resumo do seu artigo"
+                  placeholder="Write a short description for your category"
                   :disabled="loading"
                   required
                   rows="3"
@@ -302,11 +148,12 @@ watch(currentRole, async (role) => {
               </div>
             </CardContent>
           </Card>
+          <!-- Right column: Status (30%) -->
           <Card class="md:col-span-4">
             <CardHeader>
               <CardTitle>Status</CardTitle>
               <CardDescription>
-                Defina o status do artigo
+                Set the publication status for this category
               </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
@@ -314,94 +161,57 @@ watch(currentRole, async (role) => {
                 <Label>Status</Label>
                 <Select v-model="form.publish_status" :disabled="loading">
                   <SelectTrigger>
-                    <SelectValue :placeholder="form.publish_status === 'draft' ? 'Rascunho' : 'Publicado'" />
+                    <SelectValue :placeholder="form.publish_status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="draft">
-                        <div class="flex items-center">
-                          <Icon name="lucide:file-text" class="mr-2 h-4 w-4" />
-                          Rascunho
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="published">
-                        <div class="flex items-center">
-                          <Icon name="lucide:check-circle" class="mr-2 h-4 w-4" />
-                          Publicado
-                        </div>
-                      </SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="arquived">Archived</SelectItem>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
-              <!-- Categoria (apenas HTML, sem lógica) -->
-              <div class="space-y-2">
-                <Label>Categorias <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
-                <div class="flex items-center gap-2">
-                  <Select v-model="form.category_id" :disabled="loading">
-                    <SelectTrigger class="h-10">
-                      <SelectValue placeholder="Selecionar categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem v-for="category in categories" :value="category.id" :key="category.id">
-                          {{ category.title }}
-                        </SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <Button type="button" variant="outline" class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground" disabled>
-                    <Icon name="lucide:plus" class="h-4 w-4" />
-                  </Button>
-                  <Button type="button" variant="outline" class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground" disabled title="Excluir categoria selecionada">
-                    <Icon name="lucide:trash-2" class="h-4 w-4" />
-                  </Button>
-                </div>
-                <p class="text-sm text-muted-foreground">
-                  Selecione uma categoria para o artigo<br> (opcional)
-                </p>
-              </div>
-              <!-- Tags (apenas HTML, sem lógica) -->
-              <div class="space-y-2">
-                <Label>Tags <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
-                <div class="space-y-3">
-                  <div class="relative">
-                    <div class="flex items-center overflow-x-auto whitespace-nowrap border rounded-md px-3 py-2">
-                      <div class="max-w-full flex items-center gap-1.5">
-                        <span class="inline-flex shrink-0 items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium">Tag Exemplo</span>
-                        <div class="flex-1" />
-                      </div>
-                    </div>
-                    <p class="text-sm text-muted-foreground">
-                      Digite e pressione enter para adicionar <br> (opcional)
-                    </p>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Conteúdo</CardTitle>
-            <CardDescription>
-              Escreva o conteúdo do seu artigo usando o editor abaixo
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tiny
-              v-model="form.content"
-              :height="500"
-              :disabled="loading"
-            />
-          </CardContent>
-        </Card>
+        <div class="flex justify-end">
+          <Button type="submit" :disabled="loading" class="bg-primary hover:bg-primary/90">
+            Create Category
+          </Button>
+        </div>
       </form>
+      <div v-else class="space-y-8">
+        <div class="grid grid-cols-1 gap-8 md:grid-cols-12">
+          <Card class="md:col-span-8">
+            <CardHeader>
+              <Skeleton class="h-6 w-[200px]" />
+              <Skeleton class="h-4 w-[300px]" />
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <Skeleton class="h-10 w-full" />
+              <Skeleton class="h-10 w-full" />
+              <Skeleton class="h-24 w-full" />
+            </CardContent>
+          </Card>
+          <Card class="md:col-span-4">
+            <CardHeader>
+              <Skeleton class="h-6 w-[150px]" />
+              <Skeleton class="h-4 w-[200px]" />
+            </CardHeader>
+            <CardContent class="space-y-6">
+              <Skeleton class="h-5 w-16" />
+              <Skeleton class="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
     <ArticleFloatingMenu
-      :on-save="saveArticle"
-      :on-back="() => navigateTo('/articles')"
-      :on-cancel="() => navigateTo('/articles')"
+      :on-save="saveCategory"
+      :on-back="() => navigateTo('/articles/category')"
+      :on-cancel="() => navigateTo('/articles/category')"
       :is-loading="loading"
       :show="showFloatingMenu"
     />

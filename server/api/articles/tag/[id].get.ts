@@ -13,17 +13,16 @@ export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   const { tenantId, role } = event.context.auth || {}
 
-  // Buscar artigo completo
-  const { data: article, error } = await client
-    .from('articles_category')
+  // Buscar tag completa
+  const { data: tag, error } = await client
+    .from('articles_tag')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (error || !article) {
-    return { status: 404, message: 'Article not found' }
+  if (error || !tag) {
+    return { status: 404, message: 'Tag not found' }
   }
 
-
-  return { status: 200, data: article }
+  return { status: 200, data: tag }
 })

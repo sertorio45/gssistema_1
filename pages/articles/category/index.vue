@@ -1,45 +1,53 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { columns } from '~/components/articles/columns'
-import DataTable from '~/components/articles/DataTable.vue'
+import { columns } from '~/components/articles/category/columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import DataTable from '~/components/ui/table/DataTable.vue'
+import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
+import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
+import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
-const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
+const { tenantId } = useTenant()
 const { currentRole } = useAuth()
 
 const showDeleteDialog = ref(false)
-const articleToDelete = ref<any | null>(null)
+const categoryToDelete = ref<any | null>(null)
 const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
-// Debug: logar tenantId e articlesRaw
+// Debug: log tenantId and categoriesRaw
 watch(tenantId, (val) => {
-  console.warn('[DEBUG] tenantId do cliente:', val)
+  console.warn('[DEBUG] tenantId:', val)
 }, { immediate: true })
 
-const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch<any[]>('/api/articles')
+const { data: categoriesRaw, pending: loading, refresh: refreshCategories } = useFetch<any[]>('/api/articles/category')
 
-const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id') // Filtrar os artigos com base no tenantId
+const { filteredData: categories } = useTenantRoleFilter<any>(categoriesRaw as any, 'tenant_id') // Filter categories by tenantId
 
-watch(articlesRaw, (val) => {
-  console.warn('[DEBUG] articlesRaw:', val)
+watch(categoriesRaw, (val) => {
+  console.warn('[DEBUG] categoriesRaw:', val)
 }, { immediate: true })
 
-function handleDeleteClick(article: any) {
-  articleToDelete.value = article
+function handleDeleteClick(category: any) {
+  categoryToDelete.value = category
   showDeleteDialog.value = true
 }
 
+function handleEditClick(category: any) {
+  navigateTo(`/articles/category/edit/${category.id}`)
+}
+
 async function handleDeleteConfirm() {
-  if (!articleToDelete.value)
+  if (!categoryToDelete.value)
     return
   showDeleteDialog.value = false
-  await $fetch(`/api/articles/${articleToDelete.value.id}`, { method: 'DELETE' })
-  articleToDelete.value = null
-  await refreshArticles()
+  const tenantId = useTenant().tenantId
+  await $fetch(`/api/articles/category/${categoryToDelete.value.id}?tenant_id=${tenantId}`, { method: 'DELETE' as any })
+  categoryToDelete.value = null
+  await refreshCategories()
 }
 
 function showMultiDeleteConfirmation() {
@@ -48,48 +56,23 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
+  const tenantId = useTenant().tenantId
   for (const idx of selectedItems.value) {
-    const article = articles.value[idx]
-    if (article) {
-      await $fetch(`/api/articles/${article.id}`, { method: 'DELETE' })
+    const category = categories.value[idx]
+    if (category) {
+      await $fetch(`/api/articles/category/${category.id}?tenant_id=${tenantId}`, { method: 'DELETE' as any })
     }
   }
   selectedItems.value = []
-  await refreshArticles()
+  await refreshCategories()
 }
 
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-onMounted(async () => {
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-    refreshArticles()
-  }
-})
-
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-    refreshArticles()
-  }
-})
-
 watch(tenantId, () => {
-  refreshArticles()
+  refreshCategories()
 })
 </script>
 
@@ -98,18 +81,18 @@ watch(tenantId, () => {
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          Meus Artigos
+          Categories
         </h1>
         <p class="text-muted-foreground">
-          Gerencie os artigos do seu site
+          Manage your article categories
         </p>
       </div>
       <Button
         class="bg-primary hover:bg-primary/90"
-        @click="() => navigateTo('/articles/new')"
+        @click="() => navigateTo('/articles/category/new')"
       >
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-        Novo Artigo
+        New Category
       </Button>
     </div>
 
@@ -127,17 +110,30 @@ watch(tenantId, () => {
     </div>
     <template v-else>
       <DataTable
-        v-if="articles.length > 0"
-        :data="articles"
+        :data="categories"
         :columns="columns"
         @delete="handleDeleteClick"
         @selection-change="updateSelectedItems"
-      />
-      <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
-        Selecione um tenant para visualizar os artigos.
+        :meta="{ onEdit: handleEditClick, onDelete: handleDeleteClick }"
+      >
+        <template #toolbar="{ table }">
+          <DataTableToolbar :table="table" placeholder="Filter categories..." />
+        </template>
+        <template #pagination="{ table }">
+          <DataTablePagination :table="table" />
+        </template>
+        <template #actions="{ row }">
+          <DataTableRowActions :row="row" :onEdit="handleEditClick" :onDelete="handleDeleteClick" />
+        </template>
+      </DataTable>
+      <div v-if="categories.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
+        No categories found for this tenant.
       </div>
-      <div v-else class="p-6 text-center text-muted-foreground">
-        Nenhum artigo encontrado.
+      <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
+        Select a tenant to view categories.
+      </div>
+      <div v-else-if="categories.length === 0" class="p-6 text-center text-muted-foreground">
+        No categories found.
       </div>
     </template>
 
@@ -147,41 +143,41 @@ watch(tenantId, () => {
       :on-delete="showMultiDeleteConfirmation"
     />
 
-    <!-- Diálogos de exclusão ... -->
+    <!-- Delete Dialog -->
     <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
-          Excluir Artigo
+          Delete Category
         </h2>
         <p class="mb-4">
-          Tem certeza que deseja excluir o artigo "{{ articleToDelete?.title }}"? Esta ação não pode ser desfeita.
+          Are you sure you want to delete the category "{{ categoryToDelete?.title }}"? This action cannot be undone.
         </p>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showDeleteDialog = false">
-            Cancelar
+            Cancel
           </Button>
           <Button variant="destructive" @click="handleDeleteConfirm">
-            Excluir
+            Delete
           </Button>
         </div>
       </div>
     </div>
 
-    <!-- Diálogo de confirmação de exclusão múltipla -->
+    <!-- Multi Delete Dialog -->
     <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
-          Excluir Múltiplos Artigos
+          Delete Multiple Categories
         </h2>
         <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} artigos? Esta ação não pode ser desfeita.
+          Are you sure you want to delete {{ selectedItems.length }} categories? This action cannot be undone.
         </p>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
+            Cancel
           </Button>
           <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir Todos
+            Delete All
           </Button>
         </div>
       </div>

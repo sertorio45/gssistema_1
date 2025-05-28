@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient(event)
   const id = getRouterParam(event, 'id')
 
-  const { error } = await client.from('articles_category').delete().eq('id', id)
+  const { error } = await client.from('articles_tag').delete().eq('id', id)
   if (error) {
     return { status: 400, message: error.message }
   }

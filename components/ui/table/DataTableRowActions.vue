@@ -1,21 +1,27 @@
 <script setup lang="ts">
 import type { Row } from '@tanstack/vue-table'
-import type { Tag } from './columns'
+import { Icon } from '#components'
+
+const emit = defineEmits(['edit', 'delete'])
 
 interface DataTableRowActionsProps {
-  row: Row<Tag>
+  row: Row<any>
+  onEdit?: (row: any) => void
+  onDelete?: (row: any) => void
 }
-
 const props = defineProps<DataTableRowActionsProps>()
-const emit = defineEmits(['edit', 'delete'])
-const tag = computed(() => props.row.original)
 
 function handleEdit() {
-  emit('edit', tag.value)
+  if (props.onEdit) {
+    return props.onEdit(props.row.original)
+  }
+  emit('edit', props.row.original)
 }
-
 function handleDelete() {
-  emit('delete', tag.value)
+  if (props.onDelete) {
+    return props.onDelete(props.row.original)
+  }
+  emit('delete', props.row.original)
 }
 </script>
 
@@ -28,7 +34,7 @@ function handleDelete() {
       @click="handleEdit"
     >
       <Icon name="lucide:pencil" class="h-4 w-4" />
-      <span class="sr-only">Editar</span>
+      <span class="sr-only">Edit</span>
     </Button>
     <Button
       variant="ghost"
@@ -37,7 +43,7 @@ function handleDelete() {
       @click="handleDelete"
     >
       <Icon name="lucide:trash-2" class="h-4 w-4" />
-      <span class="sr-only">Excluir</span>
+      <span class="sr-only">Delete</span>
     </Button>
   </div>
-</template>
+</template> 

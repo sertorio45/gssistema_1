@@ -15,10 +15,12 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 
+const emit = defineEmits(['edit', 'delete'])
+
 interface DataTableRowActionsProps {
   row: Row<User>
-  onEdit: () => void
-  onDelete: () => void
+  onEdit?: (row: User) => void
+  onDelete?: (row: User) => void
 }
 
 const props = defineProps<DataTableRowActionsProps>()
@@ -26,15 +28,20 @@ const user = computed(() => props.row.original)
 const showDeleteDialog = ref(false)
 
 function handleEdit() {
-  props.onEdit()
+  if (props.onEdit) {
+    return props.onEdit(props.row.original)
+  }
+  emit('edit', props.row.original)
 }
 
 function handleDelete() {
-  showDeleteDialog.value = true
+  if (props.onDelete) {
+    return props.onDelete(props.row.original)
+  }
+  emit('delete', props.row.original)
 }
 
 function confirmDelete() {
-  props.onDelete()
   showDeleteDialog.value = false
 }
 </script>

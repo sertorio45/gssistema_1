@@ -35,12 +35,12 @@ export default defineEventHandler(async (event) => {
     if (!tenantId) {
       throw createError({
         statusCode: 400,
-        message: 'Não foi possível identificar o tenant_id',
+        message: 'Could not identify tenant_id',
       })
     }
     
     // Preparar dados para inserção
-    const categoryToInsert = {
+    const tagToInsert = {
       title: body.title,
       slug: body.slug,
       description: body.description,
@@ -49,46 +49,46 @@ export default defineEventHandler(async (event) => {
     }
     
     // Validações básicas
-    if (!categoryToInsert.title || !categoryToInsert.slug) {
+    if (!tagToInsert.title || !tagToInsert.slug) {
       throw createError({
         statusCode: 400,
-        message: 'Título e slug são obrigatórios',
+        message: 'Title and slug are required',
       })
     }
     
-    // Verificar se já existe uma categoria com o mesmo slug para este tenant
-    const { data: existingCategory, error: existError } = await client
-      .from('articles_category')
+    // Verificar se já existe uma tag com o mesmo slug para este tenant
+    const { data: existingTag, error: existError } = await client
+      .from('articles_tag')
       .select('id')
-      .eq('slug', categoryToInsert.slug)
+      .eq('slug', tagToInsert.slug)
       .eq('tenant_id', tenantId)
       .single()
     
     if (existError && existError.code !== 'PGRST116') {
       throw createError({
         statusCode: 500,
-        message: 'Erro ao verificar categoria existente',
+        message: 'Error checking existing tag',
       })
     }
     
-    if (existingCategory) {
+    if (existingTag) {
       throw createError({
         statusCode: 409,
-        message: 'Já existe uma categoria com este slug',
+        message: 'A tag with this slug already exists',
       })
     }
     
-    // Inserir a categoria
+    // Inserir a tag
     const { data, error } = await client
-      .from('articles_category')
-      .insert([categoryToInsert])
+      .from('articles_tag')
+      .insert([tagToInsert])
       .select()
       .single()
     
     if (error) {
       throw createError({
         statusCode: 500,
-        message: error.message || 'Falha ao criar categoria',
+        message: error.message || 'Failed to create tag',
       })
     }
     
@@ -98,12 +98,12 @@ export default defineEventHandler(async (event) => {
     }
   } catch (error: any) {
     // Log detalhado do erro
-    console.error('Erro na criação da categoria:', error)
+    console.error('Error creating tag:', error)
     
     // Propagar o erro com detalhes
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Erro interno do servidor',
+      message: error.message || 'Internal server error',
     })
   }
 })

@@ -1,49 +1,49 @@
 <script setup lang="ts">
+import { Icon } from '#components'
 import type { Row } from '@tanstack/vue-table'
-import type { Task } from '../data/schema'
-import { computed } from 'vue'
-import { labels } from '../data/data'
-import { taskSchema } from '../data/schema'
+
+const emit = defineEmits(['edit', 'delete'])
 
 interface DataTableRowActionsProps {
-  row: Row<Task>
+  row: Row<any>
+  onEdit?: (row: any) => void
+  onDelete?: (row: any) => void
 }
 const props = defineProps<DataTableRowActionsProps>()
 
-const task = computed(() => taskSchema.parse(props.row.original))
+function handleEdit() {
+  if (props.onEdit) {
+    return props.onEdit(props.row.original)
+  }
+  emit('edit', props.row.original)
+}
+function handleDelete() {
+  if (props.onDelete) {
+    return props.onDelete(props.row.original)
+  }
+  emit('delete', props.row.original)
+}
 </script>
 
 <template>
-  <DropdownMenu>
-    <DropdownMenuTrigger as-child>
-      <Button
-        variant="ghost"
-        class="h-8 w-8 flex p-0 data-[state=open]:bg-muted"
-      >
-        <Icon name="i-radix-icons-dots-horizontal" class="h-4 w-4" />
-        <span class="sr-only">Open menu</span>
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" class="w-[160px]">
-      <DropdownMenuItem>Edit</DropdownMenuItem>
-      <DropdownMenuItem>Make a copy</DropdownMenuItem>
-      <DropdownMenuItem>Favorite</DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>Labels</DropdownMenuSubTrigger>
-        <DropdownMenuSubContent>
-          <DropdownMenuRadioGroup :value="task.label">
-            <DropdownMenuRadioItem v-for="label in labels" :key="label.value" :value="label.value">
-              {{ label.label }}
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem>
-        Delete
-        <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
+  <div class="flex justify-end gap-2">
+    <Button
+      variant="ghost"
+      size="icon"
+      class="h-8 w-8 text-muted-foreground hover:text-primary"
+      @click="handleEdit"
+    >
+      <Icon name="lucide:pencil" class="h-4 w-4" />
+      <span class="sr-only">Edit</span>
+    </Button>
+    <Button
+      variant="ghost"
+      size="icon"
+      class="h-8 w-8 text-muted-foreground hover:text-destructive"
+      @click="handleDelete"
+    >
+      <Icon name="lucide:trash-2" class="h-4 w-4" />
+      <span class="sr-only">Delete</span>
+    </Button>
+  </div>
 </template>

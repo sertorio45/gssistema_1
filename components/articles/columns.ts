@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/vue-table'
 import { h } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
 import { Checkbox } from '@/components/ui/checkbox'
-import DataTableRowActions from './DataTableRowActions.vue'
+import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 
 export interface Article {
   id: string
@@ -62,6 +62,16 @@ export const columns: ColumnDef<Article>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row }) => h(DataTableRowActions, { row }),
+    header: '',
+    cell: ({ row, table }) => h(
+      DataTableRowActions,
+      {
+        row,
+        onEdit: () => (table.options.meta as any)?.onEdit?.(row.original),
+        onDelete: () => (table.options.meta as any)?.onDelete?.(row.original),
+      },
+    ),
+    enableSorting: false,
+    enableHiding: false,
   },
 ]

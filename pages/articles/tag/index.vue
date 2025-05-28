@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { columns } from '~/components/articles/columns'
+import { columns } from '~/components/articles/tag/columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
@@ -10,42 +10,43 @@ import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
-const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
+const { tenantId } = useTenant()
 const { currentRole } = useAuth()
 
 const showDeleteDialog = ref(false)
-const articleToDelete = ref<any | null>(null)
+const tagToDelete = ref<any | null>(null)
 const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
-// Debug: logar tenantId e articlesRaw
+// Debug: log tenantId and categoriesRaw
 watch(tenantId, (val) => {
-  console.warn('[DEBUG] tenantId do cliente:', val)
+  console.warn('[DEBUG] tenantId:', val)
 }, { immediate: true })
 
-const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch<any[]>('/api/articles')
-const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id')
+const { data: tagsRaw, pending: loading, refresh: refreshTags } = useFetch<any[]>('/api/articles/tag')
+const { filteredData: tags } = useTenantRoleFilter<any>(tagsRaw as any, 'tenant_id')
 
-watch(articlesRaw, (val) => {
-  console.warn('[DEBUG] articlesRaw:', val)
+watch(tagsRaw, (val) => {
+  console.warn('[DEBUG] tagsRaw:', val)
 }, { immediate: true })
 
-function handleDeleteClick(article: any) {
-  articleToDelete.value = article
+function handleDeleteClick(tag: any) {
+  tagToDelete.value = tag
   showDeleteDialog.value = true
 }
 
-function handleEditClick(article: any) {
-  navigateTo(`/articles/edit/${article.id}`)
+function handleEditClick(tag: any) {
+  navigateTo(`/articles/tag/edit/${tag.id}`)
 }
 
 async function handleDeleteConfirm() {
-  if (!articleToDelete.value)
+  if (!tagToDelete.value)
     return
   showDeleteDialog.value = false
-  await $fetch(`/api/articles/${articleToDelete.value.id}`, { method: 'DELETE' as any })
-  articleToDelete.value = null
-  await refreshArticles()
+  const tenantId = useTenant().tenantId
+  await $fetch(`/api/articles/tag/${tagToDelete.value.id}?tenant_id=${tenantId}`, { method: 'DELETE' as any })
+  tagToDelete.value = null
+  await refreshTags()
 }
 
 function showMultiDeleteConfirmation() {
@@ -54,48 +55,23 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
+  const tenantId = useTenant().tenantId
   for (const idx of selectedItems.value) {
-    const article = articles.value[idx]
-    if (article) {
-      await $fetch(`/api/articles/${article.id}`, { method: 'DELETE' as any })
+    const tag = tags.value[idx]
+    if (tag) {
+      await $fetch(`/api/articles/tag/${tag.id}?tenant_id=${tenantId}`, { method: 'DELETE' as any })
     }
   }
   selectedItems.value = []
-  await refreshArticles()
+  await refreshTags()
 }
 
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-onMounted(async () => {
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-    refreshArticles()
-  }
-})
-
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-    refreshArticles()
-  }
-})
-
 watch(tenantId, () => {
-  refreshArticles()
+  refreshTags()
 })
 </script>
 
@@ -104,18 +80,18 @@ watch(tenantId, () => {
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          Articles
+          Tags
         </h1>
         <p class="text-muted-foreground">
-          Manage your site articles
+          Manage your article tags
         </p>
       </div>
       <Button
         class="bg-primary hover:bg-primary/90"
-        @click="() => navigateTo('/articles/new')"
+        @click="() => navigateTo('/articles/tag/new')"
       >
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-        New Article
+        New Tag
       </Button>
     </div>
 
@@ -133,14 +109,14 @@ watch(tenantId, () => {
     </div>
     <template v-else>
       <DataTable
-        :data="articles"
+        :data="tags"
         :columns="columns"
         @delete="handleDeleteClick"
         @selection-change="updateSelectedItems"
         :meta="{ onEdit: handleEditClick, onDelete: handleDeleteClick }"
       >
         <template #toolbar="{ table }">
-          <DataTableToolbar :table="table" placeholder="Filter articles..." />
+          <DataTableToolbar :table="table" placeholder="Filter tags..." />
         </template>
         <template #pagination="{ table }">
           <DataTablePagination :table="table" />
@@ -149,14 +125,14 @@ watch(tenantId, () => {
           <DataTableRowActions :row="row" :onEdit="handleEditClick" :onDelete="handleDeleteClick" />
         </template>
       </DataTable>
-      <div v-if="articles.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
-        No articles found for this tenant.
+      <div v-if="tags.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
+        No tags found for this tenant.
       </div>
       <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
-        Select a tenant to view articles.
+        Select a tenant to view tags.
       </div>
-      <div v-else-if="articles.length === 0" class="p-6 text-center text-muted-foreground">
-        No articles found.
+      <div v-else-if="tags.length === 0" class="p-6 text-center text-muted-foreground">
+        No tags found.
       </div>
     </template>
 
@@ -170,10 +146,10 @@ watch(tenantId, () => {
     <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
-          Delete Article
+          Delete Tag
         </h2>
         <p class="mb-4">
-          Are you sure you want to delete the article "{{ articleToDelete?.title }}"? This action cannot be undone.
+          Are you sure you want to delete the tag "{{ tagToDelete?.title }}"? This action cannot be undone.
         </p>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showDeleteDialog = false">
@@ -190,10 +166,10 @@ watch(tenantId, () => {
     <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
-          Delete Multiple Articles
+          Delete Multiple Tags
         </h2>
         <p class="mb-4">
-          Are you sure you want to delete {{ selectedItems.length }} articles? This action cannot be undone.
+          Are you sure you want to delete {{ selectedItems.length }} tags? This action cannot be undone.
         </p>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showMultiDeleteDialog = false">
