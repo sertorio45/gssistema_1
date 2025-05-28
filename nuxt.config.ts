@@ -55,9 +55,7 @@ export default defineNuxtConfig({
 
   // Configurações de runtime para acessar variáveis de ambiente
   runtimeConfig: {
-    // Variáveis de ambiente privadas do servidor
-    apiSecret: '',
-    // Variáveis públicas acessíveis ao cliente
+    apiSecret: process.env.API_SECRET,
     public: {
       // As variáveis que devem estar acessíveis ao cliente
     },

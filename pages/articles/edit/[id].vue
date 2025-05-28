@@ -100,7 +100,10 @@ const {
       method: 'GET',
       query: { tenant_id: tenantStore.tenantId },
     })
-    return Array.isArray(response) ? response : []
+    // Garante que só retorna categorias do tenant atual
+    return Array.isArray(response)
+      ? response.filter(cat => cat.tenant_id === tenantStore.tenantId)
+      : []
   } catch (e) {
     return []
   }

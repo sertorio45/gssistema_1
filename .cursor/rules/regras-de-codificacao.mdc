@@ -11,3 +11,4 @@ Menus: Toda lógica de menus deve ser centralizada no arquivo constants/menus.ts
 Bibliotecas: Mantenha as bibliotecas de UI, tema e utilitários intactas, sem modificações diretas.
 Listagens: Todas as páginas de listagem devem utilizar datatables padronizados, seguindo o exemplo da página de Tasks.
 Cache: Implemente cache em todos os módulos criados (exemplo: articles) para otimizar a performance e evitar requisições desnecessárias.
+Sempre usar SSR nos projetos NUXT 3.
