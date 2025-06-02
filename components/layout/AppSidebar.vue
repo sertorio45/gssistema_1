@@ -118,7 +118,7 @@ onMounted(async () => {
               <SidebarMenuSkeleton class="mb-1 ml-6" />
             </SidebarGroup>
           </div>
-          <div v-else>
+          <div v-else class="mb-3">
             <!-- Tenant Dropdown -->
             <TenantDropdown />
           </div>

@@ -5,6 +5,34 @@ export const navMenu: NavMenu[] = [
     heading: '',
     items: [
       {
+        title: 'CRM',
+        icon: 'i-lucide-briefcase',
+        roles: ['admin', 'funcionario', 'cliente'],
+        children: [
+          { title: 'Dashboard', icon: 'i-lucide-layout-dashboard', link: '/crm/dashboard' },
+          { title: 'Sales Pipeline', icon: 'i-lucide-trending-up', link: '/crm/pipeline' },
+          { title: 'Companies', icon: 'i-lucide-building', link: '/crm/companies' },
+          { title: 'Contacts', icon: 'i-lucide-contact', link: '/crm/contacts' },
+          { title: 'Meetings', icon: 'i-lucide-calendar', link: '/crm/meetings' },
+          { title: 'WhatsApp', icon: 'i-lucide-message-circle', link: '/crm/whatsapp', new: true },
+          {
+            title: 'Configurações',
+            icon: 'i-lucide-bar-chart-3',
+            link: '/crm/config',
+            children: [
+              { title: 'Sources', icon: 'i-lucide-circle', link: '/crm/config/sources' },
+              { title: 'Sales Stages', icon: 'i-lucide-list-checks', link: '/crm/config/sales-stages' },
+              { title: 'Pipelines', icon: 'i-lucide-layers', link: '/crm/config/pipelines' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    heading: '',
+    items: [
+      {
         title: 'Articles',
         icon: 'i-lucide-book-a',
         roles: ['admin', 'funcionario', 'cliente'],

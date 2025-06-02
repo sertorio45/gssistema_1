@@ -5,8 +5,10 @@ import { computed } from 'vue'
 interface DataTableToolbarProps {
   table: Table<any>
   placeholder?: string
+  filterColumn?: string
 }
 const props = defineProps<DataTableToolbarProps>()
+const filterColumn = computed(() => props.filterColumn || 'name')
 
 const isFiltered = computed(() => props.table.getState().columnFilters.length > 0)
 </script>
@@ -16,9 +18,9 @@ const isFiltered = computed(() => props.table.getState().columnFilters.length > 
     <div class="flex flex-1 items-center space-x-2">
       <Input
         :placeholder="props.placeholder || 'Filter...'"
-        :model-value="(props.table.getColumn('title')?.getFilterValue() as string) ?? ''"
+        :model-value="(props.table.getColumn(filterColumn)?.getFilterValue() as string) ?? ''"
         class="h-8 w-[150px] lg:w-[250px]"
-        @input="props.table.getColumn('title')?.setFilterValue($event.target.value)"
+        @input="props.table.getColumn(filterColumn)?.setFilterValue($event.target.value)"
       />
       <slot name="filters" :table="props.table" />
       <Button

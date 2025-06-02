@@ -113,7 +113,7 @@ async function saveCategory() {
 
 <template>
   <div>
-    <div class="p-6">
+    <div>
       <div class="mb-6 flex items-center justify-between">
         <h1 class="text-2xl font-bold">
           Edit Category

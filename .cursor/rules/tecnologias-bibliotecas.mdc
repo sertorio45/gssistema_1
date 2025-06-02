@@ -13,6 +13,7 @@ Este projeto utiliza as seguintes tecnologias e bibliotecas principais:
 - **Shadcn para Nuxt**: Biblioteca de componentes UI baseada em shadcn/ui, adaptada para Nuxt 3.
 - **Unocss**: Utilitário de CSS atômico para estilização rápida e flexível.
 - **Lucide Icons**: Biblioteca de ícones SVG utilizada nos componentes.
+- https://github.com/GrapesJS/grapesjs Grapesjs
 
 ## Observações
 - O código dos módulos deve ser organizado e reutilizável, seguindo o padrão de diretórios do Nuxt 3.
@@ -20,4 +21,3 @@ Este projeto utiliza as seguintes tecnologias e bibliotecas principais:
 - O frontend é todo em inglês, mas a comunicação e documentação podem ser em português.
 - As bibliotecas de tema e UI devem ser mantidas intactas.
 
-Para mais detalhes sobre a estrutura do projeto, consulte a regra de estrutura de pastas (se houver).

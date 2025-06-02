@@ -5,8 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 const colorMode = useColorMode()
 
-const logoLight = 'https://publico.gsstudio.com.br/branding/gsstudio-logotipo-colors-horizontal.svg'
-const logoDark = 'https://publico.gsstudio.com.br/branding/gsstudio-logotipo-white-horizontal.svg'
+const logoLight = '/logotipo.svg'
+const logoDark = '/logotipo-white.svg'
 
 const logoSrc = ref(logoLight)
 const isReady = ref(false)

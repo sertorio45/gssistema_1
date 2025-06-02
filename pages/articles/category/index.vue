@@ -77,7 +77,7 @@ watch(tenantId, () => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
