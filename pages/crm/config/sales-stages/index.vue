@@ -18,6 +18,8 @@ import DialogHeader from '~/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
 import SalesStageForm from '~/components/crm/config/SalesStageForm.vue'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
+import { supabase } from '~/lib/supabase'
+import { toast } from 'react-hot-toast'
 
 const { tenantId, setTenantFromJWT, tenants, setCurrentTenantById, listTenants } = useTenant()
 const { currentRole } = useAuth()
@@ -29,7 +31,7 @@ const showDeleteDialog = ref(false)
 const stageToDelete = ref<any | null>(null)
 const showMultiDeleteDialog = ref(false)
 const nameError = ref('')
-let lastColor = ''
+const isLoading = ref(false)
 
 const {
   data: stagesRaw,
@@ -180,6 +182,29 @@ async function handleMultiDeleteConfirm() {
   await refreshStages()
 }
 
+async function fetchSalesStages() {
+  if (!tenantId.value) return
+
+  isLoading.value = true
+  try {
+    const { data, error } = await supabase
+      .from('crm_sales_stage')
+      .select('*')
+      .eq('tenant_id', tenantId.value)
+      .order('sequence_order', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching sales stages:', error)
+      toast.error('Failed to load sales stages')
+      salesStages.value = []
+    } else {
+      salesStages.value = data || []
+    }
+  } finally {
+    isLoading.value = false
+  }
+}
+
 onMounted(async () => {
   if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
     await listTenants()
@@ -227,7 +252,7 @@ watch(tenantId, (val) => {
         New Stage
       </Button>
     </div>
-    <div v-if="pending" class="space-y-4">
+    <div v-if="isLoading" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">

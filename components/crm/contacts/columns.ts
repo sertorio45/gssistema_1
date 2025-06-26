@@ -31,6 +31,13 @@ export const columns: ColumnDef<Contact>[] = [
     enableHiding: true,
   },
   {
+    accessorKey: 'email',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Email' }),
+    cell: ({ row }) => h('span', { class: 'text-muted-foreground' }, row.getValue('email')),
+    enableSorting: true,
+    enableHiding: true,
+  },
+  {
     accessorKey: 'company_name',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Company' }),
     cell: ({ row }) => row.getValue('company_name') || '-',
@@ -47,18 +54,27 @@ export const columns: ColumnDef<Contact>[] = [
   {
     accessorKey: 'phone',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Phone' }),
-    cell: ({ row }) => row.getValue('phone'),
+    cell: ({ row }) => row.getValue('phone') || '-',
     enableSorting: true,
     enableHiding: true,
   },
   {
-    accessorKey: 'lastContact',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Last Contact' }),
+    accessorKey: 'tags',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Tags' }),
     cell: ({ row }) => {
-      const date = row.getValue('lastContact')
-      return date ? new Date(date).toLocaleDateString('pt-BR') : '-'
+      const tags = row.getValue('tags') as string[]
+      if (!tags || tags.length === 0) return '-'
+
+      return h('div', { class: 'flex flex-wrap gap-1' }, [
+        ...tags.slice(0, 2).map(tag =>
+          h('span', {
+            class: 'inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium',
+          }, tag),
+        ),
+        ...(tags.length > 2 ? [h('span', { class: 'text-xs text-muted-foreground' }, `+${tags.length - 2}`)] : []),
+      ])
     },
-    enableSorting: true,
+    enableSorting: false,
     enableHiding: true,
   },
   {

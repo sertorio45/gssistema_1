@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
       color: body.color,
       description: body.description,
       tenant_id: tenantId,
+      pipeline_id: body.pipeline_id,
     }
     if (!stageToInsert.name || !stageToInsert.order || !stageToInsert.color) {
       throw createError({ statusCode: 400, message: 'Nome, ordem e cor são obrigatórios' })

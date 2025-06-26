@@ -17,8 +17,6 @@ export default defineEventHandler(async (event) => {
     }
     const leadToInsert = {
       name: body.name,
-      email: body.email,
-      phone: body.phone,
       company: body.company,
       status: body.status,
       source: body.source,
@@ -33,8 +31,8 @@ export default defineEventHandler(async (event) => {
       tags: body.tags,
       tenant_id: tenantId,
     }
-    if (!leadToInsert.name || !leadToInsert.email || !leadToInsert.phone) {
-      throw createError({ statusCode: 400, message: 'Nome, email e telefone são obrigatórios' })
+    if (!leadToInsert.name) {
+      throw createError({ statusCode: 400, message: 'Nome é obrigatório' })
     }
     const { data, error } = await client.from('crm_lead').insert([leadToInsert]).select().single()
     if (error) {

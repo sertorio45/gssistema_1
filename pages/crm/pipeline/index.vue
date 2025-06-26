@@ -17,6 +17,9 @@ import type { Lead, SalesStage } from '~/types/crm'
 import Draggable from 'vuedraggable'
 import Tooltip from '~/components/ui/tooltip/Tooltip.vue'
 import LeadStepperForm from '~/components/crm/leads/LeadStepperForm.vue'
+import Card from '~/components/ui/card/Card.vue'
+import CardContent from '~/components/ui/card/CardContent.vue'
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 
 interface Pipeline { id: string; name: string }
 interface LeadExt extends Lead { sales_stage_id?: string; pipeline_id?: string }
@@ -39,6 +42,7 @@ const isAddPipelineDialogOpen = ref(false)
 const newPipeline = ref({ name: '', description: '' })
 const isOrganizeStagesDialogOpen = ref(false)
 const stagesOrder = ref<SalesStage[]>([])
+const isLoading = ref(false)
 
 // Group leads by status
 const leadsByStage = computed(() => {
@@ -582,23 +586,37 @@ async function saveStagesOrder() {
 
     <!-- Visualização em Lista (DataTable) -->
     <template v-else>
-      <DataTable
-        :data="leads"
-        :columns="columns"
-        @delete="handleDelete"
-        @selection-change="updateSelectedItems"
-        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
-      >
-        <template #toolbar="{ table }">
-          <DataTableToolbar :table="table" placeholder="Search leads..." column-key="name" />
-        </template>
-        <template #pagination="{ table }">
-          <DataTablePagination :table="table" />
-        </template>
-        <template #actions="{ row }">
-          <DataTableRowActions :row="row" :onEdit="handleEdit" :onDelete="handleDelete" />
-        </template>
-      </DataTable>
+      <div v-if="isLoading" class="space-y-4">
+        <Card class="border shadow-sm">
+          <CardContent class="p-4">
+            <div class="space-y-2">
+              <Skeleton class="h-8 w-[250px]" />
+              <Skeleton class="h-8 w-full" />
+              <Skeleton class="h-8 w-full" />
+              <Skeleton class="h-8 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <template v-else>
+        <DataTable
+          :data="leads"
+          :columns="columns"
+          @delete="handleDelete"
+          @selection-change="updateSelectedItems"
+          :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
+        >
+          <template #toolbar="{ table }">
+            <DataTableToolbar :table="table" placeholder="Search leads..." column-key="name" />
+          </template>
+          <template #pagination="{ table }">
+            <DataTablePagination :table="table" />
+          </template>
+          <template #actions="{ row }">
+                         <DataTableRowActions :row="row" :onEdit="handleEdit" :onDelete="handleDelete" />
+          </template>
+        </DataTable>
+      </template>
 
       <MultiActionBar
         v-if="selectedItems.length > 0"
@@ -718,7 +736,7 @@ async function saveStagesOrder() {
 
     <!-- Lead Details Dialog -->
     <Dialog v-model:open="isDialogOpen">
-      <DialogContent class="max-w-2xl">
+      <DialogScrollContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Lead Details</DialogTitle>
           <DialogDescription>
@@ -782,12 +800,12 @@ async function saveStagesOrder() {
           <Button variant="outline" @click="closeDialog">Close</Button>
           <Button>Edit Lead</Button>
         </DialogFooter>
-      </DialogContent>
+      </DialogScrollContent>
     </Dialog>
 
     <!-- Add Lead Dialog -->
     <Dialog v-model:open="isAddLeadDialogOpen">
-      <DialogContent class="w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl min-h-[60vh] max-h-[90vh] overflow-y-auto p-0 sm:p-6">
+      <DialogScrollContent class="w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl min-h-[60vh] max-h-[90vh] overflow-y-auto p-0 sm:p-6">
         <DialogHeader>
           <DialogTitle class="text-center">Add New Lead</DialogTitle>
           <DialogDescription class="text-center">
@@ -795,7 +813,7 @@ async function saveStagesOrder() {
           </DialogDescription>
         </DialogHeader>
         <LeadStepperForm />
-      </DialogContent>
+      </DialogScrollContent>
     </Dialog>
 
     <!-- Delete Dialog -->

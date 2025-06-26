@@ -25,8 +25,29 @@ export const columns: ColumnDef<Meeting>[] = [
   },
   {
     accessorKey: 'title',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Meeting' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Title' }),
     cell: ({ row }) => h('span', { class: 'font-medium' }, row.getValue('title')),
+    enableSorting: true,
+    enableHiding: true,
+  },
+  {
+    accessorKey: 'company_name',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Company' }),
+    cell: ({ row }) => row.getValue('company_name') || '-',
+    enableSorting: true,
+    enableHiding: true,
+  },
+  {
+    accessorKey: 'contact_name',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Contact' }),
+    cell: ({ row }) => row.getValue('contact_name') || '-',
+    enableSorting: true,
+    enableHiding: true,
+  },
+  {
+    accessorKey: 'lead_name',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Lead' }),
+    cell: ({ row }) => row.getValue('lead_name') || '-',
     enableSorting: true,
     enableHiding: true,
   },
@@ -45,25 +66,16 @@ export const columns: ColumnDef<Meeting>[] = [
     enableHiding: true,
   },
   {
-    accessorKey: 'startTime',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Date & Time' }),
-    cell: ({ row }) => {
-      const date = new Date(row.getValue('startTime'))
-      return h('div', { class: 'flex flex-col' }, [
-        h('span', { class: 'font-medium' }, date.toLocaleDateString('pt-BR')),
-        h('span', { class: 'text-sm text-muted-foreground' }, date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })),
-      ])
-    },
+    accessorKey: 'start_time',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Start' }),
+    cell: ({ row }) => new Date(row.getValue('start_time')).toLocaleString('pt-BR'),
     enableSorting: true,
     enableHiding: true,
   },
   {
-    accessorKey: 'attendees',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Attendees' }),
-    cell: ({ row }) => {
-      const attendees = row.getValue('attendees') as string[]
-      return attendees.length > 0 ? attendees.join(', ') : '-'
-    },
+    accessorKey: 'end_time',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'End' }),
+    cell: ({ row }) => new Date(row.getValue('end_time')).toLocaleString('pt-BR'),
     enableSorting: true,
     enableHiding: true,
   },

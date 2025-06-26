@@ -11,7 +11,7 @@ export const navMenu: NavMenu[] = [
         children: [
           { title: 'Dashboard', icon: 'i-lucide-layout-dashboard', link: '/crm/dashboard' },
           { title: 'Sales Pipeline', icon: 'i-lucide-trending-up', link: '/crm/pipeline' },
-          { title: 'Companies', icon: 'i-lucide-building', link: '/crm/companies' },
+          { title: 'Companies', icon: 'i-lucide-building', link: '/crm/company' },
           { title: 'Contacts', icon: 'i-lucide-contact', link: '/crm/contacts' },
           { title: 'Meetings', icon: 'i-lucide-calendar', link: '/crm/meetings' },
           { title: 'WhatsApp', icon: 'i-lucide-message-circle', link: '/crm/whatsapp', new: true },

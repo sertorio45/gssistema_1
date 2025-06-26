@@ -22,7 +22,7 @@ const configCards = [
     title: 'Pipelines',
     description: 'Create and manage sales pipelines to organize your leads and deals by workflow.',
     icon: Layers,
-    to: '/crm/config/pipelines',
+    to: '/crm/config/pipeline',
   },
 ]
 </script>

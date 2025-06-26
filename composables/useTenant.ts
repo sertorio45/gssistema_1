@@ -1,4 +1,4 @@
-//Esse arquivo é responsável por gerenciar o tenantId e os tenants para a página de listagem de tenants
+// Esse arquivo é responsável por gerenciar o tenantId e os tenants para a página de listagem de tenants
 import { useSupabaseClient } from '#imports'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuth } from '~/composables/useAuth'
@@ -7,25 +7,50 @@ import { useTenantStore } from '~/stores/tenant'
 const tenantId = ref<string | null>(null)
 const tenants = ref<any[]>([])
 
-onMounted(() => {
-  const savedTenant = localStorage.getItem('tenantId')
-  if (savedTenant) {
-    tenantId.value = savedTenant
-  }
-})
-
-watch(tenantId, (newVal) => {
-  if (newVal) {
-    localStorage.setItem('tenantId', newVal)
-  }
-  else {
-    localStorage.removeItem('tenantId')
-  }
-})
-
+// Unifica a persistência do tenant usando apenas 'current-tenant-id'
 function setTenantId(newTenantId: string | null) {
   tenantId.value = newTenantId
+  const tenantStore = useTenantStore()
+  tenantStore.setTenant(newTenantId ?? '')
+  if (import.meta.client) {
+    if (newTenantId) {
+      localStorage.setItem('current-tenant-id', newTenantId)
+    } else {
+      localStorage.removeItem('current-tenant-id')
+    }
+  }
 }
+
+// Restaura o tenant salvo no localStorage ao iniciar
+function restoreLastTenant() {
+  if (import.meta.client) {
+    const lastTenantId = localStorage.getItem('current-tenant-id')
+    if (lastTenantId) {
+      setTenantId(lastTenantId)
+    }
+  }
+}
+
+// Listener global para evento de troca de tenant
+if (import.meta.client) {
+  window.addEventListener('tenant-changed', (event: Event) => {
+    const customEvent = event as CustomEvent
+    if (customEvent.detail?.tenantId) {
+      setTenantId(customEvent.detail.tenantId)
+    }
+  })
+}
+
+watch(tenantId, (newVal) => {
+  if (import.meta.client) {
+    if (newVal) {
+      localStorage.setItem('current-tenant-id', newVal)
+    } else {
+      localStorage.removeItem('current-tenant-id')
+    }
+  }
+  useTenantStore().setTenant(newVal ?? '')
+})
 
 async function listTenants() {
   const supabase = useSupabaseClient()
@@ -46,30 +71,19 @@ const currentTenant = computed(() => {
 
 export function useTenant() {
   const tenantStore = useTenantStore()
-  // Sincronizar tenantId com o valor do Pinia store
-  watch(() => tenantStore.tenantId, (val) => {
-    tenantId.value = val
-  }, { immediate: true })
-
   const supabase = useSupabaseClient()
   const { currentRole } = useAuth()
 
-  // Restaura o último tenant salvo no localStorage
-  function restoreLastTenant() {
-    if (import.meta.client) {
-      const lastTenantId = localStorage.getItem('current-tenant-id')
-      if (lastTenantId) {
-        setTenant(lastTenantId)
-      }
+  // Sincronizar tenantId com o valor do Pinia store
+  watch(() => tenantStore.tenantId, (val) => {
+    if (val !== tenantId.value) {
+      setTenantId(val)
     }
-  }
+  }, { immediate: true })
 
   // Seleciona o tenant pelo UUID e salva no store/localStorage
   function setCurrentTenantById(id: string) {
     setTenantId(id)
-    if (import.meta.client) {
-      localStorage.setItem('current-tenant-id', id)
-    }
   }
 
   // Seleciona o tenant pelo slug e salva no store/localStorage
@@ -84,19 +98,15 @@ export function useTenant() {
     }
     if (data && data.id) {
       setTenantId(data.id)
-    }
-    else {
+    } else {
       throw new Error('Tenant não encontrado')
     }
   }
 
   // Função protegida: só permite setar tenant se não for cliente
-  function setTenant(tenantId: string) {
-    if (currentRole.value !== 'cliente') {
-      tenantStore.setTenant(tenantId)
-      if (import.meta.client) {
-        localStorage.setItem('current-tenant-id', tenantId)
-      }
+  function setTenant(newTenantId: string) {
+    if (currentRole.value !== 'cliente' && newTenantId) {
+      setTenantId(newTenantId)
     }
   }
 
@@ -107,15 +117,17 @@ export function useTenant() {
       const payload = JSON.parse(atob(session.access_token.split('.')[1]))
       // Pega o primeiro tenantId do objeto tenant_roles
       const tenantRoles = payload.app_metadata?.tenant_roles
-      const tenantId = tenantRoles ? Object.keys(tenantRoles)[0] : null
-      if (tenantId) {
-        tenantStore.setTenant(tenantId)
-        if (import.meta.client) {
-          localStorage.setItem('current-tenant-id', tenantId)
-        }
+      const jwtTenantId = tenantRoles ? Object.keys(tenantRoles)[0] : null
+      if (jwtTenantId) {
+        setTenantId(jwtTenantId)
       }
     }
   }
+
+  // Restaura o tenant salvo ao iniciar
+  onMounted(() => {
+    restoreLastTenant()
+  })
 
   return {
     tenantId,

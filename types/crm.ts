@@ -1,8 +1,6 @@
 export interface Lead {
   id: string
   name: string
-  email: string
-  phone: string
   company?: string
   status: 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost'
   source: 'website' | 'referral' | 'social' | 'email' | 'phone' | 'other'
@@ -27,11 +25,11 @@ export interface Contact {
   company_id?: string
   company_name?: string
   notes?: string
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
   tenant_id: string
   tags: string[]
-  lastContact?: string
+  last_contact?: string
 }
 
 export interface Company {
@@ -41,38 +39,38 @@ export interface Company {
   industry?: string
   size?: 'startup' | 'small' | 'medium' | 'large' | 'enterprise'
   address?: string
+  cep?: string
   city?: string
   country?: string
-  phone?: string
-  email?: string
   notes?: string
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
   tenant_id: string
-  contactsCount: number
-  leadsCount: number
-  totalValue: number
 }
 
 export interface Meeting {
   id: string
   title: string
   description?: string
-  startTime: string
-  endTime: string
+  start_time: string
+  end_time: string
   location?: string
   type: 'call' | 'video' | 'in-person' | 'demo'
   status: 'scheduled' | 'completed' | 'cancelled' | 'no-show'
-  attendees: string[]
+  attendees?: string[]
   lead_id?: string
   contact_id?: string
   company_id?: string
-  createdBy: string
-  createdAt: string
-  updatedAt: string
+  created_by: string
+  created_at: string
+  updated_at: string
   tenant_id: string
   notes?: string
   outcome?: string
+  // Para exibição no frontend
+  company_name?: string
+  contact_name?: string
+  lead_name?: string
 }
 
 export interface WhatsAppMessage {

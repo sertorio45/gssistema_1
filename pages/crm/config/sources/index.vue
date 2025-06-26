@@ -199,19 +199,34 @@ watch(tenantId, (val) => {
       </Card>
     </div>
     <template v-else>
-      <DataTable
-        :data="filteredSources"
-        :columns="sourceColumns"
-        @selection-change="updateSelectedItems"
-        :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
-      >
-        <template #toolbar="{ table }">
-          <DataTableToolbar :table="table" filter-column="name" placeholder="Filter sources..." />
-        </template>
-        <template #pagination="{ table }">
-          <DataTablePagination :table="table" />
-        </template>
-      </DataTable>
+      <!-- DataTable with Skeleton -->
+      <div v-if="pending" class="space-y-4">
+        <Card class="border shadow-sm">
+          <CardContent class="p-4">
+            <div class="space-y-2">
+              <Skeleton class="h-8 w-[250px]" />
+              <Skeleton class="h-8 w-full" />
+              <Skeleton class="h-8 w-full" />
+              <Skeleton class="h-8 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <template v-else>
+        <DataTable
+          :data="filteredSources"
+          :columns="sourceColumns"
+          @selection-change="updateSelectedItems"
+          :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
+        >
+          <template #toolbar="{ table }">
+            <DataTableToolbar :table="table" filter-column="name" placeholder="Filter sources..." />
+          </template>
+          <template #pagination="{ table }">
+            <DataTablePagination :table="table" />
+          </template>
+        </DataTable>
+      </template>
       <MultiActionBar
         v-if="selectedItems.length > 0"
         :count="selectedItems.length"
