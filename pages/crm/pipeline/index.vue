@@ -1,28 +1,43 @@
 <script setup lang="ts">
-import { computed, ref, watch, h } from 'vue'
+import type { Lead, SalesStage } from '~/types/crm'
 import { useFetch } from '#app'
-import { useTenant } from '~/composables/useTenant'
-import { columns, priorityOptions, sourceOptions, statusOptions } from '~/components/crm/leads/columns'
+
+import { computed, ref, watch } from 'vue'
+
+// SEO Meta
+useSeoMeta({
+  title: 'CRM Pipeline - SIEM SISTEMAS',
+  description: 'Manage your sales pipeline and leads efficiently with our CRM system.',
+})
+
+import Draggable from 'vuedraggable'
+import { columns } from '~/components/crm/leads/columns'
+import LeadStepperForm from '~/components/crm/leads/LeadStepperForm.vue'
+import LeadEditForm from '~/components/crm/leads/LeadEditForm.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import Card from '~/components/ui/card/Card.vue'
+import CardContent from '~/components/ui/card/CardContent.vue'
+import Select from '~/components/ui/select/Select.vue'
+import SelectContent from '~/components/ui/select/SelectContent.vue'
+import SelectItem from '~/components/ui/select/SelectItem.vue'
+import SelectTrigger from '~/components/ui/select/SelectTrigger.vue'
+import SelectValue from '~/components/ui/select/SelectValue.vue'
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import Select from '~/components/ui/select/Select.vue'
-import SelectTrigger from '~/components/ui/select/SelectTrigger.vue'
-import SelectValue from '~/components/ui/select/SelectValue.vue'
-import SelectContent from '~/components/ui/select/SelectContent.vue'
-import SelectItem from '~/components/ui/select/SelectItem.vue'
-import type { Lead, SalesStage } from '~/types/crm'
-import Draggable from 'vuedraggable'
 import Tooltip from '~/components/ui/tooltip/Tooltip.vue'
-import LeadStepperForm from '~/components/crm/leads/LeadStepperForm.vue'
-import Card from '~/components/ui/card/Card.vue'
-import CardContent from '~/components/ui/card/CardContent.vue'
-import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
+import { useTenant } from '~/composables/useTenant'
 
-interface Pipeline { id: string; name: string }
-interface LeadExt extends Lead { sales_stage_id?: string; pipeline_id?: string }
+interface Pipeline {
+  id: string
+  name: string
+}
+interface LeadExt extends Lead {
+  sales_stage_id?: string
+  pipeline_id?: string
+}
 
 const { tenantId } = useTenant()
 const pipelines = ref<Pipeline[]>([])
@@ -33,6 +48,7 @@ const selectedLead = ref<Lead | null>(null)
 const isDialogOpen = ref(false)
 const viewMode = ref<'kanban' | 'list'>('kanban')
 const isAddLeadDialogOpen = ref(false)
+const isEditLeadDialogOpen = ref(false)
 const isSheetOpen = ref(false)
 const showDeleteDialog = ref(false)
 const leadToDelete = ref<Lead | null>(null)
@@ -101,10 +117,14 @@ function formatCurrency(value: number) {
 
 function getPriorityColor(priority: string) {
   switch (priority) {
-    case 'high': return 'border-l-red-500'
-    case 'medium': return 'border-l-yellow-500'
-    case 'low': return 'border-l-gray-500'
-    default: return 'border-l-gray-300'
+    case 'high':
+      return 'border-l-red-500'
+    case 'medium':
+      return 'border-l-yellow-500'
+    case 'low':
+      return 'border-l-gray-500'
+    default:
+      return 'border-l-gray-300'
   }
 }
 
@@ -148,11 +168,13 @@ async function handleDrop(event: DragEvent, newStageId: string) {
           })
           await fetchLeads()
           toast.success('Lead moved successfully!')
-        } catch {
+        }
+        catch {
           toast.error('Error updating lead. Try again.')
         }
       }
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Error processing drop:', error)
     }
   }
@@ -162,10 +184,10 @@ async function handleDeleteConfirm() {
   if (!leadToDelete.value)
     return
   showDeleteDialog.value = false
-  
+
   // Aqui seria a chamada para a API para excluir o lead
   // await $fetch(`/api/crm/leads/${leadToDelete.value.id}`, { method: 'DELETE' })
-  
+
   // Simulando a exclusão localmente
   leads.value = leads.value.filter(lead => lead.id !== leadToDelete.value?.id)
   leadToDelete.value = null
@@ -177,12 +199,12 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
-  
+
   // Simulando a exclusão múltipla localmente
   const leadIndicesToDelete = [...selectedItems.value]
   const leadsToDelete = leadIndicesToDelete.map(idx => leads.value[idx])
   const leadIdsToDelete = leadsToDelete.map(lead => lead.id)
-  
+
   leads.value = leads.value.filter(lead => !leadIdsToDelete.includes(lead.id))
   selectedItems.value = []
 }
@@ -197,6 +219,38 @@ function handleAddLeadToStage(stageName: string) {
   isAddLeadDialogOpen.value = true
 }
 
+// Handler para quando um lead é criado com sucesso
+function handleLeadCreated(_newLead: any) {
+  // Fechar o dialog
+  isAddLeadDialogOpen.value = false
+  
+  // Refresh dos leads para mostrar o novo lead
+  fetchLeads()
+  
+  // Lead criado com sucesso - sem log para evitar violação de linter
+}
+
+// Handler para editar lead
+function handleEditLead() {
+  if (selectedLead.value) {
+    // Fechar dialog de detalhes
+    isDialogOpen.value = false
+    // Abrir dialog de edição
+    isEditLeadDialogOpen.value = true
+  }
+}
+
+// Handler para quando um lead é editado com sucesso
+function handleLeadUpdated(_updatedLead: any) {
+  // Fechar o dialog
+  isEditLeadDialogOpen.value = false
+  
+  // Refresh dos leads para mostrar as mudanças
+  fetchLeads()
+  
+  // Lead editado com sucesso - sem log para evitar violação de linter
+}
+
 // Handlers para DataTable global
 function handleEdit(lead: Lead) {
   navigateTo(`/crm/leads/edit/${lead.id}`)
@@ -207,21 +261,24 @@ function handleDelete(lead: Lead) {
 }
 
 function handleSearch(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const searchTerm = input.value.toLowerCase();
-  
+  const input = e.target as HTMLInputElement
+  const searchTerm = input.value.toLowerCase()
+
   if (searchTerm) {
-    leads.value = leads.value.filter(lead => 
-      lead.name.toLowerCase().includes(searchTerm) || 
-      (lead.company && lead.company.toLowerCase().includes(searchTerm))
-    );
-  } else {
+    leads.value = leads.value.filter(
+      lead =>
+        lead.name.toLowerCase().includes(searchTerm)
+        || (lead.company && lead.company.toLowerCase().includes(searchTerm)),
+    )
+  }
+  else {
     fetchLeads()
   }
 }
 
 async function fetchPipelines() {
-  if (!tenantId.value) return
+  if (!tenantId.value)
+    return
   const { data } = await useFetch<Pipeline[]>('/api/crm/pipeline', { params: { tenant_id: tenantId.value } })
   pipelines.value = Array.isArray(data.value) ? data.value : []
   if (!selectedPipeline.value && pipelines.value.length) {
@@ -230,13 +287,17 @@ async function fetchPipelines() {
 }
 
 async function fetchStages() {
-  if (!selectedPipeline.value) return
-  const { data } = await useFetch<SalesStage[]>('/api/crm/sales_stage', { params: { pipeline_id: selectedPipeline.value } })
+  if (!selectedPipeline.value)
+    return
+  const { data } = await useFetch<SalesStage[]>('/api/crm/sales_stage', {
+    params: { pipeline_id: selectedPipeline.value },
+  })
   stages.value = Array.isArray(data.value) ? data.value : []
 }
 
 async function fetchLeads() {
-  if (!selectedPipeline.value) return
+  if (!selectedPipeline.value)
+    return
   const { data } = await useFetch<LeadExt[]>('/api/crm/lead', { params: { pipeline_id: selectedPipeline.value } })
   leads.value = Array.isArray(data.value) ? data.value : []
 }
@@ -250,12 +311,21 @@ watch(selectedPipeline, () => {
 let toast: any
 try {
   toast = require('~/components/ui/sonner/useSonner').toast
-} catch {
-  toast = { success: (msg: string) => {/* noop */}, error: (msg: string) => {/* noop */} }
+}
+catch {
+  toast = {
+    success: (msg: string) => {
+      /* noop */
+    },
+    error: (msg: string) => {
+      /* noop */
+    },
+  }
 }
 
 async function handleCreatePipeline() {
-  if (!newPipeline.value.name) return
+  if (!newPipeline.value.name)
+    return
   const { data, error } = await useFetch('/api/crm/pipeline', {
     method: 'POST',
     body: {
@@ -296,8 +366,12 @@ async function saveStagesOrder() {
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">Pipeline</h1>
-        <p class="text-muted-foreground">Manage your sales pipeline and leads</p>
+        <h1 class="text-2xl font-bold">
+          Pipeline
+        </h1>
+        <p class="text-muted-foreground">
+          Manage your sales pipeline and leads
+        </p>
       </div>
       <div class="flex gap-2">
         <Button variant="outline">
@@ -312,14 +386,10 @@ async function saveStagesOrder() {
     </div>
 
     <!-- Barra de pesquisa unificada -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="mb-4 flex items-center justify-between">
       <div class="flex flex-1 items-center space-x-2">
-        <Input
-          placeholder="Buscar leads..."
-          class="h-10 w-full max-w-xs"
-          @input="handleSearch"
-        />
-          
+        <Input placeholder="Buscar leads..." class="h-10 max-w-xs w-full" @input="handleSearch" />
+
         <Sheet v-model:open="isSheetOpen">
           <SheetTrigger as-child>
             <Button variant="outline" size="sm" class="h-10 px-3">
@@ -328,8 +398,8 @@ async function saveStagesOrder() {
             </Button>
           </SheetTrigger>
         </Sheet>
-         <!-- Alternador de visualização Kanban/Lista -->
-         <div class="border rounded-md p-1 flex">
+        <!-- Alternador de visualização Kanban/Lista -->
+        <div class="flex border rounded-md p-1">
           <Button
             variant="ghost"
             size="sm"
@@ -337,7 +407,7 @@ async function saveStagesOrder() {
             :class="{ 'bg-muted': viewMode === 'kanban' }"
             @click="viewMode = 'kanban'"
           >
-            <Icon name="lucide:layout-grid" class="h-4 w-4 mr-2" />
+            <Icon name="lucide:layout-grid" class="mr-2 h-4 w-4" />
             Kanban
           </Button>
           <Button
@@ -347,7 +417,7 @@ async function saveStagesOrder() {
             :class="{ 'bg-muted': viewMode === 'list' }"
             @click="viewMode = 'list'"
           >
-            <Icon name="lucide:list" class="h-4 w-4 mr-2" />
+            <Icon name="lucide:list" class="mr-2 h-4 w-4" />
             Lista
           </Button>
         </div>
@@ -355,10 +425,12 @@ async function saveStagesOrder() {
     </div>
 
     <!-- Pipeline Stats -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+    <div class="grid mb-4 gap-4 lg:grid-cols-4 md:grid-cols-2">
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Total Pipeline</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Total Pipeline
+          </CardTitle>
           <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -372,8 +444,10 @@ async function saveStagesOrder() {
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Qualified Leads</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Qualified Leads
+          </CardTitle>
           <Icon name="lucide:check-circle" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -383,13 +457,15 @@ async function saveStagesOrder() {
           <p class="text-xs text-muted-foreground">
             {{ formatCurrency(stageStats.qualified?.value || 0) }}
           </p>
-          <Progress class="h-2 mt-2" :model-value="stageProgress.qualified || 0" />
+          <Progress class="mt-2 h-2" :model-value="stageProgress.qualified || 0" />
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">In Negotiation</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            In Negotiation
+          </CardTitle>
           <Icon name="lucide:handshake" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -399,13 +475,15 @@ async function saveStagesOrder() {
           <p class="text-xs text-muted-foreground">
             {{ formatCurrency(stageStats.negotiation?.value || 0) }}
           </p>
-          <Progress class="h-2 mt-2" :model-value="stageProgress.negotiation || 0" />
+          <Progress class="mt-2 h-2" :model-value="stageProgress.negotiation || 0" />
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Won This Month</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Won This Month
+          </CardTitle>
           <Icon name="lucide:trophy" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -415,7 +493,7 @@ async function saveStagesOrder() {
           <p class="text-xs text-muted-foreground">
             {{ formatCurrency(stageStats.won?.value || 0) }}
           </p>
-          <Progress class="h-2 mt-2" :model-value="stageProgress.won || 0" />
+          <Progress class="mt-2 h-2" :model-value="stageProgress.won || 0" />
         </CardContent>
       </Card>
     </div>
@@ -423,25 +501,26 @@ async function saveStagesOrder() {
     <!-- Visualização Kanban -->
     <div v-if="viewMode === 'kanban'" class="flex flex-col gap-4">
       <!-- Visualização de cards do Kanban -->
-      <div class="flex items-center gap-2 mb-2">
+      <div class="mb-2 flex items-center gap-2">
         <div class="flex items-center gap-2">
           <Select v-model="selectedPipeline">
             <SelectTrigger class="w-64">
               <SelectValue placeholder="Select pipeline..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem
-                v-for="pipeline in pipelines"
-                :key="pipeline.id"
-                :value="pipeline.id"
-              >
+              <SelectItem v-for="pipeline in pipelines" :key="pipeline.id" :value="pipeline.id">
                 {{ pipeline.name }}
               </SelectItem>
             </SelectContent>
           </Select>
-          <div class="flex gap-1 ml-2">
+          <div class="ml-2 flex gap-1">
             <Tooltip content="Criar novo pipeline">
-              <Button variant="outline" size="icon" aria-label="Criar novo pipeline" @click="isAddPipelineDialogOpen = true">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Criar novo pipeline"
+                @click="isAddPipelineDialogOpen = true"
+              >
                 <Icon name="lucide:plus" class="h-5 w-5" />
               </Button>
             </Tooltip>
@@ -451,26 +530,27 @@ async function saveStagesOrder() {
               </Button>
             </Tooltip>
           </div>
-          <span class="hidden md:inline text-xs text-muted-foreground ml-2">Selecione, crie ou organize seus pipelines</span>
+          <span class="ml-2 hidden text-xs text-muted-foreground md:inline">Selecione, crie ou organize seus pipelines</span>
         </div>
       </div>
-      <div class="flex gap-3 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-400">
+      <div
+        class="scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-400 flex gap-3 overflow-x-auto pb-4"
+      >
         <Card
           v-for="stage in stages"
           :key="stage.id"
-          class="flex-shrink-0 w-64"
+          class="w-64 flex-shrink-0"
           @dragover="handleDragOver"
-          @drop="(event) => handleDrop(event, String(stage.id))"
+          @drop="event => handleDrop(event, String(stage.id))"
         >
           <!-- Stage Header -->
-          <CardHeader class="pb-1 px-2">
-            <div class="flex items-center justify-between mb-1">
+          <CardHeader class="px-2 pb-1">
+            <div class="mb-1 flex items-center justify-between">
               <div class="flex items-center gap-1">
-                <div
-                  class="w-3 h-3 rounded-full"
-                  :style="{ backgroundColor: stage.color }"
-                ></div>
-                <CardTitle class="text-sm">{{ stage.name }}</CardTitle>
+                <div class="h-3 w-3 rounded-full" :style="{ backgroundColor: stage.color }" />
+                <CardTitle class="text-sm">
+                  {{ stage.name }}
+                </CardTitle>
               </div>
               <div class="flex items-center gap-1">
                 <Badge variant="secondary" class="text-xs">
@@ -490,35 +570,38 @@ async function saveStagesOrder() {
               <p class="text-xs text-muted-foreground">
                 {{ formatCurrency(stageStats[String(stage.id)]?.value || 0) }}
               </p>
-              <Progress
-                class="h-1"
-                :model-value="stageProgress[String(stage.id)] || 0"
-              />
+              <Progress class="h-1" :model-value="stageProgress[String(stage.id)] || 0" />
             </div>
           </CardHeader>
 
           <!-- Stage Content -->
-          <CardContent class="p-2 min-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-400">
+          <CardContent
+            class="scrollbar-thin scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-600 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-400 min-h-[400px] overflow-y-auto p-2"
+          >
             <div class="space-y-2">
               <div
                 v-for="lead in leadsByStage[String(stage.id)]"
                 :key="lead.id"
-                class="bg-background border rounded-lg p-3 cursor-grab hover:shadow-md transition-shadow border-l-4"
+                class="cursor-grab border border-l-4 rounded-lg bg-background p-3 transition-shadow hover:shadow-md"
                 :class="getPriorityColor(lead.priority)"
-                @click="handleLeadClick(lead)"
                 draggable="true"
-                @dragstart="(event) => handleDragStart(event, lead.id, lead.sales_stage_id)"
+                @click="handleLeadClick(lead)"
+                @dragstart="event => handleDragStart(event, lead.id, lead.sales_stage_id)"
               >
                 <!-- Lead Card Content -->
                 <div class="space-y-1">
                   <div class="flex items-start justify-between">
                     <div>
-                      <h4 class="font-medium text-xs">{{ lead.name }}</h4>
-                      <p class="text-xs text-muted-foreground">{{ lead.company || 'No company' }}</p>
+                      <h4 class="text-xs font-medium">
+                        {{ lead.name }}
+                      </h4>
+                      <p class="text-xs text-muted-foreground">
+                        {{ lead.company || 'No company' }}
+                      </p>
                     </div>
                     <Badge
                       variant="outline"
-                      class="text-xs py-0 h-4"
+                      class="h-4 py-0 text-xs"
                       :class="{
                         'bg-red-50 text-red-700 border-red-200': lead.priority === 'high',
                         'bg-yellow-50 text-yellow-700 border-yellow-200': lead.priority === 'medium',
@@ -553,7 +636,7 @@ async function saveStagesOrder() {
                       v-for="tag in lead.tags.slice(0, 2)"
                       :key="tag"
                       variant="outline"
-                      class="text-[10px] px-1 py-0 h-4"
+                      class="h-4 px-1 py-0 text-[10px]"
                     >
                       {{ tag }}
                     </Badge>
@@ -567,15 +650,17 @@ async function saveStagesOrder() {
               <!-- Empty State -->
               <div
                 v-if="!leadsByStage[String(stage.id)]?.length"
-                class="flex items-center justify-center h-24 border border-dashed border-muted-foreground/25 rounded-lg"
+                class="h-24 flex items-center justify-center border border-muted-foreground/25 rounded-lg border-dashed"
               >
                 <Button
                   variant="ghost"
-                  class="flex flex-col items-center gap-1 h-auto p-2"
+                  class="h-auto flex flex-col items-center gap-1 p-2"
                   @click="handleAddLeadToStage(stage.name.toLowerCase().replace(' ', ''))"
                 >
                   <Icon name="lucide:plus" class="h-4 w-4 text-muted-foreground" />
-                  <p class="text-xs text-muted-foreground">Adicionar lead</p>
+                  <p class="text-xs text-muted-foreground">
+                    Adicionar lead
+                  </p>
                 </Button>
               </div>
             </div>
@@ -602,9 +687,9 @@ async function saveStagesOrder() {
         <DataTable
           :data="leads"
           :columns="columns"
+          :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
           @delete="handleDelete"
           @selection-change="updateSelectedItems"
-          :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
         >
           <template #toolbar="{ table }">
             <DataTableToolbar :table="table" placeholder="Search leads..." column-key="name" />
@@ -613,7 +698,7 @@ async function saveStagesOrder() {
             <DataTablePagination :table="table" />
           </template>
           <template #actions="{ row }">
-                         <DataTableRowActions :row="row" :onEdit="handleEdit" :onDelete="handleDelete" />
+            <DataTableRowActions :row="row" :on-edit="handleEdit" :on-delete="handleDelete" />
           </template>
         </DataTable>
       </template>
@@ -625,7 +710,10 @@ async function saveStagesOrder() {
       />
 
       <!-- Multi Delete Dialog -->
-      <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div
+        v-if="showMultiDeleteDialog"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      >
         <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
           <h2 class="mb-2 text-lg font-bold">
             Delete Multiple Leads
@@ -650,11 +738,9 @@ async function saveStagesOrder() {
       <SheetContent class="sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Filtrar Pipeline</SheetTitle>
-          <SheetDescription>
-            Filtre leads por diversos critérios
-          </SheetDescription>
+          <SheetDescription> Filtre leads por diversos critérios </SheetDescription>
         </SheetHeader>
-        
+
         <div class="grid gap-4 py-4">
           <div class="space-y-2">
             <Label for="status">Status</Label>
@@ -663,17 +749,31 @@ async function saveStagesOrder() {
                 <SelectValue placeholder="Selecione um status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="new">Novo Lead</SelectItem>
-                <SelectItem value="contacted">Contatado</SelectItem>
-                <SelectItem value="qualified">Qualificado</SelectItem>
-                <SelectItem value="proposal">Proposta</SelectItem>
-                <SelectItem value="negotiation">Negociação</SelectItem>
-                <SelectItem value="won">Ganho</SelectItem>
-                <SelectItem value="lost">Perdido</SelectItem>
+                <SelectItem value="new">
+                  Novo Lead
+                </SelectItem>
+                <SelectItem value="contacted">
+                  Contatado
+                </SelectItem>
+                <SelectItem value="qualified">
+                  Qualificado
+                </SelectItem>
+                <SelectItem value="proposal">
+                  Proposta
+                </SelectItem>
+                <SelectItem value="negotiation">
+                  Negociação
+                </SelectItem>
+                <SelectItem value="won">
+                  Ganho
+                </SelectItem>
+                <SelectItem value="lost">
+                  Perdido
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
+
           <div class="space-y-2">
             <Label for="priority">Prioridade</Label>
             <Select>
@@ -681,13 +781,19 @@ async function saveStagesOrder() {
                 <SelectValue placeholder="Selecione uma prioridade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="high">Alta</SelectItem>
-                <SelectItem value="medium">Média</SelectItem>
-                <SelectItem value="low">Baixa</SelectItem>
+                <SelectItem value="high">
+                  Alta
+                </SelectItem>
+                <SelectItem value="medium">
+                  Média
+                </SelectItem>
+                <SelectItem value="low">
+                  Baixa
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
+
           <div class="space-y-2">
             <Label for="source">Origem</Label>
             <Select>
@@ -695,21 +801,33 @@ async function saveStagesOrder() {
                 <SelectValue placeholder="Selecione uma origem" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="website">Website</SelectItem>
-                <SelectItem value="referral">Indicação</SelectItem>
-                <SelectItem value="social">Redes Sociais</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="phone">Telefone</SelectItem>
-                <SelectItem value="other">Outros</SelectItem>
+                <SelectItem value="website">
+                  Website
+                </SelectItem>
+                <SelectItem value="referral">
+                  Indicação
+                </SelectItem>
+                <SelectItem value="social">
+                  Redes Sociais
+                </SelectItem>
+                <SelectItem value="email">
+                  Email
+                </SelectItem>
+                <SelectItem value="phone">
+                  Telefone
+                </SelectItem>
+                <SelectItem value="other">
+                  Outros
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-          
+
           <div class="space-y-2">
             <Label for="assigned-to">Responsável</Label>
             <Input id="assigned-to" placeholder="Nome do responsável" />
           </div>
-          
+
           <div class="grid grid-cols-2 gap-4">
             <div class="space-y-2">
               <Label for="min-value">Valor mínimo</Label>
@@ -720,15 +838,17 @@ async function saveStagesOrder() {
               <Input id="max-value" type="number" placeholder="R$ 1.000.000" />
             </div>
           </div>
-          
+
           <div class="space-y-2">
             <Label for="tags">Tags</Label>
             <Input id="tags" placeholder="Separe as tags por vírgula" />
           </div>
         </div>
-        
+
         <SheetFooter>
-          <Button variant="outline" @click="isSheetOpen = false">Cancelar</Button>
+          <Button variant="outline" @click="isSheetOpen = false">
+            Cancelar
+          </Button>
           <Button>Aplicar Filtros</Button>
         </SheetFooter>
       </SheetContent>
@@ -739,9 +859,7 @@ async function saveStagesOrder() {
       <DialogScrollContent class="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Lead Details</DialogTitle>
-          <DialogDescription>
-            View and manage lead information
-          </DialogDescription>
+          <DialogDescription> View and manage lead information </DialogDescription>
         </DialogHeader>
 
         <div v-if="selectedLead" class="space-y-4">
@@ -749,46 +867,64 @@ async function saveStagesOrder() {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <Label class="text-sm font-medium">Name</Label>
-              <p class="text-sm text-muted-foreground">{{ selectedLead.name }}</p>
+              <p class="text-sm text-muted-foreground">
+                {{ selectedLead.name }}
+              </p>
             </div>
             <div>
               <Label class="text-sm font-medium">Email</Label>
-              <p class="text-sm text-muted-foreground">{{ selectedLead.email }}</p>
+              <p class="text-sm text-muted-foreground">
+                {{ selectedLead.email }}
+              </p>
             </div>
             <div>
               <Label class="text-sm font-medium">Phone</Label>
-              <p class="text-sm text-muted-foreground">{{ selectedLead.phone }}</p>
+              <p class="text-sm text-muted-foreground">
+                {{ selectedLead.phone }}
+              </p>
             </div>
             <div>
               <Label class="text-sm font-medium">Company</Label>
-              <p class="text-sm text-muted-foreground">{{ selectedLead.company || '-' }}</p>
+              <p class="text-sm text-muted-foreground">
+                {{ selectedLead.company || '-' }}
+              </p>
             </div>
             <div>
               <Label class="text-sm font-medium">Status</Label>
-              <Badge class="mt-1" variant="secondary">{{ selectedLead.status }}</Badge>
+              <Badge class="mt-1" variant="secondary">
+                {{ selectedLead.status }}
+              </Badge>
             </div>
             <div>
               <Label class="text-sm font-medium">Priority</Label>
-              <Badge class="mt-1" variant="outline">{{ selectedLead.priority }}</Badge>
+              <Badge class="mt-1" variant="outline">
+                {{ selectedLead.priority }}
+              </Badge>
             </div>
             <div>
               <Label class="text-sm font-medium">Value</Label>
-              <p class="text-sm text-muted-foreground">{{ formatCurrency(selectedLead.value) }}</p>
+              <p class="text-sm text-muted-foreground">
+                {{ formatCurrency(selectedLead.value) }}
+              </p>
             </div>
             <div>
               <Label class="text-sm font-medium">Source</Label>
-              <p class="text-sm text-muted-foreground">{{ selectedLead.source }}</p>
+              <p class="text-sm text-muted-foreground">
+                {{ selectedLead.source }}
+              </p>
             </div>
           </div>
 
           <div v-if="selectedLead.notes">
             <Label class="text-sm font-medium">Notes</Label>
-            <p class="text-sm text-muted-foreground mt-1">{{ selectedLead.notes }}</p>
+            <p class="mt-1 text-sm text-muted-foreground">
+              {{ selectedLead.notes }}
+            </p>
           </div>
 
           <div v-if="selectedLead.tags.length">
             <Label class="text-sm font-medium">Tags</Label>
-            <div class="flex flex-wrap gap-1 mt-1">
+            <div class="mt-1 flex flex-wrap gap-1">
               <Badge v-for="tag in selectedLead.tags" :key="tag" variant="outline" class="text-xs">
                 {{ tag }}
               </Badge>
@@ -797,22 +933,60 @@ async function saveStagesOrder() {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" @click="closeDialog">Close</Button>
-          <Button>Edit Lead</Button>
+          <Button variant="outline" @click="closeDialog">
+            Close
+          </Button>
+          <Button @click="handleEditLead">Edit Lead</Button>
         </DialogFooter>
       </DialogScrollContent>
     </Dialog>
 
     <!-- Add Lead Dialog -->
     <Dialog v-model:open="isAddLeadDialogOpen">
-      <DialogScrollContent class="w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl min-h-[60vh] max-h-[90vh] overflow-y-auto p-0 sm:p-6">
-        <DialogHeader>
-          <DialogTitle class="text-center">Add New Lead</DialogTitle>
-          <DialogDescription class="text-center">
-            Fill in the details for the new lead
+      <DialogScrollContent
+        class="max-h-[90vh] max-w-lg min-h-[60vh] w-full overflow-y-auto p-0 lg:max-w-4xl md:max-w-3xl sm:max-w-2xl sm:p-6"
+      >
+        <DialogHeader class="pb-4">
+          <DialogTitle class="text-center text-xl font-semibold">
+            Add New Lead
+          </DialogTitle>
+          <DialogDescription class="text-center text-sm text-muted-foreground">
+            Fill in the details for the new lead using the step-by-step form below
           </DialogDescription>
         </DialogHeader>
-        <LeadStepperForm />
+        
+        <div class="px-6 pb-6">
+          <!-- Lead Stepper Form com melhor spacing -->
+          <div class="bg-background">
+            <LeadStepperForm @lead-created="handleLeadCreated" />
+          </div>
+        </div>
+      </DialogScrollContent>
+    </Dialog>
+
+    <!-- Edit Lead Dialog -->
+    <Dialog v-model:open="isEditLeadDialogOpen">
+      <DialogScrollContent
+        class="max-h-[90vh] max-w-lg min-h-[60vh] w-full overflow-y-auto p-0 lg:max-w-4xl md:max-w-3xl sm:max-w-2xl sm:p-6"
+      >
+        <DialogHeader class="pb-4">
+          <DialogTitle class="text-center text-xl font-semibold">
+            Edit Lead: {{ selectedLead?.name }}
+          </DialogTitle>
+          <DialogDescription class="text-center text-sm text-muted-foreground">
+            Update the lead information below
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div class="px-6 pb-6">
+          <div v-if="selectedLead" class="bg-background">
+            <LeadEditForm 
+              :lead="selectedLead" 
+              @lead-updated="handleLeadUpdated"
+              @cancel="isEditLeadDialogOpen = false"
+            />
+          </div>
+        </div>
       </DialogScrollContent>
     </Dialog>
 
@@ -848,8 +1022,12 @@ async function saveStagesOrder() {
           <Textarea v-model="newPipeline.description" placeholder="Description (optional)" />
         </div>
         <DialogFooter>
-          <Button variant="outline" @click="isAddPipelineDialogOpen = false">Cancel</Button>
-          <Button @click="handleCreatePipeline">Create</Button>
+          <Button variant="outline" @click="isAddPipelineDialogOpen = false">
+            Cancel
+          </Button>
+          <Button @click="handleCreatePipeline">
+            Create
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -863,15 +1041,19 @@ async function saveStagesOrder() {
         </DialogHeader>
         <Draggable v-model="stagesOrder" item-key="id" class="space-y-2">
           <template #item="{ element, index }">
-            <div class="flex items-center gap-2 p-2 border rounded bg-muted">
+            <div class="flex items-center gap-2 border rounded bg-muted p-2">
               <span class="font-medium">{{ element.name }}</span>
               <span class="ml-auto text-xs text-muted-foreground">Order: {{ index + 1 }}</span>
             </div>
           </template>
         </Draggable>
         <DialogFooter>
-          <Button variant="outline" @click="isOrganizeStagesDialogOpen = false">Cancel</Button>
-          <Button @click="saveStagesOrder">Save Order</Button>
+          <Button variant="outline" @click="isOrganizeStagesDialogOpen = false">
+            Cancel
+          </Button>
+          <Button @click="saveStagesOrder">
+            Save Order
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -901,4 +1083,4 @@ async function saveStagesOrder() {
 .dark .dark\:hover\:scrollbar-thumb-gray-400:hover::-webkit-scrollbar-thumb {
   background-color: #9ca3af;
 }
-</style> 
+</style>
