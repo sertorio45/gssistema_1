@@ -6,6 +6,7 @@ export interface Lead {
   phone?: string
   status: 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost'
   source: 'website' | 'referral' | 'social' | 'email' | 'phone' | 'other'
+  source_id?: string | null
   value: number
   priority: 'low' | 'medium' | 'high'
   assignedTo?: string

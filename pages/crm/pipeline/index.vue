@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Lead, SalesStage } from '~/types/crm'
+import { DateFormatter, getLocalTimeZone, today } from '@internationalized/date'
 import { useFetch } from '#app'
 
 import { Icon } from '#components'
@@ -62,6 +63,7 @@ const { tenantId } = useTenant()
 const pipelines = ref<Pipeline[]>([])
 const stages = ref<SalesStage[]>([])
 const leads = ref<LeadExt[]>([])
+const leadSources = ref<Array<{ id: string, name: string }>>([])
 const selectedPipeline = ref<string | undefined>(undefined)
 const selectedLead = ref<Lead | null>(null)
 const isDialogOpen = ref(false)
@@ -81,6 +83,8 @@ const isLoading = ref(false)
 const isSyncingTenant = ref(false)
 const defaultLeadPipelineId = ref<string | null>(null)
 const defaultLeadStageId = ref<string | null>(null)
+const dateRangeFormatter = new DateFormatter('pt-BR', { dateStyle: 'medium' })
+const leadDateRange = ref<any>({})
 let loadingCount = 0
 
 function setLoading(loading: boolean) {
@@ -192,6 +196,109 @@ function getPriorityColor(priority: string) {
   }
 }
 
+function getPriorityLabel(priority: string) {
+  const labels: Record<string, string> = {
+    high: 'Alta',
+    medium: 'Média',
+    low: 'Baixa',
+  }
+  return labels[priority] || priority
+}
+
+function getSourceLabel(source?: string, sourceId?: string | null) {
+  if (sourceId) {
+    const bySourceId = leadSources.value.find(item => item.id === sourceId)
+    if (bySourceId?.name)
+      return bySourceId.name
+  }
+
+  if (!source)
+    return 'Sem origem'
+
+  const byId = leadSources.value.find(item => item.id === source)
+  if (byId?.name)
+    return byId.name
+
+  const key = source.toLowerCase()
+  const byName = leadSources.value.find(item => item.name.toLowerCase() === key)
+  if (byName?.name)
+    return byName.name
+
+  const sourceFromTable = leadSources.value.find((item) => {
+    const name = item.name.toLowerCase()
+    if (key === 'website')
+      return name.includes('website') || name.includes('site')
+    if (key === 'referral')
+      return name.includes('referral') || name.includes('indica')
+    if (key === 'social')
+      return name.includes('social') || name.includes('rede')
+    if (key === 'email')
+      return name.includes('mail')
+    if (key === 'phone')
+      return name.includes('phone') || name.includes('telefone') || name.includes('whatsapp') || name.includes('whats')
+    return false
+  })
+
+  if (sourceFromTable?.name)
+    return sourceFromTable.name
+
+  const fallback: Record<string, string> = {
+    website: 'Website',
+    referral: 'Indicação',
+    social: 'Redes sociais',
+    email: 'E-mail',
+    phone: 'Telefone',
+    other: 'Outros',
+  }
+  return fallback[key] || source
+}
+
+function toIsoDate(value?: any): string | undefined {
+  if (!value)
+    return undefined
+  const date = value.toDate(getLocalTimeZone())
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const leadDateRangeLabel = computed(() => {
+  const start = leadDateRange.value?.start
+  const end = leadDateRange.value?.end
+  if (start && end) {
+    return `${dateRangeFormatter.format(start.toDate(getLocalTimeZone()))} - ${dateRangeFormatter.format(end.toDate(getLocalTimeZone()))}`
+  }
+  if (start) {
+    return dateRangeFormatter.format(start.toDate(getLocalTimeZone()))
+  }
+  return 'Selecionar período'
+})
+
+function clearLeadDateRange() {
+  leadDateRange.value = {}
+}
+
+function setLeadDatePreset(preset: 'today' | '7d' | '30d' | 'month') {
+  const now = today(getLocalTimeZone())
+  if (preset === 'today') {
+    leadDateRange.value = { start: now, end: now }
+    return
+  }
+  if (preset === '7d') {
+    leadDateRange.value = { start: now.subtract({ days: 6 }), end: now }
+    return
+  }
+  if (preset === '30d') {
+    leadDateRange.value = { start: now.subtract({ days: 29 }), end: now }
+    return
+  }
+  if (preset === 'month') {
+    const monthStart = now.set({ day: 1 })
+    leadDateRange.value = { start: monthStart, end: now }
+  }
+}
+
 // Função para lidar com o drag and drop
 function handleDragStart(event: DragEvent, leadId: string, currentStageId: string | undefined) {
   if (event.dataTransfer) {
@@ -229,7 +336,7 @@ async function handleDrop(event: DragEvent, newStageId: string) {
     const lead = leads.value.find(l => l.id === leadId)
     const newStage = stages.value.find(s => s.id === newStageId)
     const wonOrLost = newStage ? isStageWonOrLost(newStage.name) : null
-    const closedAt = wonOrLost ? new Date().toISOString() : undefined
+    const closedAt = wonOrLost ? new Date().toISOString() : null
     const newStatus = wonOrLost ?? lead?.status
 
     const previousLeads = [...leads.value]
@@ -240,7 +347,7 @@ async function handleDrop(event: DragEvent, newStageId: string) {
         ...l,
         sales_stage_id: newStageId,
         status: newStatus,
-        ...(closedAt ? { closed_at: closedAt } : {}),
+        closed_at: closedAt,
       } as LeadExt
     })
     leads.value = updatedLeads
@@ -250,7 +357,8 @@ async function handleDrop(event: DragEvent, newStageId: string) {
         method: 'PUT',
         body: {
           sales_stage_id: newStageId,
-          ...(wonOrLost ? { status: wonOrLost, closed_at: closedAt } : {}),
+          ...(wonOrLost ? { status: wonOrLost } : {}),
+          closed_at: closedAt,
         },
       })
       toast.success('Lead movido com sucesso!')
@@ -411,11 +519,34 @@ async function fetchLeads() {
     return
   setLoading(true)
   try {
-    const data = await $fetch<LeadExt[]>('/api/crm/lead', { query: { pipeline_id: selectedPipeline.value, tenant_id: tenantId.value } })
+    const startDate = toIsoDate(leadDateRange.value?.start)
+    const endDate = toIsoDate(leadDateRange.value?.end)
+    const data = await $fetch<LeadExt[]>('/api/crm/lead', {
+      query: {
+        pipeline_id: selectedPipeline.value,
+        tenant_id: tenantId.value,
+        start_date: startDate,
+        end_date: endDate,
+      },
+    })
     leads.value = Array.isArray(data) ? data : []
   }
   finally {
     setLoading(false)
+  }
+}
+
+async function fetchLeadSources() {
+  if (!tenantId.value)
+    return
+  try {
+    const data = await $fetch<Array<{ id: string, name: string }>>('/api/crm/lead_source', {
+      query: { tenant_id: tenantId.value },
+    })
+    leadSources.value = Array.isArray(data) ? data : []
+  }
+  catch {
+    leadSources.value = []
   }
 }
 
@@ -424,6 +555,7 @@ watch(tenantId, async () => {
   try {
     await fetchPipelines()
     await fetchStages()
+    await fetchLeadSources()
     await fetchLeads()
   }
   finally {
@@ -437,6 +569,10 @@ watch(selectedPipeline, () => {
   fetchStages()
   fetchLeads()
 })
+
+watch(leadDateRange, () => {
+  fetchLeads()
+}, { deep: true })
 
 async function handleCreatePipeline() {
   if (!newPipeline.value.name)
@@ -513,7 +649,7 @@ async function saveStagesOrder() {
     </div>
 
     <!-- Barra de pesquisa unificada -->
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex items-center justify-between gap-2">
       <div class="flex flex-1 items-center space-x-2">
         <Input placeholder="Buscar leads..." class="h-10 max-w-xs w-full" @input="handleSearch" />
 
@@ -525,6 +661,53 @@ async function saveStagesOrder() {
             </Button>
           </SheetTrigger>
         </Sheet>
+      </div>
+      <div class="flex items-center gap-2">
+        <Popover>
+          <PopoverTrigger as-child>
+            <Button variant="outline" size="sm" class="h-10 min-w-[260px] justify-start text-left font-normal">
+              <Icon name="lucide:calendar-range" class="mr-2 h-4 w-4" />
+              {{ leadDateRangeLabel }}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent class="w-auto p-0" align="end">
+            <div class="border-b p-2 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" class="h-7 px-2 text-xs" @click="setLeadDatePreset('today')">
+                Hoje
+              </Button>
+              <Button variant="outline" size="sm" class="h-7 px-2 text-xs" @click="setLeadDatePreset('7d')">
+                7 dias
+              </Button>
+              <Button variant="outline" size="sm" class="h-7 px-2 text-xs" @click="setLeadDatePreset('30d')">
+                30 dias
+              </Button>
+              <Button variant="outline" size="sm" class="h-7 px-2 text-xs" @click="setLeadDatePreset('month')">
+                Este mês
+              </Button>
+            </div>
+            <RangeCalendar
+              v-model="leadDateRange"
+              locale="pt-BR"
+              weekday-format="short"
+              :number-of-months="2"
+              initial-focus
+              :placeholder="leadDateRange.start"
+              @update:start-value="(startDate: any) => (leadDateRange.start = startDate)"
+            />
+            <div class="border-t p-2 flex justify-end">
+              <Button
+                v-if="leadDateRange.start || leadDateRange.end"
+                variant="ghost"
+                size="sm"
+                class="h-8"
+                @click="clearLeadDateRange"
+              >
+                Limpar
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <!-- Alternador de visualização Kanban/Lista -->
         <div class="flex border rounded-md p-1">
           <Button
@@ -769,17 +952,17 @@ async function saveStagesOrder() {
                         'bg-gray-50 text-gray-700 border-gray-200': lead.priority === 'low',
                       }"
                     >
-                      {{ lead.priority }}
+                      {{ getPriorityLabel(lead.priority) }}
                     </Badge>
                   </div>
 
-                  <div class="flex items-center justify-between">
+                  <!-- <div class="flex items-center justify-between">
                     <span class="text-xs font-medium">{{ formatCurrency(lead.value) }}</span>
                     <div class="flex items-center gap-1 text-xs text-muted-foreground">
                       <Icon name="lucide:calendar" class="h-3 w-3" />
                       {{ new Date(lead.createdAt).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }) }}
                     </div>
-                  </div>
+                  </div> -->
 
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1 text-muted-foreground">
@@ -788,23 +971,10 @@ async function saveStagesOrder() {
                     </div>
                     <div class="flex items-center gap-1 text-muted-foreground">
                       <Icon name="lucide:tag" class="h-3 w-3" />
-                      {{ lead.source }}
+                      {{ getSourceLabel(lead.source, lead.source_id) }}
                     </div>
                   </div>
 
-                  <div v-if="lead.tags.length" class="flex flex-wrap gap-1">
-                    <Badge
-                      v-for="tag in lead.tags.slice(0, 2)"
-                      :key="tag"
-                      variant="outline"
-                      class="h-4 px-1 py-0 text-[10px]"
-                    >
-                      {{ tag }}
-                    </Badge>
-                    <span v-if="lead.tags.length > 2" class="text-[10px] text-muted-foreground">
-                      +{{ lead.tags.length - 2 }}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -1012,10 +1182,6 @@ async function saveStagesOrder() {
             </div>
           </div>
 
-          <div class="space-y-2">
-            <Label for="tags">Tags</Label>
-            <Input id="tags" placeholder="Separe as tags por vírgula" />
-          </div>
         </div>
 
         <SheetFooter>
@@ -1083,7 +1249,7 @@ async function saveStagesOrder() {
             <div>
               <Label class="text-sm font-medium">Origem</Label>
               <p class="text-sm text-muted-foreground">
-                {{ selectedLead.source }}
+                {{ getSourceLabel(selectedLead.source, selectedLead.source_id) }}
               </p>
             </div>
           </div>
@@ -1095,14 +1261,6 @@ async function saveStagesOrder() {
             </p>
           </div>
 
-          <div v-if="selectedLead.tags.length">
-            <Label class="text-sm font-medium">Tags</Label>
-            <div class="mt-1 flex flex-wrap gap-1">
-              <Badge v-for="tag in selectedLead.tags" :key="tag" variant="outline" class="text-xs">
-                {{ tag }}
-              </Badge>
-            </div>
-          </div>
         </div>
 
         <DialogFooter>

@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const client = await serverSupabaseServiceRole(event)
-  const { pipeline_id, tenant_id: queryTenantId } = getQuery(event)
+  const { pipeline_id, tenant_id: queryTenantId, start_date, end_date } = getQuery(event)
 
   const effectiveTenantId = (queryTenantId as string) || tenantId
   if (!effectiveTenantId) {
@@ -41,6 +41,12 @@ export default defineEventHandler(async (event) => {
     let query = client.from('crm_lead').select('*').eq('tenant_id', effectiveTenantId)
     if (pipeline_id) {
       query = query.eq('pipeline_id', pipeline_id)
+    }
+    if (start_date) {
+      query = query.gte('created_at', `${start_date}T00:00:00.000Z`)
+    }
+    if (end_date) {
+      query = query.lte('created_at', `${end_date}T23:59:59.999Z`)
     }
 
     const { data, error } = await query

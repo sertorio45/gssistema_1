@@ -74,9 +74,9 @@ watch([leadSourcesPending, salesStagesPending], () => {
 
 // Opções de prioridade
 const priorityOptions = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
+  { value: 'low', label: 'Baixa' },
+  { value: 'medium', label: 'Média' },
+  { value: 'high', label: 'Alta' },
 ]
 
 // Opções de status
@@ -162,7 +162,7 @@ watch([() => props.lead, leadSources], () => {
     // Pré-preencher lead form
     leadForm.value = {
       name: props.lead.name || '',
-      source: findLeadSourceId(props.lead.source) || '',
+      source: findLeadSourceId(props.lead.source_id || props.lead.source) || '',
       sales_stage_id: props.lead.sales_stage_id || '',
       status: props.lead.status || 'new',
       priority: props.lead.priority || 'medium',
@@ -201,6 +201,14 @@ watch([() => props.lead, leadSources], () => {
 // Função para encontrar o ID do lead source baseado no valor enum
 function findLeadSourceId(sourceEnum: string): string {
   if (!sourceEnum || !leadSources.value) return ''
+
+  const exactId = leadSources.value.find(s => s.id === sourceEnum)
+  if (exactId)
+    return exactId.id
+
+  const exactName = leadSources.value.find(s => s.name.toLowerCase() === sourceEnum.toLowerCase())
+  if (exactName)
+    return exactName.id
   
   const source = leadSources.value.find(s => {
     const sourceName = s.name.toLowerCase()
@@ -210,7 +218,7 @@ function findLeadSourceId(sourceEnum: string): string {
     if (enumValue === 'referral' && (sourceName.includes('referral') || sourceName.includes('indica'))) return true
     if (enumValue === 'social' && (sourceName.includes('social') || sourceName.includes('redes'))) return true
     if (enumValue === 'email' && (sourceName.includes('email') || sourceName.includes('e-mail'))) return true
-    if (enumValue === 'phone' && (sourceName.includes('phone') || sourceName.includes('telefone'))) return true
+    if (enumValue === 'phone' && (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats'))) return true
     if (enumValue === 'other' && (sourceName.includes('other') || sourceName.includes('outro'))) return true
     
     return false
@@ -235,7 +243,7 @@ function getSourceEnumValue(sourceId: string | null): 'website' | 'referral' | '
   if (sourceName.includes('referral') || sourceName.includes('indica')) return 'referral'
   if (sourceName.includes('social') || sourceName.includes('redes')) return 'social'
   if (sourceName.includes('email') || sourceName.includes('e-mail')) return 'email'
-  if (sourceName.includes('phone') || sourceName.includes('telefone')) return 'phone'
+  if (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats')) return 'phone'
   
   return 'other'
 }
@@ -263,6 +271,7 @@ async function updateLead() {
       id: props.lead.id,
       name: leadForm.value.name,
       source: getSourceEnumValue(leadForm.value.source),
+      source_id: leadForm.value.source || null,
       sales_stage_id: leadForm.value.sales_stage_id || null,
       status: leadForm.value.status,
       priority: leadForm.value.priority,

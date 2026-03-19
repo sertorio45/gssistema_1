@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
       company: body.company,
       status: body.status,
       source: body.source,
+      source_id: body.source_id ?? null,
       value: body.value,
       priority: body.priority,
       assigned_to: body.assigned_to,

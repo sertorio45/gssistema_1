@@ -19,9 +19,9 @@ const statusOptions = [
 ]
 
 const priorityOptions = [
-  { value: 'low', label: 'Low', color: 'bg-gray-100 text-gray-800' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'high', label: 'High', color: 'bg-red-100 text-red-800' },
+  { value: 'low', label: 'Baixa', color: 'bg-gray-100 text-gray-800' },
+  { value: 'medium', label: 'Média', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'high', label: 'Alta', color: 'bg-red-100 text-red-800' },
 ]
 
 const sourceOptions = [

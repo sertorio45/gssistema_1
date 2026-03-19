@@ -89,9 +89,9 @@ watch([leadSourcesPending, salesStagesPending, pipelinesPending], () => {
 
 // Opções de prioridade para leads
 const priorityOptions = [
-  { value: 'low', label: 'Low', color: 'bg-gray-100 text-gray-800' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'high', label: 'High', color: 'bg-red-100 text-red-800' },
+  { value: 'low', label: 'Baixa', color: 'bg-gray-100 text-gray-800' },
+  { value: 'medium', label: 'Média', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'high', label: 'Alta', color: 'bg-red-100 text-red-800' },
 ]
 
 const steps = [
@@ -198,7 +198,7 @@ function getSourceEnumValue(sourceId: string | null): 'website' | 'referral' | '
     return 'other'
   }
 
-  // Mapear nome do source para valor do enum
+  // Mapear nome do source da tabela para valor do enum da crm_lead.source
   const sourceName = source.name.toLowerCase()
   if (sourceName.includes('website') || sourceName.includes('web')) {
     return 'website'
@@ -212,7 +212,7 @@ function getSourceEnumValue(sourceId: string | null): 'website' | 'referral' | '
   if (sourceName.includes('email') || sourceName.includes('e-mail')) {
     return 'email'
   }
-  if (sourceName.includes('phone') || sourceName.includes('telefone')) {
+  if (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats')) {
     return 'phone'
   }
 
@@ -259,6 +259,7 @@ async function submitLead() {
     const leadData = {
       name: leadForm.value.name,
       source: getSourceEnumValue(leadForm.value.source),
+      source_id: leadForm.value.source || null,
       sales_stage_id: salesStageId,
       pipeline_id: pipelineId,
       status: 'new' as any,

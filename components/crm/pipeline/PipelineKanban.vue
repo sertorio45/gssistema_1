@@ -46,6 +46,29 @@ defineProps({
   getPriorityColor: { type: Function as PropType<(priority: string) => string>, required: true },
   formatCurrency: { type: Function as PropType<(value: number) => string>, required: true },
 })
+
+function getPriorityLabel(priority: string) {
+  const labels: Record<string, string> = {
+    high: 'Alta',
+    medium: 'Média',
+    low: 'Baixa',
+  }
+  return labels[priority] || priority
+}
+
+function getSourceLabel(source?: string) {
+  const labels: Record<string, string> = {
+    website: 'Website',
+    referral: 'Indicacao',
+    social: 'Redes sociais',
+    email: 'E-mail',
+    phone: 'Telefone',
+    other: 'Outros',
+  }
+  if (!source)
+    return 'Sem origem'
+  return labels[source] || source
+}
 </script>
 
 <template>
@@ -122,7 +145,7 @@ defineProps({
                       'bg-gray-50 text-gray-700 border-gray-200': lead.priority === 'low',
                     }"
                   >
-                    {{ lead.priority }}
+                    {{ getPriorityLabel(lead.priority) }}
                   </Badge>
                 </div>
                 <div class="flex items-center justify-between">
@@ -139,7 +162,7 @@ defineProps({
                   </div>
                   <div class="flex items-center gap-1 text-muted-foreground">
                     <Icon name="lucide:tag" class="h-3 w-3" />
-                    {{ lead.source }}
+                    {{ getSourceLabel(lead.source) }}
                   </div>
                 </div>
                 <div v-if="lead.tags.length" class="flex flex-wrap gap-1">
