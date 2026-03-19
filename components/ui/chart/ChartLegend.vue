@@ -3,6 +3,7 @@ import type { BulletLegendItemInterface } from '@unovis/ts'
 import { BulletLegend } from '@unovis/ts'
 import { VisBulletLegend } from '@unovis/vue'
 import { nextTick, onMounted, ref } from 'vue'
+
 import { buttonVariants } from '../button'
 
 const props = withDefaults(defineProps<{ items?: BulletLegendItemInterface[] }>(), {
@@ -31,20 +32,23 @@ function onLegendItemClick(d: BulletLegendItemInterface, i: number) {
   const isFilterApplied = props.items.some(i => i.inactive)
   if (isFilterApplied && isBulletActive) {
     // reset filter
-    emits('update:items', props.items.map(item => ({ ...item, inactive: false })))
+    emits(
+      'update:items',
+      props.items.map(item => ({ ...item, inactive: false })),
+    )
   }
   else {
     // apply selection, set other item as inactive
-    emits('update:items', props.items.map(item => item.name === d.name ? ({ ...d, inactive: false }) : { ...item, inactive: true }))
+    emits(
+      'update:items',
+      props.items.map(item => (item.name === d.name ? { ...d, inactive: false } : { ...item, inactive: true })),
+    )
   }
 }
 </script>
 
 <template>
   <div ref="elRef" class="w-max">
-    <VisBulletLegend
-      :items="items"
-      :on-legend-item-click="onLegendItemClick"
-    />
+    <VisBulletLegend :items="items" :on-legend-item-click="onLegendItemClick" />
   </div>
 </template>

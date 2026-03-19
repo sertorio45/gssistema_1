@@ -5,20 +5,18 @@ const components: { title: string, href: string, description: string }[] = [
   {
     title: 'Alert Dialog',
     href: '/docs/primitives/alert-dialog',
-    description:
-        'A modal dialog that interrupts the user with important content and expects a response.',
+    description: 'A modal dialog that interrupts the user with important content and expects a response.',
   },
   {
     title: 'Hover Card',
     href: '/docs/primitives/hover-card',
-    description:
-        'For sighted users to preview content available behind a link.',
+    description: 'For sighted users to preview content available behind a link.',
   },
   {
     title: 'Progress',
     href: '/docs/primitives/progress',
     description:
-        'Displays an indicator showing the completion progress of a task, typically displayed as a progress bar.',
+      'Displays an indicator showing the completion progress of a task, typically displayed as a progress bar.',
   },
   {
     title: 'Scroll-area',
@@ -28,14 +26,13 @@ const components: { title: string, href: string, description: string }[] = [
   {
     title: 'Tabs',
     href: '/docs/primitives/tabs',
-    description:
-        'A set of layered sections of content—known as tab panels—that are displayed one at a time.',
+    description: 'A set of layered sections of content—known as tab panels—that are displayed one at a time.',
   },
   {
     title: 'Tooltip',
     href: '/docs/primitives/tooltip',
     description:
-        'A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.',
+      'A popup that displays information related to an element when the element receives keyboard focus or the mouse hovers over it.',
   },
 ]
 </script>
@@ -53,21 +50,13 @@ const components: { title: string, href: string, description: string }[] = [
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/navigation-menu"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/navigation-menu" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/navigation-menu"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/navigation-menu" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -97,8 +86,7 @@ const components: { title: string, href: string, description: string }[] = [
                               shadcn/ui
                             </div>
                             <p class="text-sm text-muted-foreground leading-tight">
-                              Beautifully designed components built with Radix UI and
-                              Tailwind CSS.
+                              Beautifully designed components built with Radix UI and Tailwind CSS.
                             </p>
                           </NuxtLink>
                         </NavigationMenuLink>
@@ -144,6 +132,4 @@ const components: { title: string, href: string, description: string }[] = [
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

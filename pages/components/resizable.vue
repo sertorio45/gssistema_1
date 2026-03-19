@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -14,21 +13,13 @@
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/resizable"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/resizable" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/resizable"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/resizable" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -41,11 +32,7 @@
         </CardHeader>
         <CardContent>
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
-            <ResizablePanelGroup
-              id="demo-group-1"
-              direction="horizontal"
-              class="max-w-md border rounded-lg"
-            >
+            <ResizablePanelGroup id="demo-group-1" direction="horizontal" class="max-w-md border rounded-lg">
               <ResizablePanel id="demo-panel-1" :default-size="50">
                 <div class="h-[200px] flex items-center justify-center p-6">
                   <span class="font-semibold">One</span>
@@ -101,6 +88,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

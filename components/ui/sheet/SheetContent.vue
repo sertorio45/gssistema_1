@@ -6,13 +6,14 @@ import { X } from 'lucide-vue-next'
 import {
   DialogClose,
   DialogContent,
-
   DialogOverlay,
   DialogPortal,
   useForwardPropsEmits,
   VisuallyHidden,
 } from 'radix-vue'
+
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 import { sheetVariants } from '.'
 
@@ -43,10 +44,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     <DialogOverlay
       class="fixed inset-0 z-50 data-[state=closed]:animate-out data-[state=open]:animate-in bg-black/80 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0"
     />
-    <DialogContent
-      :class="cn(sheetVariants({ side }), props.class)"
-      v-bind="{ ...forwarded, ...$attrs }"
-    >
+    <DialogContent :class="cn(sheetVariants({ side }), props.class)" v-bind="{ ...forwarded, ...$attrs }">
       <VisuallyHidden as-child>
         <DialogDescription aria-describedby="undefined" />
       </VisuallyHidden>

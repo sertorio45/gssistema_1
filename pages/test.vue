@@ -1,9 +1,3 @@
-<template>
-  <div>
-    <pre>{{ relations }}</pre>
-  </div>
-</template>
-
 <script lang="ts" setup>
 import { useTenantStore } from '~/stores/tenant'
 
@@ -15,12 +9,12 @@ const { data: relations } = await useFetch('/api/articles/tag/relations', {
     tenant_id: tenantStore.tenantId,
   },
 })
-
-
-
-
 </script>
 
-<style>
+<template>
+  <div>
+    <pre>{{ relations }}</pre>
+  </div>
+</template>
 
-</style>
+<style></style>

@@ -33,34 +33,19 @@ onMounted(async () => {
       <AuthSignUp />
       <p class="text-center text-sm text-muted-foreground">
         Already have an account?
-        <NuxtLink
-          to="/login"
-          class="underline underline-offset-4 hover:text-primary"
-        >
+        <NuxtLink to="/login" class="underline underline-offset-4 hover:text-primary">
           Login
         </NuxtLink>
       </p>
       <p class="px-8 text-center text-sm text-muted-foreground">
         By clicking continue, you agree to our
-        <a
-          href="/terms"
-          class="underline underline-offset-4 hover:text-primary"
-        >
-          Terms of Service
-        </a>
+        <a href="/terms" class="underline underline-offset-4 hover:text-primary"> Terms of Service </a>
         and
-        <a
-          href="/privacy"
-          class="underline underline-offset-4 hover:text-primary"
-        >
-          Privacy Policy
-        </a>
+        <a href="/privacy" class="underline underline-offset-4 hover:text-primary"> Privacy Policy </a>
         .
       </p>
     </div>
   </LayoutAuth>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

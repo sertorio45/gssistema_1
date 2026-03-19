@@ -1,4 +1,5 @@
 import { useSupabaseClient, useSupabaseUser } from '#imports'
+
 import { useTenant } from '~/composables/useTenant'
 
 export function useAuth() {
@@ -18,9 +19,12 @@ export function useAuth() {
       }
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
       const jsonPayload = decodeURIComponent(
-        atob(base64).split('').map((c) => {
-          return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
-        }).join(''),
+        atob(base64)
+          .split('')
+          .map((c) => {
+            return `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+          })
+          .join(''),
       )
       return JSON.parse(jsonPayload)
     }
@@ -38,7 +42,9 @@ export function useAuth() {
 
     try {
       // Obter a sessão atual para extrair o token
-      const { data: { session } } = await client.auth.getSession()
+      const {
+        data: { session },
+      } = await client.auth.getSession()
 
       if (session?.access_token) {
         // Decodificar o token para extrair app_metadata.tenant_roles

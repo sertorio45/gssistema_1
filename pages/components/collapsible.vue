@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -14,21 +13,13 @@
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/collapsible"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/collapsible" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/collapsible"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/collapsible" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -41,9 +32,7 @@
         </CardHeader>
         <CardContent>
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
-            <Collapsible
-              class="w-full md:w-[350px] space-y-2"
-            >
+            <Collapsible class="w-full md:w-[350px] space-y-2">
               <CollapsibleTrigger as-child>
                 <div class="flex cursor-pointer items-center justify-between px-4 space-x-4">
                   <h4 class="text-sm font-semibold">
@@ -74,6 +63,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

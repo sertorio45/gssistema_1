@@ -1,31 +1,35 @@
 import type { ColumnDef } from '@tanstack/vue-table'
 import type { Contact } from '~/types/crm'
+
 import { h } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
 import { Checkbox } from '@/components/ui/checkbox'
+
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 
 export const columns: ColumnDef<Contact>[] = [
   {
     id: 'select',
-    header: ({ table }) => h(Checkbox, {
-      'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
-      'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
-      'ariaLabel': 'Select all',
-      'class': 'translate-y-0.5',
-    }),
-    cell: ({ row }) => h(Checkbox, {
-      'checked': row.getIsSelected(),
-      'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
-      'ariaLabel': 'Select row',
-      'class': 'translate-y-0.5',
-    }),
+    header: ({ table }) =>
+      h(Checkbox, {
+        'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
+        'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
+        'ariaLabel': 'Selecionar todos',
+        'class': 'translate-y-0.5',
+      }),
+    cell: ({ row }) =>
+      h(Checkbox, {
+        'checked': row.getIsSelected(),
+        'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
+        'ariaLabel': 'Selecionar linha',
+        'class': 'translate-y-0.5',
+      }),
     enableSorting: false,
     enableHiding: false,
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Name' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome' }),
     cell: ({ row }) => h('span', { class: 'font-medium' }, row.getValue('name')),
     enableSorting: true,
     enableHiding: true,
@@ -39,21 +43,21 @@ export const columns: ColumnDef<Contact>[] = [
   },
   {
     accessorKey: 'company_name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Company' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Empresa' }),
     cell: ({ row }) => row.getValue('company_name') || '-',
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'position',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Position' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Cargo' }),
     cell: ({ row }) => row.getValue('position') || '-',
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'phone',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Phone' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Telefone' }),
     cell: ({ row }) => row.getValue('phone') || '-',
     enableSorting: true,
     enableHiding: true,
@@ -63,13 +67,18 @@ export const columns: ColumnDef<Contact>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Tags' }),
     cell: ({ row }) => {
       const tags = row.getValue('tags') as string[]
-      if (!tags || tags.length === 0) return '-'
+      if (!tags || tags.length === 0)
+        return '-'
 
       return h('div', { class: 'flex flex-wrap gap-1' }, [
         ...tags.slice(0, 2).map(tag =>
-          h('span', {
-            class: 'inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium',
-          }, tag),
+          h(
+            'span',
+            {
+              class: 'inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium',
+            },
+            tag,
+          ),
         ),
         ...(tags.length > 2 ? [h('span', { class: 'text-xs text-muted-foreground' }, `+${tags.length - 2}`)] : []),
       ])
@@ -80,15 +89,13 @@ export const columns: ColumnDef<Contact>[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row, table }) => h(
-      DataTableRowActions,
-      {
+    cell: ({ row, table }) =>
+      h(DataTableRowActions, {
         row,
         onEdit: () => (table.options.meta as any)?.onEdit?.(row.original),
         onDelete: () => (table.options.meta as any)?.onDelete?.(row.original),
-      },
-    ),
+      }),
     enableSorting: false,
     enableHiding: false,
   },
-] 
+]

@@ -2,6 +2,8 @@ export interface Lead {
   id: string
   name: string
   company?: string
+  email?: string
+  phone?: string
   status: 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost'
   source: 'website' | 'referral' | 'social' | 'email' | 'phone' | 'other'
   value: number
@@ -14,6 +16,33 @@ export interface Lead {
   nextFollowUp?: string
   tags: string[]
   tenant_id: string
+  /** Set when lead is moved to stage won or lost */
+  closed_at?: string
+}
+
+export interface ProductCategory {
+  id: string
+  tenant_id: string
+  name: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Product {
+  id: string
+  tenant_id: string
+  name: string
+  description?: string
+  type: 'recorrente' | 'avulso'
+  price: number
+  recurrence?: 'mensal' | 'trimestral' | 'semestral' | 'anual' | null
+  category_id?: string | null
+  /** Display name from category relation (API join) */
+  category?: string | null
+  tags: string[]
+  active: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface Contact {
@@ -176,5 +205,4 @@ export interface LeadSource {
   tenant_id?: string
   created_at: string
   updated_at: string
-} 
- 
+}

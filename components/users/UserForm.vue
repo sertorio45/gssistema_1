@@ -29,14 +29,16 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const form = ref<UserForm>(props.initialForm || {
-  email: '',
-  password: '',
-  user_metadata: {
-    name: '',
+const form = ref<UserForm>(
+  props.initialForm || {
+    email: '',
+    password: '',
+    user_metadata: {
+      name: '',
+    },
+    email_confirm: true,
   },
-  email_confirm: true,
-})
+)
 
 const passwordStrength = ref<PasswordStrength>({
   hasMinLength: false,
@@ -85,7 +87,10 @@ function generateSecurePassword() {
     password += allChars.charAt(Math.floor(Math.random() * allChars.length))
   }
 
-  password = password.split('').sort(() => 0.5 - Math.random()).join('')
+  password = password
+    .split('')
+    .sort(() => 0.5 - Math.random())
+    .join('')
 
   form.value.password = password
   validatePassword(password)
@@ -102,9 +107,7 @@ function validate() {
     return form.value.email
   }
   // Para criação, exige todos os campos
-  return form.value.email
-    && form.value.password
-    && passwordStrength.value.isValid
+  return form.value.email && form.value.password && passwordStrength.value.isValid
 }
 
 // Expor o formulário e métodos
@@ -144,11 +147,7 @@ function handleCancel() {
           </div>
           <div class="grid gap-2">
             <Label :for="isEditing ? 'edit-email' : 'email'">Email</Label>
-            <Input
-              :id="isEditing ? 'edit-email' : 'email'"
-              v-model="form.email"
-              placeholder="exemplo@email.com"
-            />
+            <Input :id="isEditing ? 'edit-email' : 'email'" v-model="form.email" placeholder="exemplo@email.com" />
           </div>
           <div class="grid gap-2">
             <Label for="email-confirm-switch">Confirmar Email</Label>
@@ -167,12 +166,7 @@ function handleCancel() {
             <Label :for="isEditing ? 'edit-password' : 'password'">
               {{ isEditing ? 'Senha (deixe em branco para manter)' : 'Senha' }}
             </Label>
-            <Button
-              variant="outline"
-              size="sm"
-              class="h-7 px-2 py-1 text-xs"
-              @click="generateSecurePassword"
-            >
+            <Button variant="outline" size="sm" class="h-7 px-2 py-1 text-xs" @click="generateSecurePassword">
               Gerar Senha
             </Button>
           </div>
@@ -189,23 +183,38 @@ function handleCancel() {
               Requisitos de senha:
             </div>
             <div class="grid grid-cols-2 gap-x-6 gap-y-1">
-              <div :class="passwordStrength.hasMinLength ? 'text-green-500' : 'text-red-500'" class="flex items-center text-sm">
+              <div
+                :class="passwordStrength.hasMinLength ? 'text-green-500' : 'text-red-500'"
+                class="flex items-center text-sm"
+              >
                 <span class="mr-1 text-xs">{{ passwordStrength.hasMinLength ? '✓' : '✗' }}</span>
                 Mínimo de 12 caracteres
               </div>
-              <div :class="passwordStrength.hasUppercase ? 'text-green-500' : 'text-red-500'" class="flex items-center text-sm">
+              <div
+                :class="passwordStrength.hasUppercase ? 'text-green-500' : 'text-red-500'"
+                class="flex items-center text-sm"
+              >
                 <span class="mr-1 text-xs">{{ passwordStrength.hasUppercase ? '✓' : '✗' }}</span>
                 Letra maiúscula
               </div>
-              <div :class="passwordStrength.hasLowercase ? 'text-green-500' : 'text-red-500'" class="flex items-center text-sm">
+              <div
+                :class="passwordStrength.hasLowercase ? 'text-green-500' : 'text-red-500'"
+                class="flex items-center text-sm"
+              >
                 <span class="mr-1 text-xs">{{ passwordStrength.hasLowercase ? '✓' : '✗' }}</span>
                 Letra minúscula
               </div>
-              <div :class="passwordStrength.hasNumbers ? 'text-green-500' : 'text-red-500'" class="flex items-center text-sm">
+              <div
+                :class="passwordStrength.hasNumbers ? 'text-green-500' : 'text-red-500'"
+                class="flex items-center text-sm"
+              >
                 <span class="mr-1 text-xs">{{ passwordStrength.hasNumbers ? '✓' : '✗' }}</span>
                 Número
               </div>
-              <div :class="passwordStrength.hasSpecialChars ? 'text-green-500' : 'text-red-500'" class="flex items-center text-sm">
+              <div
+                :class="passwordStrength.hasSpecialChars ? 'text-green-500' : 'text-red-500'"
+                class="flex items-center text-sm"
+              >
                 <span class="mr-1 text-xs">{{ passwordStrength.hasSpecialChars ? '✓' : '✗' }}</span>
                 Caractere especial
               </div>

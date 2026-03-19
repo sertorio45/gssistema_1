@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { NavGroup, NavMenu } from '~/types/nav'
+
 import { navMenu } from '@/constants/menus'
 
 const { metaSymbol } = useShortcuts()
@@ -8,14 +9,16 @@ const openCommand = ref(false)
 const router = useRouter()
 
 defineShortcuts({
-  Meta_K: () => openCommand.value = true,
+  Meta_K: () => (openCommand.value = true),
 })
 
 const componentsNav = computed<NavGroup | undefined>(() => {
-  return navMenu
-    .flatMap((nav: NavMenu) => nav.items)
-    // @ts-expect-error - We know that the title is unique
-    .find((item: NavGroup) => item.title === 'Components')
+  return (
+    navMenu
+      .flatMap((nav: NavMenu) => nav.items)
+      // @ts-expect-error - We know that the title is unique
+      .find((item: NavGroup) => item.title === 'Components')
+  )
 })
 
 function handleSelectLink(link: string) {
@@ -73,6 +76,4 @@ function handleSelectLink(link: string) {
   </CommandDialog>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

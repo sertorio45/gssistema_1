@@ -2,78 +2,83 @@
 import { useColorMode } from '#imports'
 import { BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Title, Tooltip } from 'chart.js'
 import { computed, nextTick, ref, watch } from 'vue'
+
 import { Bar } from 'vue-chartjs'
+
 import { cn } from '@/lib/utils'
 
 // Props definition
-const props = withDefaults(defineProps<{
-  /**
-   * Data to display
-   */
-  data: T[]
-  /**
-   * Key used to identify each data item
-   */
-  index: keyof T
-  /**
-   * Keys of properties to display
-   */
-  categories: (keyof T)[]
-  /**
-   * Colors to use for each category
-   */
-  colors?: string[]
-  /**
-   * Opacity of filtered items
-   * @default 0.2
-   */
-  filterOpacity?: number
-  /**
-   * Format x axis tick labels
-   */
-  xFormatter?: (v: number) => string
-  /**
-   * Format y axis tick labels
-   */
-  yFormatter?: (v: number) => string
-  /**
-   * Show x axis
-   * @default true
-   */
-  showXAxis?: boolean
-  /**
-   * Show y axis
-   * @default true
-   */
-  showYAxis?: boolean
-  /**
-   * Show tooltip
-   * @default true
-   */
-  showTooltip?: boolean
-  /**
-   * Show legend
-   */
-  showLegend?: boolean
-  /**
-   * Show grid line
-   * @default true
-   */
-  showGridLine?: boolean
-  /**
-   * Border radius for bar corners
-   * @default 0
-   */
-  roundedCorners?: number
-}>(), {
-  filterOpacity: 0.2,
-  roundedCorners: 0,
-  showXAxis: true,
-  showYAxis: true,
-  showTooltip: true,
-  showLegend: true,
-  showGridLine: true,
-})
+const props = withDefaults(
+  defineProps<{
+    /**
+     * Data to display
+     */
+    data: T[]
+    /**
+     * Key used to identify each data item
+     */
+    index: keyof T
+    /**
+     * Keys of properties to display
+     */
+    categories: (keyof T)[]
+    /**
+     * Colors to use for each category
+     */
+    colors?: string[]
+    /**
+     * Opacity of filtered items
+     * @default 0.2
+     */
+    filterOpacity?: number
+    /**
+     * Format x axis tick labels
+     */
+    xFormatter?: (v: number) => string
+    /**
+     * Format y axis tick labels
+     */
+    yFormatter?: (v: number) => string
+    /**
+     * Show x axis
+     * @default true
+     */
+    showXAxis?: boolean
+    /**
+     * Show y axis
+     * @default true
+     */
+    showYAxis?: boolean
+    /**
+     * Show tooltip
+     * @default true
+     */
+    showTooltip?: boolean
+    /**
+     * Show legend
+     */
+    showLegend?: boolean
+    /**
+     * Show grid line
+     * @default true
+     */
+    showGridLine?: boolean
+    /**
+     * Border radius for bar corners
+     * @default 0
+     */
+    roundedCorners?: number
+  }>(),
+  {
+    filterOpacity: 0.2,
+    roundedCorners: 0,
+    showXAxis: true,
+    showYAxis: true,
+    showTooltip: true,
+    showLegend: true,
+    showGridLine: true,
+  },
+)
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
@@ -107,7 +112,7 @@ const themeColors = computed(() => {
   return colorMode.value === 'dark' ? getDarkColors() : getLightColors()
 })
 
-const colors = computed(() => props.colors?.length ? props.colors : themeColors.value)
+const colors = computed(() => (props.colors?.length ? props.colors : themeColors.value))
 
 // Extract labels from data based on index key
 const labels = computed(() => props.data.map(item => String(item[props.index])))
@@ -171,42 +176,46 @@ const chartOptions = computed(() => ({
 const chartInstance = ref<any>(null)
 
 // Atualiza o gráfico quando o tema mudar
-watch(() => colorMode.value, () => {
-  // Aguardar componente renderizar
-  nextTick(() => {
-    const chart = chartInstance.value?.chart
-    if (chart) {
-      // Atualizar cores dos datasets
-      chart.data.datasets.forEach((dataset: any, i: number) => {
-        dataset.backgroundColor = colors.value[i % colors.value.length]
-      })
+watch(
+  () => colorMode.value,
+  () => {
+    // Aguardar componente renderizar
+    nextTick(() => {
+      const chart = chartInstance.value?.chart
+      if (chart) {
+        // Atualizar cores dos datasets
+        chart.data.datasets.forEach((dataset: any, i: number) => {
+          dataset.backgroundColor = colors.value[i % colors.value.length]
+        })
 
-      // Atualizar configurações de cores
-      if (chart.options.scales.x.ticks) {
-        chart.options.scales.x.ticks.color
-          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        // Atualizar configurações de cores
+        if (chart.options.scales.x.ticks) {
+          chart.options.scales.x.ticks.color
+            = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        }
+
+        if (chart.options.scales.y.ticks) {
+          chart.options.scales.y.ticks.color
+            = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        }
+
+        if (chart.options.scales.y.grid) {
+          chart.options.scales.y.grid.color
+            = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'hsl(var(--muted) / 0.2)'
+        }
+
+        if (chart.options.plugins?.legend?.labels) {
+          chart.options.plugins.legend.labels.color
+            = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
+        }
+
+        // Atualizar gráfico
+        chart.update()
       }
-
-      if (chart.options.scales.y.ticks) {
-        chart.options.scales.y.ticks.color
-          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
-      }
-
-      if (chart.options.scales.y.grid) {
-        chart.options.scales.y.grid.color
-          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'hsl(var(--muted) / 0.2)'
-      }
-
-      if (chart.options.plugins?.legend?.labels) {
-        chart.options.plugins.legend.labels.color
-          = colorMode.value === 'dark' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)'
-      }
-
-      // Atualizar gráfico
-      chart.update()
-    }
-  })
-}, { immediate: true })
+    })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

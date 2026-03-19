@@ -3,6 +3,7 @@ import type { CalendarHeadingProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { CalendarHeading, useForwardProps } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<CalendarHeadingProps & { class?: HTMLAttributes['class'] }>()
@@ -17,11 +18,7 @@ const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
 <template>
-  <CalendarHeading
-    v-slot="{ headingValue }"
-    :class="cn('text-sm font-medium', props.class)"
-    v-bind="forwardedProps"
-  >
+  <CalendarHeading v-slot="{ headingValue }" :class="cn('text-sm font-medium', props.class)" v-bind="forwardedProps">
     <slot :heading-value>
       {{ headingValue }}
     </slot>

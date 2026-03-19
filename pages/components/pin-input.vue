@@ -26,21 +26,13 @@ function handleCompleteSeparator(e: string[]) {
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/pin-input"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/pin-input" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/pin-input"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/pin-input" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -53,18 +45,9 @@ function handleCompleteSeparator(e: string[]) {
         </CardHeader>
         <CardContent>
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
-            <PinInput
-              id="pin-input"
-              v-model="value"
-              placeholder="○"
-              @complete="handleComplete"
-            >
+            <PinInput id="pin-input" v-model="value" placeholder="○" @complete="handleComplete">
               <PinInputGroup>
-                <PinInputInput
-                  v-for="(id, index) in 5"
-                  :key="id"
-                  :index="index"
-                />
+                <PinInputInput v-for="(id, index) in 5" :key="id" :index="index" />
               </PinInputGroup>
             </PinInput>
           </div>
@@ -76,18 +59,10 @@ function handleCompleteSeparator(e: string[]) {
         </CardHeader>
         <CardContent>
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
-            <PinInput
-              id="pin-input"
-              v-model="valueSeparator"
-              placeholder="○"
-              @complete="handleCompleteSeparator"
-            >
+            <PinInput id="pin-input" v-model="valueSeparator" placeholder="○" @complete="handleCompleteSeparator">
               <PinInputGroup class="gap-1">
                 <template v-for="(id, index) in 5" :key="id">
-                  <PinInputInput
-                    class="border rounded-md"
-                    :index="index"
-                  />
+                  <PinInputInput class="border rounded-md" :index="index" />
                   <template v-if="index !== 4">
                     <PinInputSeparator />
                   </template>
@@ -101,6 +76,4 @@ function handleCompleteSeparator(e: string[]) {
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

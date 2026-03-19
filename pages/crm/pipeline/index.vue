@@ -2,33 +2,52 @@
 import type { Lead, SalesStage } from '~/types/crm'
 import { useFetch } from '#app'
 
+import { Icon } from '#components'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
+import Draggable from 'vuedraggable'
+
+import { columns } from '~/components/crm/leads/columns'
+import LeadEditForm from '~/components/crm/leads/LeadEditForm.vue'
+import LeadStepperForm from '~/components/crm/leads/LeadStepperForm.vue'
+import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import Badge from '~/components/ui/badge/Badge.vue'
+import Button from '~/components/ui/button/Button.vue'
+import Card from '~/components/ui/card/Card.vue'
+import CardContent from '~/components/ui/card/CardContent.vue'
+import CardHeader from '~/components/ui/card/CardHeader.vue'
+import CardTitle from '~/components/ui/card/CardTitle.vue'
+import Dialog from '~/components/ui/dialog/Dialog.vue'
+import DialogContent from '~/components/ui/dialog/DialogContent.vue'
+import DialogDescription from '~/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '~/components/ui/dialog/DialogFooter.vue'
+import DialogHeader from '~/components/ui/dialog/DialogHeader.vue'
+import DialogScrollContent from '~/components/ui/dialog/DialogScrollContent.vue'
+import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
+import Input from '~/components/ui/input/Input.vue'
+import Label from '~/components/ui/label/Label.vue'
+import Progress from '~/components/ui/progress/Progress.vue'
+import Sheet from '~/components/ui/sheet/Sheet.vue'
+import SheetContent from '~/components/ui/sheet/SheetContent.vue'
+import SheetDescription from '~/components/ui/sheet/SheetDescription.vue'
+import SheetFooter from '~/components/ui/sheet/SheetFooter.vue'
+import SheetHeader from '~/components/ui/sheet/SheetHeader.vue'
+import SheetTitle from '~/components/ui/sheet/SheetTitle.vue'
+import SheetTrigger from '~/components/ui/sheet/SheetTrigger.vue'
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
+import DataTableViewOptions from '~/components/tasks/components/DataTableViewOptions.vue'
+import DataTable from '~/components/ui/table/DataTable.vue'
+import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
+import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import Textarea from '~/components/ui/textarea/Textarea.vue'
+import Tooltip from '~/components/ui/tooltip/Tooltip.vue'
+import { useTenant } from '~/composables/useTenant'
 
 // SEO Meta
 useSeoMeta({
   title: 'CRM Pipeline - SIEM SISTEMAS',
-  description: 'Manage your sales pipeline and leads efficiently with our CRM system.',
+  description: 'Gerencie seu pipeline de vendas e leads com eficiência.',
 })
-
-import Draggable from 'vuedraggable'
-import { columns } from '~/components/crm/leads/columns'
-import LeadStepperForm from '~/components/crm/leads/LeadStepperForm.vue'
-import LeadEditForm from '~/components/crm/leads/LeadEditForm.vue'
-import MultiActionBar from '~/components/shared/MultiActionBar.vue'
-import Card from '~/components/ui/card/Card.vue'
-import CardContent from '~/components/ui/card/CardContent.vue'
-import Select from '~/components/ui/select/Select.vue'
-import SelectContent from '~/components/ui/select/SelectContent.vue'
-import SelectItem from '~/components/ui/select/SelectItem.vue'
-import SelectTrigger from '~/components/ui/select/SelectTrigger.vue'
-import SelectValue from '~/components/ui/select/SelectValue.vue'
-import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
-import DataTable from '~/components/ui/table/DataTable.vue'
-import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
-import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
-import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import Tooltip from '~/components/ui/tooltip/Tooltip.vue'
-import { useTenant } from '~/composables/useTenant'
 
 interface Pipeline {
   id: string
@@ -43,7 +62,7 @@ const { tenantId } = useTenant()
 const pipelines = ref<Pipeline[]>([])
 const stages = ref<SalesStage[]>([])
 const leads = ref<LeadExt[]>([])
-const selectedPipeline = ref<string | null>(null)
+const selectedPipeline = ref<string | undefined>(undefined)
 const selectedLead = ref<Lead | null>(null)
 const isDialogOpen = ref(false)
 const viewMode = ref<'kanban' | 'list'>('kanban')
@@ -59,10 +78,20 @@ const newPipeline = ref({ name: '', description: '' })
 const isOrganizeStagesDialogOpen = ref(false)
 const stagesOrder = ref<SalesStage[]>([])
 const isLoading = ref(false)
+const isSyncingTenant = ref(false)
+const defaultLeadPipelineId = ref<string | null>(null)
+const defaultLeadStageId = ref<string | null>(null)
+let loadingCount = 0
+
+function setLoading(loading: boolean) {
+  if (loading) loadingCount++
+  else loadingCount = Math.max(0, loadingCount - 1)
+  isLoading.value = loadingCount > 0
+}
 
 // Group leads by status
 const leadsByStage = computed(() => {
-  const grouped: Record<string, Lead[]> = {}
+  const grouped: Record<string, LeadExt[]> = {}
   stages.value.forEach((stage) => {
     grouped[stage.id] = leads.value.filter(lead => lead.sales_stage_id === stage.id)
   })
@@ -95,6 +124,41 @@ const stageProgress = computed(() => {
   }
 
   return progress
+})
+
+// Métricas do topo (Total Pipeline, Taxa Conversão, Ticket Médio, Ganhos no Mês)
+const pipelineTotal = computed(() =>
+  leads.value
+    .filter(l => l.status !== 'won' && l.status !== 'lost')
+    .reduce((sum, l) => sum + (Number(l.value) || 0), 0),
+)
+const totalLeadsCount = computed(() => leads.value.length)
+const conversionRate = computed(() => {
+  const total = totalLeadsCount.value
+  if (total === 0)
+    return 0
+  const won = leads.value.filter(l => l.status === 'won').length
+  return Math.round((won / total) * 10000) / 100
+})
+const ticketMedio = computed(() => {
+  const total = totalLeadsCount.value
+  if (total === 0)
+    return 0
+  const sum = leads.value.reduce((s, l) => s + (Number(l.value) || 0), 0)
+  return sum / total
+})
+const ganhosNoMes = computed(() => {
+  const now = new Date()
+  const thisYear = now.getFullYear()
+  const thisMonth = now.getMonth()
+  return leads.value
+    .filter(l => {
+      if (l.status !== 'won')
+        return false
+      const closed = l.closed_at ? new Date(l.closed_at) : null
+      return closed && closed.getFullYear() === thisYear && closed.getMonth() === thisMonth
+    })
+    .reduce((sum, l) => sum + (Number(l.value) || 0), 0)
 })
 
 function handleLeadClick(lead: Lead) {
@@ -143,40 +207,61 @@ function handleDragOver(event: DragEvent) {
   }
 }
 
+function isStageWonOrLost(stageName: string): 'won' | 'lost' | null {
+  const name = (stageName || '').toLowerCase()
+  if (['won', 'ganho'].some(k => name.includes(k)))
+    return 'won'
+  if (['lost', 'perdido'].some(k => name.includes(k)))
+    return 'lost'
+  return null
+}
+
 async function handleDrop(event: DragEvent, newStageId: string) {
   event.preventDefault()
-  if (event.dataTransfer) {
+  if (!event.dataTransfer)
+    return
+  try {
+    const data = JSON.parse(event.dataTransfer.getData('text/plain'))
+    const { leadId, currentStageId } = data
+    if (currentStageId === newStageId)
+      return
+
+    const lead = leads.value.find(l => l.id === leadId)
+    const newStage = stages.value.find(s => s.id === newStageId)
+    const wonOrLost = newStage ? isStageWonOrLost(newStage.name) : null
+    const closedAt = wonOrLost ? new Date().toISOString() : undefined
+    const newStatus = wonOrLost ?? lead?.status
+
+    const previousLeads = [...leads.value]
+    const updatedLeads = leads.value.map((l) => {
+      if (l.id !== leadId)
+        return l
+      return {
+        ...l,
+        sales_stage_id: newStageId,
+        status: newStatus,
+        ...(closedAt ? { closed_at: closedAt } : {}),
+      } as LeadExt
+    })
+    leads.value = updatedLeads
+
     try {
-      const data = JSON.parse(event.dataTransfer.getData('text/plain'))
-      const { leadId, currentStageId } = data
-
-      if (currentStageId !== newStageId) {
-        // Atualiza localmente para feedback instantâneo
-        const updatedLeads = leads.value.map((lead) => {
-          if (lead.id === leadId) {
-            return { ...lead, sales_stage_id: newStageId }
-          }
-          return lead
-        })
-        leads.value = updatedLeads
-
-        // Salva no backend
-        try {
-          await $fetch(`/api/crm/lead/${leadId}`, {
-            method: 'put',
-            body: { sales_stage_id: newStageId },
-          })
-          await fetchLeads()
-          toast.success('Lead moved successfully!')
-        }
-        catch {
-          toast.error('Error updating lead. Try again.')
-        }
-      }
+      await $fetch(`/api/crm/lead/${leadId}`, {
+        method: 'PUT',
+        body: {
+          sales_stage_id: newStageId,
+          ...(wonOrLost ? { status: wonOrLost, closed_at: closedAt } : {}),
+        },
+      })
+      toast.success('Lead movido com sucesso!')
     }
-    catch (error) {
-      console.error('Error processing drop:', error)
+    catch {
+      leads.value = previousLeads
+      toast.error('Erro ao atualizar lead. Tente novamente.')
     }
+  }
+  catch (error) {
+    console.error('Error processing drop:', error)
   }
 }
 
@@ -213,21 +298,26 @@ function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-// Função para adicionar um novo lead em um estágio específico
-function handleAddLeadToStage(stageName: string) {
-  console.warn(`Adicionar novo lead ao estágio: ${stageName}`)
+// Abre o dialog de novo lead atribuindo ao estágio "Novo" (primeiro da lista).
+function openNewLeadDialog() {
+  defaultLeadPipelineId.value = selectedPipeline.value ?? null
+  defaultLeadStageId.value = stages.value[0]?.id ?? null
+  isAddLeadDialogOpen.value = true
+}
+
+// Abre o dialog de novo lead atribuindo ao estágio da coluna clicada.
+function handleAddLeadToStage(stage: SalesStage) {
+  defaultLeadPipelineId.value = selectedPipeline.value ?? null
+  defaultLeadStageId.value = stage.id ?? null
   isAddLeadDialogOpen.value = true
 }
 
 // Handler para quando um lead é criado com sucesso
 function handleLeadCreated(_newLead: any) {
-  // Fechar o dialog
   isAddLeadDialogOpen.value = false
-  
-  // Refresh dos leads para mostrar o novo lead
+  defaultLeadPipelineId.value = null
+  defaultLeadStageId.value = null
   fetchLeads()
-  
-  // Lead criado com sucesso - sem log para evitar violação de linter
 }
 
 // Handler para editar lead
@@ -244,10 +334,10 @@ function handleEditLead() {
 function handleLeadUpdated(_updatedLead: any) {
   // Fechar o dialog
   isEditLeadDialogOpen.value = false
-  
+
   // Refresh dos leads para mostrar as mudanças
   fetchLeads()
-  
+
   // Lead editado com sucesso - sem log para evitar violação de linter
 }
 
@@ -279,49 +369,74 @@ function handleSearch(e: Event) {
 async function fetchPipelines() {
   if (!tenantId.value)
     return
-  const { data } = await useFetch<Pipeline[]>('/api/crm/pipeline', { params: { tenant_id: tenantId.value } })
-  pipelines.value = Array.isArray(data.value) ? data.value : []
-  if (!selectedPipeline.value && pipelines.value.length) {
-    selectedPipeline.value = pipelines.value[0]?.id || null
+  setLoading(true)
+  try {
+    const data = await $fetch<Pipeline[]>('/api/crm/pipeline', { query: { tenant_id: tenantId.value } })
+    const nextPipelines = Array.isArray(data) ? data : []
+    pipelines.value = nextPipelines
+
+    // Se o pipeline selecionado não existir para o tenant atual, selecione o primeiro.
+    if (!selectedPipeline.value || !nextPipelines.some(p => p.id === selectedPipeline.value)) {
+      selectedPipeline.value = nextPipelines[0]?.id || undefined
+    }
+
+    // Evita mostrar dados do tenant anterior quando o pipeline não existe.
+    if (!selectedPipeline.value) {
+      stages.value = []
+      leads.value = []
+    }
+  }
+  finally {
+    setLoading(false)
   }
 }
 
 async function fetchStages() {
   if (!selectedPipeline.value)
     return
-  const { data } = await useFetch<SalesStage[]>('/api/crm/sales_stage', {
-    params: { pipeline_id: selectedPipeline.value },
-  })
-  stages.value = Array.isArray(data.value) ? data.value : []
+  setLoading(true)
+  try {
+    const data = await $fetch<SalesStage[]>('/api/crm/sales_stage', {
+      query: { pipeline_id: selectedPipeline.value, tenant_id: tenantId.value },
+    })
+    stages.value = Array.isArray(data) ? data : []
+  }
+  finally {
+    setLoading(false)
+  }
 }
 
 async function fetchLeads() {
   if (!selectedPipeline.value)
     return
-  const { data } = await useFetch<LeadExt[]>('/api/crm/lead', { params: { pipeline_id: selectedPipeline.value } })
-  leads.value = Array.isArray(data.value) ? data.value : []
+  setLoading(true)
+  try {
+    const data = await $fetch<LeadExt[]>('/api/crm/lead', { query: { pipeline_id: selectedPipeline.value, tenant_id: tenantId.value } })
+    leads.value = Array.isArray(data) ? data : []
+  }
+  finally {
+    setLoading(false)
+  }
 }
 
-watch(tenantId, fetchPipelines, { immediate: true })
+watch(tenantId, async () => {
+  isSyncingTenant.value = true
+  try {
+    await fetchPipelines()
+    await fetchStages()
+    await fetchLeads()
+  }
+  finally {
+    isSyncingTenant.value = false
+  }
+}, { immediate: true })
+
 watch(selectedPipeline, () => {
+  if (isSyncingTenant.value)
+    return
   fetchStages()
   fetchLeads()
 })
-
-let toast: any
-try {
-  toast = require('~/components/ui/sonner/useSonner').toast
-}
-catch {
-  toast = {
-    success: (msg: string) => {
-      /* noop */
-    },
-    error: (msg: string) => {
-      /* noop */
-    },
-  }
-}
 
 async function handleCreatePipeline() {
   if (!newPipeline.value.name)
@@ -335,8 +450,9 @@ async function handleCreatePipeline() {
     },
   })
   if (!error && data.value?.body) {
-    pipelines.value.push(data.value.body)
-    selectedPipeline.value = data.value.body.id
+    const pipeline = data.value.body as unknown as Pipeline
+    pipelines.value.push(pipeline)
+    selectedPipeline.value = pipeline.id
     isAddPipelineDialogOpen.value = false
     newPipeline.value = { name: '', description: '' }
     toast.success('Pipeline criado com sucesso!')
@@ -349,15 +465,26 @@ function openOrganizeStagesDialog() {
 }
 
 async function saveStagesOrder() {
-  for (let i = 0; i < stagesOrder.value.length; i++) {
-    const stage = stagesOrder.value[i]
-    await useFetch('/api/crm/sales_stage', {
-      method: 'PUT',
-      body: { id: stage.id, order: i + 1, tenant_id: tenantId.value },
-    })
+  const tenant = tenantId.value
+  if (!tenant)
+    return
+  const tenantUuid = typeof tenant === 'object' && tenant !== null && 'id' in tenant ? (tenant as { id: string }).id : tenant
+  try {
+    for (let i = 0; i < stagesOrder.value.length; i++) {
+      const stage = stagesOrder.value[i]
+      await $fetch(`/api/crm/sales_stage/${stage.id}`, {
+        method: 'PUT',
+        body: { id: stage.id, order: i + 1, tenant_id: tenantUuid },
+      })
+    }
+    isOrganizeStagesDialogOpen.value = false
+    await fetchStages()
+    toast.success('Ordem dos estágios salva.')
   }
-  isOrganizeStagesDialogOpen.value = false
-  fetchStages()
+  catch (e: any) {
+    const msg = e?.data?.message || e?.message || 'Erro ao salvar a ordem. Tente novamente.'
+    toast.error(msg)
+  }
 }
 </script>
 
@@ -370,17 +497,17 @@ async function saveStagesOrder() {
           Pipeline
         </h1>
         <p class="text-muted-foreground">
-          Manage your sales pipeline and leads
+          Gerencie seu pipeline de vendas e leads
         </p>
       </div>
       <div class="flex gap-2">
         <Button variant="outline">
           <Icon name="lucide:download" class="mr-2 h-4 w-4" />
-          Export
+          Exportar
         </Button>
-        <Button @click="isAddLeadDialogOpen = true">
+        <Button @click="openNewLeadDialog">
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-          New Lead
+          Novo Lead
         </Button>
       </div>
     </div>
@@ -424,21 +551,34 @@ async function saveStagesOrder() {
       </div>
     </div>
 
-    <!-- Pipeline Stats -->
-    <div class="grid mb-4 gap-4 lg:grid-cols-4 md:grid-cols-2">
+    <!-- Pipeline Stats (skeleton quando carregando) -->
+    <div v-if="isLoading" class="grid mb-4 gap-4 lg:grid-cols-4 md:grid-cols-2">
+      <Card v-for="i in 4" :key="i">
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <Skeleton class="h-4 w-24" />
+          <Skeleton class="h-4 w-4" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton class="h-8 w-28 mb-2" />
+          <Skeleton class="h-3 w-20" />
+          <Skeleton v-if="i > 1" class="mt-2 h-2 w-full" />
+        </CardContent>
+      </Card>
+    </div>
+    <div v-else class="grid mb-4 gap-4 lg:grid-cols-4 md:grid-cols-2">
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Total Pipeline
+            Total do Pipeline
           </CardTitle>
           <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ formatCurrency(Object.values(stageStats).reduce((sum, stat) => sum + stat.value, 0)) }}
+            {{ formatCurrency(pipelineTotal) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            {{ Object.values(stageStats).reduce((sum, stat) => sum + stat.count, 0) }} leads
+            Soma do valor dos leads ativos (excl. ganhos/perdidos)
           </p>
         </CardContent>
       </Card>
@@ -446,66 +586,87 @@ async function saveStagesOrder() {
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Qualified Leads
+            Taxa de Conversão
           </CardTitle>
-          <Icon name="lucide:check-circle" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:percent" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ stageStats.qualified?.count || 0 }}
+            {{ conversionRate }}%
           </div>
           <p class="text-xs text-muted-foreground">
-            {{ formatCurrency(stageStats.qualified?.value || 0) }}
+            Ganhos / total de leads
           </p>
-          <Progress class="mt-2 h-2" :model-value="stageProgress.qualified || 0" />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            In Negotiation
+            Ticket Médio
           </CardTitle>
-          <Icon name="lucide:handshake" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:receipt" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ stageStats.negotiation?.count || 0 }}
+            {{ formatCurrency(ticketMedio) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            {{ formatCurrency(stageStats.negotiation?.value || 0) }}
+            Valor total / total de leads
           </p>
-          <Progress class="mt-2 h-2" :model-value="stageProgress.negotiation || 0" />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Won This Month
+            Ganhos no Mês
           </CardTitle>
-          <Icon name="lucide:trophy" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:calendar-check" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ stageStats.won?.count || 0 }}
+            {{ formatCurrency(ganhosNoMes) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            {{ formatCurrency(stageStats.won?.value || 0) }}
+            Soma dos ganhos fechados este mês
           </p>
-          <Progress class="mt-2 h-2" :model-value="stageProgress.won || 0" />
         </CardContent>
       </Card>
     </div>
 
     <!-- Visualização Kanban -->
     <div v-if="viewMode === 'kanban'" class="flex flex-col gap-4">
+      <!-- Skeleton Kanban -->
+      <div v-if="isLoading" class="space-y-4">
+        <div class="mb-2 flex items-center gap-2">
+          <Skeleton class="h-10 w-64" />
+          <Skeleton class="h-10 w-10" />
+          <Skeleton class="h-10 w-10" />
+        </div>
+        <div class="flex gap-3 overflow-hidden">
+          <Card v-for="i in 4" :key="i" class="w-64 flex-shrink-0">
+            <CardHeader class="px-2 pb-1">
+              <div class="mb-2 flex items-center justify-between">
+                <Skeleton class="h-4 w-24" />
+                <Skeleton class="h-5 w-8" />
+              </div>
+              <Skeleton class="h-3 w-full" />
+              <Skeleton class="mt-1 h-2 w-full" />
+            </CardHeader>
+            <CardContent class="min-h-[400px] space-y-2 p-2">
+              <Skeleton v-for="j in 3" :key="j" class="h-24 w-full rounded-lg" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
       <!-- Visualização de cards do Kanban -->
+      <template v-else>
       <div class="mb-2 flex items-center gap-2">
         <div class="flex items-center gap-2">
           <Select v-model="selectedPipeline">
             <SelectTrigger class="w-64">
-              <SelectValue placeholder="Select pipeline..." />
+              <SelectValue placeholder="Selecione o pipeline..." />
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="pipeline in pipelines" :key="pipeline.id" :value="pipeline.id">
@@ -541,7 +702,7 @@ async function saveStagesOrder() {
           :key="stage.id"
           class="w-64 flex-shrink-0"
           @dragover="handleDragOver"
-          @drop="event => handleDrop(event, String(stage.id))"
+          @drop="handleDrop($event, String(stage.id))"
         >
           <!-- Stage Header -->
           <CardHeader class="px-2 pb-1">
@@ -560,7 +721,7 @@ async function saveStagesOrder() {
                   variant="ghost"
                   size="icon"
                   class="h-5 w-5 p-0"
-                  @click="handleAddLeadToStage(stage.name.toLowerCase().replace(' ', ''))"
+                  @click="handleAddLeadToStage(stage)"
                 >
                   <Icon name="lucide:plus" class="h-3 w-3" />
                 </Button>
@@ -586,7 +747,7 @@ async function saveStagesOrder() {
                 :class="getPriorityColor(lead.priority)"
                 draggable="true"
                 @click="handleLeadClick(lead)"
-                @dragstart="event => handleDragStart(event, lead.id, lead.sales_stage_id)"
+                @dragstart="handleDragStart($event, lead.id, lead.sales_stage_id)"
               >
                 <!-- Lead Card Content -->
                 <div class="space-y-1">
@@ -596,7 +757,7 @@ async function saveStagesOrder() {
                         {{ lead.name }}
                       </h4>
                       <p class="text-xs text-muted-foreground">
-                        {{ lead.company || 'No company' }}
+                        {{ lead.company || 'Sem empresa' }}
                       </p>
                     </div>
                     <Badge
@@ -623,7 +784,7 @@ async function saveStagesOrder() {
                   <div class="flex items-center justify-between text-xs">
                     <div class="flex items-center gap-1 text-muted-foreground">
                       <Icon name="lucide:user" class="h-3 w-3" />
-                      {{ lead.assignedTo || 'Unassigned' }}
+                      {{ lead.assignedTo || 'Não atribuído' }}
                     </div>
                     <div class="flex items-center gap-1 text-muted-foreground">
                       <Icon name="lucide:tag" class="h-3 w-3" />
@@ -655,7 +816,7 @@ async function saveStagesOrder() {
                 <Button
                   variant="ghost"
                   class="h-auto flex flex-col items-center gap-1 p-2"
-                  @click="handleAddLeadToStage(stage.name.toLowerCase().replace(' ', ''))"
+                  @click="handleAddLeadToStage(stage)"
                 >
                   <Icon name="lucide:plus" class="h-4 w-4 text-muted-foreground" />
                   <p class="text-xs text-muted-foreground">
@@ -667,6 +828,7 @@ async function saveStagesOrder() {
           </CardContent>
         </Card>
       </div>
+      </template>
     </div>
 
     <!-- Visualização em Lista (DataTable) -->
@@ -674,11 +836,21 @@ async function saveStagesOrder() {
       <div v-if="isLoading" class="space-y-4">
         <Card class="border shadow-sm">
           <CardContent class="p-4">
-            <div class="space-y-2">
-              <Skeleton class="h-8 w-[250px]" />
-              <Skeleton class="h-8 w-full" />
-              <Skeleton class="h-8 w-full" />
-              <Skeleton class="h-8 w-full" />
+            <div class="space-y-3">
+              <div class="flex items-center gap-2">
+                <Skeleton class="h-9 w-[200px]" />
+                <Skeleton class="h-9 w-[100px]" />
+              </div>
+              <Skeleton class="h-10 w-full" />
+              <Skeleton class="h-12 w-full" />
+              <Skeleton class="h-12 w-full" />
+              <Skeleton class="h-12 w-full" />
+              <Skeleton class="h-12 w-full" />
+              <Skeleton class="h-12 w-full" />
+              <div class="flex justify-between pt-2">
+                <Skeleton class="h-8 w-24" />
+                <Skeleton class="h-8 w-32" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -692,13 +864,14 @@ async function saveStagesOrder() {
           @selection-change="updateSelectedItems"
         >
           <template #toolbar="{ table }">
-            <DataTableToolbar :table="table" placeholder="Search leads..." column-key="name" />
+            <DataTableToolbar :table="table" placeholder="Buscar leads..." filter-column="name">
+              <template #options>
+                <DataTableViewOptions :table="table" />
+              </template>
+            </DataTableToolbar>
           </template>
           <template #pagination="{ table }">
             <DataTablePagination :table="table" />
-          </template>
-          <template #actions="{ row }">
-            <DataTableRowActions :row="row" :on-edit="handleEdit" :on-delete="handleDelete" />
           </template>
         </DataTable>
       </template>
@@ -716,17 +889,17 @@ async function saveStagesOrder() {
       >
         <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
           <h2 class="mb-2 text-lg font-bold">
-            Delete Multiple Leads
+            Excluir vários leads
           </h2>
           <p class="mb-4">
-            Are you sure you want to delete {{ selectedItems.length }} leads? This action cannot be undone.
+            Tem certeza que deseja excluir {{ selectedItems.length }} leads? Esta ação não pode ser desfeita.
           </p>
           <div class="flex justify-end gap-2">
             <Button variant="outline" @click="showMultiDeleteDialog = false">
-              Cancel
+              Cancelar
             </Button>
             <Button variant="destructive" @click="handleMultiDeleteConfirm">
-              Delete All
+              Excluir todos
             </Button>
           </div>
         </div>
@@ -738,7 +911,7 @@ async function saveStagesOrder() {
       <SheetContent class="sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Filtrar Pipeline</SheetTitle>
-          <SheetDescription> Filtre leads por diversos critérios </SheetDescription>
+          <SheetDescription>Filtre leads por diversos critérios</SheetDescription>
         </SheetHeader>
 
         <div class="grid gap-4 py-4">
@@ -858,33 +1031,33 @@ async function saveStagesOrder() {
     <Dialog v-model:open="isDialogOpen">
       <DialogScrollContent class="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Lead Details</DialogTitle>
-          <DialogDescription> View and manage lead information </DialogDescription>
+          <DialogTitle>Detalhes do Lead</DialogTitle>
+          <DialogDescription>Visualize e gerencie as informações do lead</DialogDescription>
         </DialogHeader>
 
         <div v-if="selectedLead" class="space-y-4">
           <!-- Lead Information -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <Label class="text-sm font-medium">Name</Label>
+              <Label class="text-sm font-medium">Nome</Label>
               <p class="text-sm text-muted-foreground">
                 {{ selectedLead.name }}
               </p>
             </div>
             <div>
-              <Label class="text-sm font-medium">Email</Label>
+              <Label class="text-sm font-medium">E-mail</Label>
               <p class="text-sm text-muted-foreground">
                 {{ selectedLead.email }}
               </p>
             </div>
             <div>
-              <Label class="text-sm font-medium">Phone</Label>
+              <Label class="text-sm font-medium">Telefone</Label>
               <p class="text-sm text-muted-foreground">
                 {{ selectedLead.phone }}
               </p>
             </div>
             <div>
-              <Label class="text-sm font-medium">Company</Label>
+              <Label class="text-sm font-medium">Empresa</Label>
               <p class="text-sm text-muted-foreground">
                 {{ selectedLead.company || '-' }}
               </p>
@@ -896,19 +1069,19 @@ async function saveStagesOrder() {
               </Badge>
             </div>
             <div>
-              <Label class="text-sm font-medium">Priority</Label>
+              <Label class="text-sm font-medium">Prioridade</Label>
               <Badge class="mt-1" variant="outline">
                 {{ selectedLead.priority }}
               </Badge>
             </div>
             <div>
-              <Label class="text-sm font-medium">Value</Label>
+              <Label class="text-sm font-medium">Valor</Label>
               <p class="text-sm text-muted-foreground">
                 {{ formatCurrency(selectedLead.value) }}
               </p>
             </div>
             <div>
-              <Label class="text-sm font-medium">Source</Label>
+              <Label class="text-sm font-medium">Origem</Label>
               <p class="text-sm text-muted-foreground">
                 {{ selectedLead.source }}
               </p>
@@ -916,7 +1089,7 @@ async function saveStagesOrder() {
           </div>
 
           <div v-if="selectedLead.notes">
-            <Label class="text-sm font-medium">Notes</Label>
+            <Label class="text-sm font-medium">Observações</Label>
             <p class="mt-1 text-sm text-muted-foreground">
               {{ selectedLead.notes }}
             </p>
@@ -934,9 +1107,11 @@ async function saveStagesOrder() {
 
         <DialogFooter>
           <Button variant="outline" @click="closeDialog">
-            Close
+            Fechar
           </Button>
-          <Button @click="handleEditLead">Edit Lead</Button>
+          <Button @click="handleEditLead">
+            Editar Lead
+          </Button>
         </DialogFooter>
       </DialogScrollContent>
     </Dialog>
@@ -948,17 +1123,21 @@ async function saveStagesOrder() {
       >
         <DialogHeader class="pb-4">
           <DialogTitle class="text-center text-xl font-semibold">
-            Add New Lead
+            Adicionar Novo Lead
           </DialogTitle>
           <DialogDescription class="text-center text-sm text-muted-foreground">
-            Fill in the details for the new lead using the step-by-step form below
+            Preencha os dados do novo lead no formulário passo a passo abaixo
           </DialogDescription>
         </DialogHeader>
-        
+
         <div class="px-6 pb-6">
           <!-- Lead Stepper Form com melhor spacing -->
           <div class="bg-background">
-            <LeadStepperForm @lead-created="handleLeadCreated" />
+            <LeadStepperForm
+              :default-pipeline-id="defaultLeadPipelineId"
+              :default-sales-stage-id="defaultLeadStageId"
+              @lead-created="handleLeadCreated"
+            />
           </div>
         </div>
       </DialogScrollContent>
@@ -971,17 +1150,17 @@ async function saveStagesOrder() {
       >
         <DialogHeader class="pb-4">
           <DialogTitle class="text-center text-xl font-semibold">
-            Edit Lead: {{ selectedLead?.name }}
+            Editar Lead: {{ selectedLead?.name }}
           </DialogTitle>
           <DialogDescription class="text-center text-sm text-muted-foreground">
-            Update the lead information below
+            Atualize as informações do lead abaixo
           </DialogDescription>
         </DialogHeader>
-        
+
         <div class="px-6 pb-6">
           <div v-if="selectedLead" class="bg-background">
-            <LeadEditForm 
-              :lead="selectedLead" 
+            <LeadEditForm
+              :lead="selectedLead"
               @lead-updated="handleLeadUpdated"
               @cancel="isEditLeadDialogOpen = false"
             />
@@ -994,7 +1173,7 @@ async function saveStagesOrder() {
     <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
-          Excluir Lead
+          Excluir lead
         </h2>
         <p class="mb-4">
           Tem certeza que deseja excluir o lead "{{ leadToDelete?.name }}"? Esta ação não pode ser desfeita.
@@ -1014,19 +1193,19 @@ async function saveStagesOrder() {
     <Dialog v-model:open="isAddPipelineDialogOpen">
       <DialogContent class="max-w-md">
         <DialogHeader>
-          <DialogTitle>New Pipeline</DialogTitle>
-          <DialogDescription>Create a new sales pipeline</DialogDescription>
+          <DialogTitle>Novo Pipeline</DialogTitle>
+          <DialogDescription>Criar um novo pipeline de vendas</DialogDescription>
         </DialogHeader>
         <div class="space-y-4">
-          <Input v-model="newPipeline.name" placeholder="Pipeline name" />
-          <Textarea v-model="newPipeline.description" placeholder="Description (optional)" />
+          <Input v-model="newPipeline.name" placeholder="Nome do pipeline" />
+          <Textarea v-model="newPipeline.description" placeholder="Descrição (opcional)" />
         </div>
         <DialogFooter>
           <Button variant="outline" @click="isAddPipelineDialogOpen = false">
-            Cancel
+            Cancelar
           </Button>
           <Button @click="handleCreatePipeline">
-            Create
+            Criar
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1036,23 +1215,23 @@ async function saveStagesOrder() {
     <Dialog v-model:open="isOrganizeStagesDialogOpen">
       <DialogContent class="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Organize Stages</DialogTitle>
-          <DialogDescription>Drag and drop to reorder stages</DialogDescription>
+          <DialogTitle>Organizar Estágios</DialogTitle>
+          <DialogDescription>Arraste e solte para reordenar os estágios</DialogDescription>
         </DialogHeader>
         <Draggable v-model="stagesOrder" item-key="id" class="space-y-2">
           <template #item="{ element, index }">
             <div class="flex items-center gap-2 border rounded bg-muted p-2">
               <span class="font-medium">{{ element.name }}</span>
-              <span class="ml-auto text-xs text-muted-foreground">Order: {{ index + 1 }}</span>
+              <span class="ml-auto text-xs text-muted-foreground">Ordem: {{ index + 1 }}</span>
             </div>
           </template>
         </Draggable>
         <DialogFooter>
           <Button variant="outline" @click="isOrganizeStagesDialogOpen = false">
-            Cancel
+            Cancelar
           </Button>
           <Button @click="saveStagesOrder">
-            Save Order
+            Salvar ordem
           </Button>
         </DialogFooter>
       </DialogContent>

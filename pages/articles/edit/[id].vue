@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useAsyncData } from '#app'
 import { computed, onMounted, ref, watch } from 'vue'
+
 import { useRoute } from 'vue-router'
+
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import Tiny from '~/components/articles/Tiny.vue'
 import {
@@ -81,7 +83,8 @@ async function loadArticle() {
         publish_status: data.publish_status || '',
       }
     }
-  } catch (e: any) {
+  }
+  catch (e: any) {
     toast({ title: 'Erro', description: e.message || 'Erro ao carregar artigo', variant: 'destructive' })
   }
   loading.value = false
@@ -91,33 +94,37 @@ async function loadArticle() {
 // Este bloco de código busca e filtra as categorias de artigos para o tenant atual
 const {
   data: categories, // Dados das categorias
-  error: _error,    // Objeto de erro caso ocorra falha na busca
+  error: _error, // Objeto de erro caso ocorra falha na busca
   pending: _pending, // Estado de carregamento
-} = await useAsyncData('article-categories', async () => {
-  try {
-    const tenantStore = useTenantStore()
-    const response = await $fetch('/api/articles/category', {
-      method: 'GET',
-      query: { tenant_id: tenantStore.tenantId },
-    })
-    // Garante que só retorna categorias do tenant atual
-    return Array.isArray(response)
-      ? response.filter(cat => cat.tenant_id === tenantStore.tenantId)
-      : []
-  } catch (e) {
-    return []
-  }
-}, {
-  lazy: true,
-  default: () => [],
-})
+} = await useAsyncData(
+  'article-categories',
+  async () => {
+    try {
+      const tenantStore = useTenantStore()
+      const response = await $fetch('/api/articles/category', {
+        method: 'GET',
+        query: { tenant_id: tenantStore.tenantId },
+      })
+      // Garante que só retorna categorias do tenant atual
+      return Array.isArray(response) ? response.filter(cat => cat.tenant_id === tenantStore.tenantId) : []
+    }
+    catch (e) {
+      return []
+    }
+  },
+  {
+    lazy: true,
+    default: () => [],
+  },
+)
 // Fim da busca de categorias usando useAsyncData
 
 // Get relations
 const { data: relations } = await useAsyncData(
   'article-relations',
   async () => {
-    if (!tenantId.value || !route.params.id) return []
+    if (!tenantId.value || !route.params.id)
+      return []
 
     const res = await $fetch('/api/articles/tag/relations', {
       method: 'GET',
@@ -127,9 +134,7 @@ const { data: relations } = await useAsyncData(
       },
     })
     // Filtra relations para garantir que só retorna do tenant atual
-    return Array.isArray(res)
-      ? res.filter(r => r.tenant_id === tenantId.value)
-      : []
+    return Array.isArray(res) ? res.filter(r => r.tenant_id === tenantId.value) : []
   },
   {
     lazy: true,
@@ -141,14 +146,13 @@ const { data: relations } = await useAsyncData(
 const { data: allTags } = await useAsyncData(
   'all-article-tags',
   async () => {
-    if (!tenantId.value) return []
+    if (!tenantId.value)
+      return []
     const res = await $fetch('/api/articles/tag', {
       method: 'GET',
     })
     // Filtra tags para garantir que só retorna do tenant atual
-    return Array.isArray(res)
-      ? res.filter(tag => tag.tenant_id === tenantId.value)
-      : []
+    return Array.isArray(res) ? res.filter(tag => tag.tenant_id === tenantId.value) : []
   },
   {
     lazy: true,
@@ -160,7 +164,8 @@ const { data: allTags } = await useAsyncData(
 const relatedTags = computed(() => {
   const rels = Array.isArray(relations.value) ? relations.value : []
   const tags = Array.isArray(allTags.value) ? allTags.value : []
-  if (!rels.length || !tags.length) return []
+  if (!rels.length || !tags.length)
+    return []
   const tagIds = rels.map(r => r.tag_id)
   // Só retorna tags do tenant atual
   return tags.filter(tag => tagIds.includes(tag.id) && tag.tenant_id === tenantId.value)
@@ -174,12 +179,7 @@ function onTagInputEvent(e: KeyboardEvent | FocusEvent) {
   const input = e.target as HTMLInputElement
   const value = input.value.trim().toLowerCase()
   // Adiciona ao pressionar Enter, espaço ou blur
-  if (
-    (e instanceof KeyboardEvent
-      && (e.key === 'Enter'
-        || e.key === ' '))
-    || e.type === 'blur'
-  ) {
+  if ((e instanceof KeyboardEvent && (e.key === 'Enter' || e.key === ' ')) || e.type === 'blur') {
     if (value && !selectedTagTitles.value.includes(value)) {
       selectedTagTitles.value.push(value)
     }
@@ -220,7 +220,8 @@ async function syncTags(allTagsList: any[]) {
       })
       tag = created?.body?.id ? created.body : created
     }
-    if (tag && tag.id) tagIds.push(tag.id)
+    if (tag && tag.id)
+      tagIds.push(tag.id)
   }
   // Atualizar as relações no backend
   await $fetch('/api/articles/tag/relations', {
@@ -237,9 +238,9 @@ onMounted(async () => {
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
-  
+
   await loadArticle()
-  
+
   loading.value = false
 })
 
@@ -248,7 +249,6 @@ function updateSlug() {
     form.value.slug = generateSlug(form.value.title)
   }
 }
-
 
 // Salvar edição do artigo
 async function saveArticle() {
@@ -272,16 +272,17 @@ async function saveArticle() {
     navigateTo('/articles')
   }
   catch (_e: any) {
-    toast({ title: 'Erro', description: _e?.data?.message || 'Ocorreu um erro ao salvar o artigo', variant: 'destructive' })
+    toast({
+      title: 'Erro',
+      description: _e?.data?.message || 'Ocorreu um erro ao salvar o artigo',
+      variant: 'destructive',
+    })
   }
 }
 
 const selectedTags = computed(() =>
-  Array.isArray(allTags.value)
-    ? allTags.value.filter(tag => selectedTagTitles.value.includes(tag.title))
-    : []
+  Array.isArray(allTags.value) ? allTags.value.filter(tag => selectedTagTitles.value.includes(tag.title)) : [],
 )
-
 </script>
 
 <template>
@@ -292,10 +293,7 @@ const selectedTags = computed(() =>
         <h1 class="text-2xl font-bold">
           Edit Article
         </h1>
-        <Button
-          class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles')"
-        >
+        <Button class="bg-primary hover:bg-primary/90" @click="() => navigateTo('/articles')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           Back
         </Button>
@@ -309,9 +307,7 @@ const selectedTags = computed(() =>
           <Card class="md:col-span-8">
             <CardHeader>
               <CardTitle>Informações Básicas</CardTitle>
-              <CardDescription>
-                Preencha as informações principais do artigo
-              </CardDescription>
+              <CardDescription> Preencha as informações principais do artigo </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <!-- Título -->
@@ -331,19 +327,8 @@ const selectedTags = computed(() =>
               <div class="space-y-2">
                 <Label for="slug">URL do Artigo</Label>
                 <div class="flex gap-2">
-                  <Input
-                    id="slug"
-                    v-model="form.slug"
-                    placeholder="url-do-artigo"
-                    :disabled="loading"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    :disabled="loading"
-                    @click="updateSlug"
-                  >
+                  <Input id="slug" v-model="form.slug" placeholder="url-do-artigo" :disabled="loading" required />
+                  <Button type="button" variant="outline" :disabled="loading" @click="updateSlug">
                     <Icon name="lucide:refresh-cw" class="h-4 w-4" />
                   </Button>
                 </div>
@@ -368,9 +353,7 @@ const selectedTags = computed(() =>
           <Card class="md:col-span-4">
             <CardHeader>
               <CardTitle>Status</CardTitle>
-              <CardDescription>
-                Defina o status do artigo
-              </CardDescription>
+              <CardDescription> Defina o status do artigo </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <!-- Status -->
@@ -401,60 +384,51 @@ const selectedTags = computed(() =>
 
               <!-- Categoria (apenas HTML, sem lógica) -->
               <div class="space-y-2">
-                <Label>Categorias <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
+                <Label>Categorias
+                  <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
                 <div class="flex items-center gap-2">
-                  <Select 
-                    v-model="form.category_id" 
-                    :disabled="loading"
-                    class="flex-1"
-                  >
+                  <Select v-model="form.category_id" :disabled="loading" class="flex-1">
                     <SelectTrigger class="h-10">
                       <SelectValue placeholder="Selecionar categoria" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem 
-                          v-for="category in categories" 
-                          :key="category.id" 
-                          :value="category.id"
-                        >
+                        <SelectItem v-for="category in categories" :key="category.id" :value="category.id">
                           {{ category.title }}
                         </SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground" 
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground"
                     disabled
                   >
                     <Icon name="lucide:plus" class="h-4 w-4" />
                   </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground" 
-                    disabled 
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground"
+                    disabled
                     title="Excluir categoria selecionada"
                   >
                     <Icon name="lucide:trash-2" class="h-4 w-4" />
                   </Button>
                 </div>
                 <p class="text-sm text-muted-foreground">
-                  Selecione uma categoria para o artigo<br> (opcional)
+                  Selecione uma categoria para o artigo<br>
+                  (opcional)
                 </p>
               </div>
 
               <!-- Tags (apenas HTML, sem lógica) -->
               <div class="space-y-2">
-                <Label>Tags <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
+                <Label>Tags
+                  <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
                 <TagsInput v-model="selectedTagTitles">
-                  <TagsInputItem
-                    v-for="title in selectedTagTitles"
-                    :key="title"
-                    :value="title"
-                  >
+                  <TagsInputItem v-for="title in selectedTagTitles" :key="title" :value="title">
                     <TagsInputItemText>{{ title }}</TagsInputItemText>
                     <TagsInputItemDelete />
                   </TagsInputItem>
@@ -467,7 +441,9 @@ const selectedTags = computed(() =>
                   />
                 </TagsInput>
                 <datalist id="tags-list">
-                  <option v-for="tag in availableTags" :key="tag.id" :value="tag.title">{{ tag.title }}</option>
+                  <option v-for="tag in availableTags" :key="tag.id" :value="tag.title">
+                    {{ tag.title }}
+                  </option>
                 </datalist>
               </div>
             </CardContent>
@@ -478,16 +454,10 @@ const selectedTags = computed(() =>
         <Card>
           <CardHeader>
             <CardTitle>Conteúdo</CardTitle>
-            <CardDescription>
-              Escreva o conteúdo do seu artigo usando o editor abaixo
-            </CardDescription>
+            <CardDescription> Escreva o conteúdo do seu artigo usando o editor abaixo </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tiny
-              v-model="form.content"
-              :height="500"
-              :disabled="loading"
-            />
+            <Tiny v-model="form.content" :height="500" :disabled="loading" />
           </CardContent>
         </Card>
       </form>

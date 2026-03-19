@@ -1,7 +1,9 @@
 import { createSharedComposable, useActiveElement } from '@vueuse/core'
 
 export function _useShortcuts() {
-  const macOS = computed(() => import.meta.client && navigator && navigator.userAgent && navigator.userAgent.match(/Macintosh;/))
+  const macOS = computed(
+    () => import.meta.client && navigator && navigator.userAgent && navigator.userAgent.match(/Macintosh;/),
+  )
 
   const metaSymbol = ref(' ')
 
@@ -10,7 +12,11 @@ export function _useShortcuts() {
     const tagName = activeElement.value?.tagName
     const contentEditable = activeElement.value?.contentEditable
 
-    const usingInput = (tagName === 'INPUT' || tagName === 'TEXTAREA' || contentEditable === 'true' || contentEditable === 'plaintext-only')
+    const usingInput
+      = tagName === 'INPUT'
+        || tagName === 'TEXTAREA'
+        || contentEditable === 'true'
+        || contentEditable === 'plaintext-only'
 
     if (usingInput) {
       return ((activeElement.value as any)?.name as string) || true

@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -14,21 +13,13 @@
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/sheet"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/sheet" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/sheet"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/sheet" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -50,21 +41,15 @@
               <SheetContent>
                 <SheetHeader>
                   <SheetTitle>Edit profile</SheetTitle>
-                  <SheetDescription>
-                    Make changes to your profile here. Click save when you're done.
-                  </SheetDescription>
+                  <SheetDescription> Make changes to your profile here. Click save when you're done. </SheetDescription>
                 </SheetHeader>
                 <div class="grid gap-4 py-4">
                   <div class="grid grid-cols-4 items-center gap-4">
-                    <Label for="name" class="text-right">
-                      Name
-                    </Label>
+                    <Label for="name" class="text-right"> Name </Label>
                     <Input id="name" value="Pedro Duarte" class="col-span-3" />
                   </div>
                   <div class="grid grid-cols-4 items-center gap-4">
-                    <Label for="username" class="text-right">
-                      Username
-                    </Label>
+                    <Label for="username" class="text-right"> Username </Label>
                     <Input id="username" value="@peduarte" class="col-span-3" />
                   </div>
                 </div>
@@ -84,6 +69,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

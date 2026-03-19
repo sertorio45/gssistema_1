@@ -25,7 +25,7 @@ const editorConfig = {
   height: props.height,
   menubar: true,
   skin: 'tinymce-5',
-  content_css: (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'tinymce-5'),
+  content_css: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'tinymce-5',
   base_url: '/tinymce',
   suffix: '.min',
   plugins: [

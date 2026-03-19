@@ -13,9 +13,7 @@ export default defineEventHandler((event) => {
   // Aceita múltiplos padrões de header para facilitar integração
   const apiKey = getHeader(event, 'x-api-secret') || getHeader(event, 'x-api-key')
   const authHeader = getHeader(event, 'authorization')
-  const bearerToken = authHeader?.startsWith('Bearer ')
-    ? authHeader.slice(7)
-    : null
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
   // Pula verificação se não há API_SECRET configurado
   if (!config.apiSecret) {

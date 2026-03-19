@@ -1,23 +1,16 @@
 <script setup lang="ts">
 import type { MenubarContentProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
-import {
-  MenubarContent,
-
-  MenubarPortal,
-  useForwardProps,
-} from 'radix-vue'
+import { MenubarContent, MenubarPortal, useForwardProps } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
-const props = withDefaults(
-  defineProps<MenubarContentProps & { class?: HTMLAttributes['class'] }>(),
-  {
-    align: 'start',
-    alignOffset: -4,
-    sideOffset: 8,
-  },
-)
+const props = withDefaults(defineProps<MenubarContentProps & { class?: HTMLAttributes['class'] }>(), {
+  align: 'start',
+  alignOffset: -4,
+  sideOffset: 8,
+})
 
 const delegatedProps = computed(() => {
   const { class: _, ...delegated } = props

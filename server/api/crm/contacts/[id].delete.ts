@@ -22,11 +22,7 @@ export default defineEventHandler(async (event) => {
   try {
     const supabase = serverSupabaseServiceRole(event)
 
-    const { error } = await supabase
-      .from('crm_contact')
-      .delete()
-      .eq('id', contactId)
-      .eq('tenant_id', tenant_id)
+    const { error } = await supabase.from('crm_contact').delete().eq('id', contactId).eq('tenant_id', tenant_id)
 
     if (error) {
       throw createError({
@@ -45,4 +41,4 @@ export default defineEventHandler(async (event) => {
       statusMessage: error.message || 'Failed to delete contact',
     })
   }
-}) 
+})

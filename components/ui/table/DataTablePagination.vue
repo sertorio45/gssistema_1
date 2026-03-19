@@ -20,17 +20,13 @@ const props = defineProps<DataTablePaginationProps<any>>()
         </p>
         <Select
           :model-value="String(props.table.getState().pagination.pageSize)"
-          @update:model-value="(value) => props.table.setPageSize(Number(value))"
+          @update:model-value="value => props.table.setPageSize(Number(value))"
         >
           <SelectTrigger class="h-8 w-[70px]">
             <SelectValue :placeholder="String(props.table.getState().pagination.pageSize)" />
           </SelectTrigger>
           <SelectContent side="top">
-            <SelectItem
-              v-for="pageSize in [10, 20, 30, 40, 50]"
-              :key="pageSize"
-              :value="String(pageSize)"
-            >
+            <SelectItem v-for="pageSize in [10, 20, 30, 40, 50]" :key="pageSize" :value="String(pageSize)">
               {{ pageSize }}
             </SelectItem>
           </SelectContent>
@@ -80,4 +76,4 @@ const props = defineProps<DataTablePaginationProps<any>>()
       </div>
     </div>
   </div>
-</template> 
+</template>

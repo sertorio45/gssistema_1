@@ -19,17 +19,16 @@ definePageMeta({
             <CardTitle class="text-xl">
               Welcome back
             </CardTitle>
-            <CardDescription>
-              Login with your Apple or Google account
-            </CardDescription>
+            <CardDescription> Login with your Apple or Google account </CardDescription>
           </CardHeader>
           <CardContent>
             <AuthSignIn />
           </CardContent>
         </Card>
-        <div class="text-center text-balance text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 [&_a]:hover:text-primary">
-          By clicking continue, you agree to our <a href="#">Terms of Service</a>
-          and <a href="#">Privacy Policy</a>.
+        <div
+          class="text-center text-balance text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 [&_a]:hover:text-primary"
+        >
+          By clicking continue, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
         </div>
       </div>
     </div>

@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-} from '@tanstack/vue-table'
+import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/vue-table'
 import {
   FlexRender,
   getCoreRowModel,
@@ -16,6 +11,7 @@ import {
   useVueTable,
 } from '@tanstack/vue-table'
 import { ref, watch } from 'vue'
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './index'
 
 interface DataTableProps<T> {
@@ -31,19 +27,35 @@ const columnFilters = ref<ColumnFiltersState>([])
 const columnVisibility = ref<VisibilityState>({})
 const rowSelection = ref<Record<string, boolean>>({})
 
-watch(rowSelection, () => {
-  const selectedIndices = Object.keys(rowSelection.value).map(Number)
-  emit('selectionChange', selectedIndices)
-}, { deep: true })
+watch(
+  rowSelection,
+  () => {
+    const selectedIndices = Object.keys(rowSelection.value).map(Number)
+    emit('selectionChange', selectedIndices)
+  },
+  { deep: true },
+)
 
 const table = useVueTable({
-  get data() { return props.data },
-  get columns() { return props.columns },
+  get data() {
+    return props.data
+  },
+  get columns() {
+    return props.columns
+  },
   state: {
-    get sorting() { return sorting.value },
-    get columnFilters() { return columnFilters.value },
-    get columnVisibility() { return columnVisibility.value },
-    get rowSelection() { return rowSelection.value },
+    get sorting() {
+      return sorting.value
+    },
+    get columnFilters() {
+      return columnFilters.value
+    },
+    get columnVisibility() {
+      return columnVisibility.value
+    },
+    get rowSelection() {
+      return rowSelection.value
+    },
   },
   enableRowSelection: true,
   onSortingChange: (updaterOrValue) => {
@@ -96,7 +108,11 @@ const table = useVueTable({
         <TableHeader>
           <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
             <TableHead v-for="header in headerGroup.headers" :key="header.id">
-              <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+              <FlexRender
+                v-if="!header.isPlaceholder"
+                :render="header.column.columnDef.header"
+                :props="header.getContext()"
+              />
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -114,11 +130,8 @@ const table = useVueTable({
           </template>
 
           <TableRow v-else>
-            <TableCell
-              :colspan="props.columns.length"
-              class="h-24 text-center"
-            >
-              No results found.
+            <TableCell :colspan="props.columns.length" class="h-24 text-center">
+              Nenhum resultado encontrado.
             </TableCell>
           </TableRow>
         </TableBody>
@@ -126,4 +139,4 @@ const table = useVueTable({
     </div>
     <slot name="pagination" :table="table" />
   </div>
-</template> 
+</template>

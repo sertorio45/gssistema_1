@@ -6,10 +6,12 @@ const _leadId = route.params.id
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-4">Edit Pipeline Lead</h1>
+    <h1 class="mb-4 text-2xl font-bold">
+      Edit Pipeline Lead
+    </h1>
     <!-- Pipeline Lead Edit Form Placeholder -->
     <form>
       <!-- Campos do formulário -->
     </form>
   </div>
-</template> 
+</template>

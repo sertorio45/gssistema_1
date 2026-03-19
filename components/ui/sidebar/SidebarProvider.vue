@@ -4,16 +4,27 @@ import type { HTMLAttributes, Ref } from 'vue'
 import { useEventListener, useMediaQuery, useVModel } from '@vueuse/core'
 import { TooltipProvider } from 'radix-vue'
 import { computed, ref } from 'vue'
-import { provideSidebarContext, SIDEBAR_COOKIE_MAX_AGE, SIDEBAR_COOKIE_NAME, SIDEBAR_KEYBOARD_SHORTCUT, SIDEBAR_WIDTH, SIDEBAR_WIDTH_ICON } from './utils'
 
-const props = withDefaults(defineProps<{
-  defaultOpen?: boolean
-  open?: boolean
-  class?: HTMLAttributes['class']
-}>(), {
-  defaultOpen: true,
-  open: undefined,
-})
+import {
+  provideSidebarContext,
+  SIDEBAR_COOKIE_MAX_AGE,
+  SIDEBAR_COOKIE_NAME,
+  SIDEBAR_KEYBOARD_SHORTCUT,
+  SIDEBAR_WIDTH,
+  SIDEBAR_WIDTH_ICON,
+} from './utils'
+
+const props = withDefaults(
+  defineProps<{
+    defaultOpen?: boolean
+    open?: boolean
+    class?: HTMLAttributes['class']
+  }>(),
+  {
+    defaultOpen: true,
+    open: undefined,
+  },
+)
 
 const emits = defineEmits<{
   'update:open': [open: boolean]
@@ -52,7 +63,7 @@ useEventListener('keydown', (event: KeyboardEvent) => {
 
 // We add a state so that we can do data-state="expanded" or "collapsed".
 // This makes it easier to style the sidebar with Tailwind classes.
-const state = computed(() => open.value ? 'expanded' : 'collapsed')
+const state = computed(() => (open.value ? 'expanded' : 'collapsed'))
 
 const sidebar = useAppConfig().sidebar as AppConfigInput['sidebar']
 
@@ -74,7 +85,12 @@ provideSidebarContext({
         '--sidebar-width': SIDEBAR_WIDTH,
         '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
       }"
-      :class="cn(`group/sidebar-wrapper flex min-h-svh w-full text-sidebar-foreground has-[[data-variant=inset]]:bg-sidebar`, [props.class, sidebar?.side === 'right' ? 'flex-row-reverse' : ''])"
+      :class="
+        cn(
+          `group/sidebar-wrapper flex min-h-svh w-full text-sidebar-foreground has-[[data-variant=inset]]:bg-sidebar`,
+          [props.class, sidebar?.side === 'right' ? 'flex-row-reverse' : ''],
+        )
+      "
     >
       <slot />
     </div>

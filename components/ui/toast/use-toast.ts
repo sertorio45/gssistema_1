@@ -1,14 +1,12 @@
 import type { Component, VNode } from 'vue'
 import type { ToastProps } from '.'
+
 import { computed, ref } from 'vue'
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-export type StringOrVNode =
-  | string
-  | VNode
-  | (() => VNode)
+export type StringOrVNode = string | VNode | (() => VNode)
 
 type ToasterToast = ToastProps & {
   id: string
@@ -83,9 +81,7 @@ function dispatch(action: Action) {
       break
 
     case actionTypes.UPDATE_TOAST:
-      state.value.toasts = state.value.toasts.map(t =>
-        t.id === action.toast.id ? { ...t, ...action.toast } : t,
-      )
+      state.value.toasts = state.value.toasts.map(t => (t.id === action.toast.id ? { ...t, ...action.toast } : t))
       break
 
     case actionTypes.DISMISS_TOAST: {
@@ -114,8 +110,7 @@ function dispatch(action: Action) {
     case actionTypes.REMOVE_TOAST:
       if (action.toastId === undefined)
         state.value.toasts = []
-      else
-        state.value.toasts = state.value.toasts.filter(t => t.id !== action.toastId)
+      else state.value.toasts = state.value.toasts.filter(t => t.id !== action.toastId)
 
       break
   }

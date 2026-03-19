@@ -3,11 +3,10 @@ import type { SeparatorProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { Separator } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
-const props = defineProps<
-  SeparatorProps & { class?: HTMLAttributes['class'], label?: string }
->()
+const props = defineProps<SeparatorProps & { class?: HTMLAttributes['class'], label?: string }>()
 
 const delegatedProps = computed(() => {
   const { class: _, ...delegated } = props
@@ -20,11 +19,7 @@ const delegatedProps = computed(() => {
   <Separator
     v-bind="delegatedProps"
     :class="
-      cn(
-        'shrink-0 bg-border relative',
-        props.orientation === 'vertical' ? 'w-px h-full' : 'h-px w-full',
-        props.class,
-      )
+      cn('shrink-0 bg-border relative', props.orientation === 'vertical' ? 'w-px h-full' : 'h-px w-full', props.class)
     "
   >
     <span

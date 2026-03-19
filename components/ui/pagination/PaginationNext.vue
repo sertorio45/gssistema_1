@@ -3,9 +3,8 @@ import type { PaginationNextProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { PaginationNext } from 'radix-vue'
 import { computed } from 'vue'
-import {
-  Button,
-} from '@/components/ui/button'
+
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(defineProps<PaginationNextProps & { class?: HTMLAttributes['class'] }>(), {

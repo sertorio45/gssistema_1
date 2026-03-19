@@ -3,6 +3,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import { useForm } from 'vee-validate'
 import { h } from 'vue'
 import * as z from 'zod'
+
 import { toast } from '~/components/ui/toast'
 
 const items = [
@@ -17,30 +18,28 @@ const items = [
   {
     id: 'applications',
     label: 'Applications',
-
   },
   {
     id: 'desktop',
     label: 'Desktop',
-
   },
   {
     id: 'downloads',
     label: 'Downloads',
-
   },
   {
     id: 'documents',
     label: 'Documents',
-
   },
 ] as const
 
-const displayFormSchema = toTypedSchema(z.object({
-  items: z.array(z.string()).refine(value => value.some(item => item), {
-    message: 'You have to select at least one item.',
+const displayFormSchema = toTypedSchema(
+  z.object({
+    items: z.array(z.string()).refine(value => value.some(item => item), {
+      message: 'You have to select at least one item.',
+    }),
   }),
-}))
+)
 
 const { handleSubmit } = useForm({
   validationSchema: displayFormSchema,
@@ -52,7 +51,11 @@ const { handleSubmit } = useForm({
 const onSubmit = handleSubmit((values) => {
   toast({
     title: 'You submitted the following values:',
-    description: h('pre', { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' }, h('code', { class: 'text-white' }, JSON.stringify(values, null, 2))),
+    description: h(
+      'pre',
+      { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' },
+      h('code', { class: 'text-white' }, JSON.stringify(values, null, 2)),
+    ),
   })
 })
 </script>
@@ -74,9 +77,7 @@ const onSubmit = handleSubmit((values) => {
           <FormLabel class="text-base">
             Sidebar
           </FormLabel>
-          <FormDescription>
-            Select the items you want to display in the sidebar.
-          </FormDescription>
+          <FormDescription> Select the items you want to display in the sidebar. </FormDescription>
         </div>
 
         <FormField v-for="item in items" v-slot="{ value, handleChange }" :key="item.id" name="items">
@@ -84,11 +85,13 @@ const onSubmit = handleSubmit((values) => {
             <FormControl>
               <Checkbox
                 :checked="value.includes(item.id)"
-                @update:checked="(checked) => {
-                  if (Array.isArray(value)) {
-                    handleChange(checked ? [...value, item.id] : value.filter(id => id !== item.id))
+                @update:checked="
+                  checked => {
+                    if (Array.isArray(value)) {
+                      handleChange(checked ? [...value, item.id] : value.filter(id => id !== item.id))
+                    }
                   }
-                }"
+                "
               />
             </FormControl>
             <FormLabel class="font-normal">

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useColorMode } from '#imports'
+
 import { nextTick, onMounted, ref, watch } from 'vue'
+
 import { Skeleton } from '@/components/ui/skeleton'
 
 const colorMode = useColorMode()
@@ -43,10 +45,13 @@ onMounted(() => {
   updateLogo()
 })
 
-watch(() => colorMode.value, () => {
-  isReady.value = false
-  updateLogo()
-})
+watch(
+  () => colorMode.value,
+  () => {
+    isReady.value = false
+    updateLogo()
+  },
+)
 </script>
 
 <template>
@@ -72,5 +77,4 @@ watch(() => colorMode.value, () => {
   </div>
 </template>
 
-<style>
-</style>
+<style></style>

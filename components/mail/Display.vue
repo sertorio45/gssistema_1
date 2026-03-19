@@ -2,6 +2,7 @@
 import type { Mail } from './data/mails'
 import { addDays, addHours, format, nextSaturday } from 'date-fns'
 import { Archive, ArchiveX, ArrowLeft, Clock, Forward, MoreVertical, Reply, ReplyAll, Trash2 } from 'lucide-vue-next'
+
 import { computed } from 'vue'
 
 interface MailDisplayProps {
@@ -79,40 +80,28 @@ const today = new Date()
                   Snooze until
                 </div>
                 <div class="grid min-w-[250px] gap-1">
-                  <Button
-                    variant="ghost"
-                    class="justify-start font-normal"
-                  >
+                  <Button variant="ghost" class="justify-start font-normal">
                     Later today
                     <span class="ml-auto text-muted-foreground">
-                      {{ format(addHours(today, 4), "E, h:m b") }}
+                      {{ format(addHours(today, 4), 'E, h:m b') }}
                     </span>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    class="justify-start font-normal"
-                  >
+                  <Button variant="ghost" class="justify-start font-normal">
                     Tomorrow
                     <span class="ml-auto text-muted-foreground">
-                      {{ format(addDays(today, 1), "E, h:m b") }}
+                      {{ format(addDays(today, 1), 'E, h:m b') }}
                     </span>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    class="justify-start font-normal"
-                  >
+                  <Button variant="ghost" class="justify-start font-normal">
                     This weekend
                     <span class="ml-auto text-muted-foreground">
-                      {{ format(nextSaturday(today), "E, h:m b") }}
+                      {{ format(nextSaturday(today), 'E, h:m b') }}
                     </span>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    class="justify-start font-normal"
-                  >
+                  <Button variant="ghost" class="justify-start font-normal">
                     Next week
                     <span class="ml-auto text-muted-foreground">
-                      {{ format(addDays(today, 7), "E, h:m b") }}
+                      {{ format(addDays(today, 7), 'E, h:m b') }}
                     </span>
                   </Button>
                 </div>
@@ -192,7 +181,7 @@ const today = new Date()
           </div>
         </div>
         <div v-if="mail.date" class="ml-auto text-xs text-muted-foreground">
-          {{ format(new Date(mail.date), "PPpp") }}
+          {{ format(new Date(mail.date), 'PPpp') }}
         </div>
       </div>
       <Separator />
@@ -203,23 +192,12 @@ const today = new Date()
       <div class="p-4">
         <form>
           <div class="grid gap-4">
-            <Textarea
-              class="p-4"
-              :placeholder="`Reply ${mail.name}...`"
-            />
+            <Textarea class="p-4" :placeholder="`Reply ${mail.name}...`" />
             <div class="flex items-center">
-              <Label
-                html-for="mute"
-                class="flex items-center gap-2 text-xs font-normal"
-              >
-                <Switch id="mute" aria-label="Mute thread" /> Mute this
-                thread
+              <Label html-for="mute" class="flex items-center gap-2 text-xs font-normal">
+                <Switch id="mute" aria-label="Mute thread" /> Mute this thread
               </Label>
-              <Button
-                type="button"
-                size="sm"
-                class="ml-auto"
-              >
+              <Button type="button" size="sm" class="ml-auto">
                 Send
               </Button>
             </div>

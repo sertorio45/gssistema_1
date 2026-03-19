@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import ColorPicker from '@/components/crm/config/ColorPicker.vue'
+
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
@@ -33,7 +33,8 @@ function randomColor() {
 }
 
 function hslToHex(h: number, s: number, l: number) {
-  s /= 100; l /= 100
+  s /= 100
+  l /= 100
   const k = (n: number) => (n + h / 30) % 12
   const a = s * Math.min(l, 1 - l)
   const f = (n: number) => {
@@ -82,28 +83,55 @@ const isDisabled = computed(() => props.modelValue.is_default === true)
 </script>
 
 <template>
-  <form @submit="handleSubmit" class="space-y-6">
+  <form class="space-y-6" @submit="handleSubmit">
     <div class="space-y-2">
-      <Label for="stage-name">Name</Label>
-      <Input id="stage-name" v-model="local.name" :disabled="isDisabled || props.loading" required placeholder="Stage name" @input="(e: Event) => handleInput('name', (e.target as HTMLInputElement).value)" :class="isDisabled ? 'pointer-events-none opacity-50' : ''" />
-      <p v-if="props.nameError" class="text-xs text-red-500 mt-1">{{ props.nameError }}</p>
+      <Label for="stage-name">Nome</Label>
+      <Input
+        id="stage-name"
+        v-model="local.name"
+        :disabled="isDisabled || props.loading"
+        required
+        placeholder="Nome do estágio"
+        :class="isDisabled ? 'pointer-events-none opacity-50' : ''"
+        @input="(e: Event) => handleInput('name', (e.target as HTMLInputElement).value)"
+      />
+      <p v-if="props.nameError" class="mt-1 text-xs text-red-500">
+        {{ props.nameError }}
+      </p>
     </div>
     <div class="space-y-2">
-      <Label for="stage-order">Order</Label>
-      <Input id="stage-order" type="number" min="1" v-model.number="local.order" :disabled="isDisabled || props.loading" required placeholder="Order" @input="(e: Event) => handleInput('order', Number((e.target as HTMLInputElement).value))" :class="isDisabled ? 'pointer-events-none opacity-50' : ''" />
+      <Label for="stage-order">Ordem</Label>
+      <Input
+        id="stage-order"
+        v-model.number="local.order"
+        type="number"
+        min="1"
+        :disabled="isDisabled || props.loading"
+        required
+        placeholder="Ordem"
+        :class="isDisabled ? 'pointer-events-none opacity-50' : ''"
+        @input="(e: Event) => handleInput('order', Number((e.target as HTMLInputElement).value))"
+      />
     </div>
     <div class="space-y-2">
-      <Label for="stage-description">Description</Label>
-      <Textarea id="stage-description" v-model="local.description" :disabled="isDisabled || props.loading" placeholder="Description (optional)" @input="(e: Event) => handleInput('description', (e.target as HTMLTextAreaElement).value)" :class="isDisabled ? 'pointer-events-none opacity-50' : ''" />
+      <Label for="stage-description">Descrição</Label>
+      <Textarea
+        id="stage-description"
+        v-model="local.description"
+        :disabled="isDisabled || props.loading"
+        placeholder="Descrição (opcional)"
+        :class="isDisabled ? 'pointer-events-none opacity-50' : ''"
+        @input="(e: Event) => handleInput('description', (e.target as HTMLTextAreaElement).value)"
+      />
     </div>
     <div class="flex items-center gap-2">
       <Switch id="stage-default" :checked="!!local.is_default" disabled />
-      <Label for="stage-default">Default (cannot be changed)</Label>
+      <Label for="stage-default">Padrão (não pode ser alterado)</Label>
     </div>
     <div class="flex justify-end gap-2">
       <Button type="submit" :loading="props.loading" :disabled="isDisabled || props.loading">
-        {{ isEdit ? 'Save Changes' : 'Create Stage' }}
+        {{ isEdit ? 'Salvar alterações' : 'Criar estágio' }}
       </Button>
     </div>
   </form>
-</template> 
+</template>

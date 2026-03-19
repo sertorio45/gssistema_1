@@ -1,4 +1,5 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
+
 import { defineEventHandler, getRouterParam } from 'h3'
 
 export default defineEventHandler(async (event) => {

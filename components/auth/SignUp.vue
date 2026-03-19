@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
+
 import { cn } from '@/lib/utils'
+
 import PasswordInput from '~/components/PasswordInput.vue'
 
 const isLoading = ref(false)
@@ -19,9 +21,7 @@ async function onSubmit(event: Event) {
     <form @submit="onSubmit">
       <div class="grid gap-4">
         <div class="grid gap-2">
-          <Label for="name">
-            Name
-          </Label>
+          <Label for="name"> Name </Label>
           <Input
             id="name"
             placeholder="Enter your name"
@@ -33,9 +33,7 @@ async function onSubmit(event: Event) {
           />
         </div>
         <div class="grid gap-2">
-          <Label for="email">
-            Email
-          </Label>
+          <Label for="email"> Email </Label>
           <Input
             id="email"
             placeholder="name@example.com"
@@ -47,15 +45,11 @@ async function onSubmit(event: Event) {
           />
         </div>
         <div class="grid gap-2">
-          <Label for="password">
-            Password
-          </Label>
+          <Label for="password"> Password </Label>
           <PasswordInput id="password" />
         </div>
         <div class="grid gap-2">
-          <Label for="confirm-password">
-            Confirm Password
-          </Label>
+          <Label for="confirm-password"> Confirm Password </Label>
           <PasswordInput id="confirm-password" />
         </div>
         <Button :disabled="isLoading">

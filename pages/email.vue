@@ -4,10 +4,6 @@ import { accounts, mails } from '@/components/mail/data/mails'
 
 <template>
   <div class="-m-4 lg:-m-6">
-    <MailLayout
-      :accounts="accounts"
-      :mails="mails"
-      :nav-collapsed-size="4"
-    />
+    <MailLayout :accounts="accounts" :mails="mails" :nav-collapsed-size="4" />
   </div>
 </template>

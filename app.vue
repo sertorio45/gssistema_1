@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ConfigProvider } from 'radix-vue'
+
 import { Sonner } from '@/components/ui/sonner'
 
 const colorMode = useColorMode()
 
-const color = computed(() => colorMode.value === 'dark' ? '#09090b' : '#ffffff')
+const color = computed(() => (colorMode.value === 'dark' ? '#09090b' : '#ffffff'))
 
 const { theme, radius } = useCustomize()
 
@@ -28,12 +29,8 @@ useHead({
     { name: 'viewport', content: 'width=device-width, initial-scale=1' },
     { key: 'theme-color', name: 'theme-color', content: color },
   ],
-  link: [
-    { rel: 'icon', href: '/favicon.ico' },
-  ],
-  script: [
-    { src: '/tinymce/tinymce.min.js' },
-  ],
+  link: [{ rel: 'icon', href: '/favicon.ico' }],
+  script: [{ src: '/tinymce/tinymce.min.js' }],
   htmlAttrs: {
     lang: 'en',
   },
@@ -44,7 +41,8 @@ useHead({
 })
 
 const title = 'Nuxt Shadcn UI - Dashboard Template'
-const description = 'This dashboard, built with Nuxt, Shadcn UI, and UnoCSS. It includes a dark mode toggle and is optimized for performance and data efficiency.'
+const description
+  = 'This dashboard, built with Nuxt, Shadcn UI, and UnoCSS. It includes a dark mode toggle and is optimized for performance and data efficiency.'
 
 useSeoMeta({
   title,
@@ -69,14 +67,14 @@ defineShortcuts({
 const useIdFunction = () => useId()
 
 const textDirection = useTextDirection({ initialValue: 'ltr' })
-const dir = computed(() => textDirection.value === 'rtl' ? 'rtl' : 'ltr')
+const dir = computed(() => (textDirection.value === 'rtl' ? 'rtl' : 'ltr'))
 </script>
 
 <template>
   <ConfigProvider :use-id="useIdFunction" :dir="dir">
     <div vaul-drawer-wrapper class="relative">
       <NuxtLayout>
-        <NuxtPage />
+        <NuxtPage :key="route.fullPath" />
       </NuxtLayout>
 
       <AppSettings />

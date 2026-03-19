@@ -3,6 +3,7 @@ import type { PrimitiveProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { Primitive, useForwardProps } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<PrimitiveProps & { class?: HTMLAttributes['class'] }>()
@@ -16,5 +17,5 @@ const forwardedProps = useForwardProps(delegatedProps)
 <template>
   <Primitive v-bind="forwardedProps" :class="cn('flex items-center', props.class)">
     <slot />
-  </primitive>
+  </Primitive>
 </template>

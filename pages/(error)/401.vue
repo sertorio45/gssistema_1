@@ -14,7 +14,8 @@ const router = useRouter()
       </h1>
       <span class="font-medium">Unauthorized Access</span>
       <p class="text-center text-muted-foreground">
-        Please log in with the appropriate credentials <br> to access this resource.
+        Please log in with the appropriate credentials <br>
+        to access this resource.
       </p>
       <div class="mt-6 flex gap-4">
         <Button variant="outline" @click="router.back()">
@@ -28,6 +29,4 @@ const router = useRouter()
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import { useToast } from '~/components/ui/toast'
-import { useRoute } from 'vue-router'
 import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
@@ -61,7 +62,8 @@ async function loadCategory() {
         publish_status: data.publish_status || 'draft',
       }
     }
-  } catch (e: any) {
+  }
+  catch (e: any) {
     toast({ title: 'Error', description: e.message || 'Error loading category', variant: 'destructive' })
   }
   loading.value = false
@@ -71,9 +73,9 @@ onMounted(async () => {
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
-  
+
   await loadCategory()
-  
+
   loading.value = false
 })
 
@@ -106,9 +108,6 @@ async function saveCategory() {
     toast({ title: 'Error', description: e?.data?.message || 'Error updating category', variant: 'destructive' })
   }
 }
-
-
-
 </script>
 
 <template>
@@ -118,10 +117,7 @@ async function saveCategory() {
         <h1 class="text-2xl font-bold">
           Edit Category
         </h1>
-        <Button
-          class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles/category')"
-        >
+        <Button class="bg-primary hover:bg-primary/90" @click="() => navigateTo('/articles/category')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           Back
         </Button>
@@ -149,19 +145,8 @@ async function saveCategory() {
               <div class="space-y-2">
                 <Label for="slug">Slug</Label>
                 <div class="flex gap-2">
-                  <Input
-                    id="slug"
-                    v-model="form.slug"
-                    placeholder="category-slug"
-                    :disabled="loading"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    :disabled="loading"
-                    @click="updateSlug"
-                  >
+                  <Input id="slug" v-model="form.slug" placeholder="category-slug" :disabled="loading" required />
+                  <Button type="button" variant="outline" :disabled="loading" @click="updateSlug">
                     <Icon name="lucide:refresh-cw" class="h-4 w-4" />
                   </Button>
                 </div>
@@ -183,9 +168,7 @@ async function saveCategory() {
           <Card class="md:col-span-4">
             <CardHeader>
               <CardTitle>Status</CardTitle>
-              <CardDescription>
-                Set the publication status for this category
-              </CardDescription>
+              <CardDescription> Set the publication status for this category </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
@@ -196,10 +179,18 @@ async function saveCategory() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="arquived">Archived</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="draft">
+                        Draft
+                      </SelectItem>
+                      <SelectItem value="published">
+                        Published
+                      </SelectItem>
+                      <SelectItem value="arquived">
+                        Archived
+                      </SelectItem>
+                      <SelectItem value="scheduled">
+                        Scheduled
+                      </SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>

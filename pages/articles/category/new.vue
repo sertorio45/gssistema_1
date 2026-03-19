@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import { useToast } from '~/components/ui/toast'
 import { useTenantStore } from '~/stores/tenant'
@@ -77,7 +78,6 @@ onMounted(() => {
     showFloatingMenu.value = window.scrollY > 200
   })
 })
-
 </script>
 
 <template>
@@ -87,10 +87,7 @@ onMounted(() => {
         <h1 class="text-2xl font-bold">
           Create Category
         </h1>
-        <Button
-          class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles/category')"
-        >
+        <Button class="bg-primary hover:bg-primary/90" @click="() => navigateTo('/articles/category')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           Back
         </Button>
@@ -118,19 +115,8 @@ onMounted(() => {
               <div class="space-y-2">
                 <Label for="slug">Slug</Label>
                 <div class="flex gap-2">
-                  <Input
-                    id="slug"
-                    v-model="form.slug"
-                    placeholder="category-slug"
-                    :disabled="loading"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    :disabled="loading"
-                    @click="updateSlug"
-                  >
+                  <Input id="slug" v-model="form.slug" placeholder="category-slug" :disabled="loading" required />
+                  <Button type="button" variant="outline" :disabled="loading" @click="updateSlug">
                     <Icon name="lucide:refresh-cw" class="h-4 w-4" />
                   </Button>
                 </div>
@@ -152,9 +138,7 @@ onMounted(() => {
           <Card class="md:col-span-4">
             <CardHeader>
               <CardTitle>Status</CardTitle>
-              <CardDescription>
-                Set the publication status for this category
-              </CardDescription>
+              <CardDescription> Set the publication status for this category </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
@@ -165,10 +149,18 @@ onMounted(() => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
-                      <SelectItem value="arquived">Archived</SelectItem>
-                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="draft">
+                        Draft
+                      </SelectItem>
+                      <SelectItem value="published">
+                        Published
+                      </SelectItem>
+                      <SelectItem value="arquived">
+                        Archived
+                      </SelectItem>
+                      <SelectItem value="scheduled">
+                        Scheduled
+                      </SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>

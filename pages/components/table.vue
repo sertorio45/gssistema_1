@@ -58,11 +58,7 @@ const invoices = [
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/table"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/table" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
@@ -110,6 +106,4 @@ const invoices = [
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import type { Contact } from '~/types/crm'
+
 import { useSupabaseClient } from '#imports'
-import { Loader2 } from 'lucide-vue-next'
 import { columns } from '~/components/crm/contacts/columns'
 import ContactForm from '~/components/crm/contacts/ContactForm.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
-import DataTable from '~/components/ui/table/DataTable.vue'
-import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
-import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
-import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useTenant } from '~/composables/useTenant'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import DataTableViewOptions from '~/components/tasks/components/DataTableViewOptions.vue'
+import DataTable from '~/components/ui/table/DataTable.vue'
+import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
+import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import { useTenant } from '~/composables/useTenant'
 
 definePageMeta({
-  title: 'Contacts',
-  description: 'Manage your business contacts',
+  title: 'Contatos',
+  description: 'Gerencie seus contatos de negócios',
 })
 
 const supabase = useSupabaseClient()
@@ -27,22 +27,27 @@ const selectedItems = ref<number[]>([])
 const showMultiDeleteDialog = ref(false)
 
 // Use useLazyAsyncData for proper SSR handling
-const { data: contactsData, pending, refresh } = await useLazyAsyncData(
+const {
+  data: contactsData,
+  pending,
+  refresh,
+} = await useLazyAsyncData(
   'contacts',
   async () => {
-    if (!tenantId.value) return []
-    
+    if (!tenantId.value)
+      return []
+
     const { data, error } = await supabase
       .from('crm_contact')
       .select('*, company:crm_company(name)')
       .eq('tenant_id', tenantId.value)
       .order('created_at', { ascending: false })
-    
+
     if (error) {
       console.error('Failed to fetch contacts:', error)
       return []
     }
-    
+
     return (data || []).map((c: any) => ({
       ...c,
       company_name: c.company?.name || '',
@@ -56,17 +61,14 @@ const { data: contactsData, pending, refresh } = await useLazyAsyncData(
 
 // Computed values to prevent hydration mismatches
 const totalContacts = computed(() => contactsData.value?.length || 0)
-const totalCompanies = computed(() => 
-  new Set(contactsData.value?.map(c => c.company_id).filter(Boolean) || []).size
+const totalCompanies = computed(() => new Set(contactsData.value?.map(c => c.company_id).filter(Boolean) || []).size)
+const recentContacts = computed(
+  () =>
+    contactsData.value?.filter(
+      c => c.last_contact && new Date(c.last_contact) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    ).length || 0,
 )
-const recentContacts = computed(() => 
-  contactsData.value?.filter(c => c.last_contact 
-    && new Date(c.last_contact) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  ).length || 0
-)
-const taggedContacts = computed(() => 
-  contactsData.value?.filter(c => c.tags && c.tags.length > 0).length || 0
-)
+const taggedContacts = computed(() => contactsData.value?.filter(c => c.tags && c.tags.length > 0).length || 0)
 
 function updateSelectedItems(items: number[]) {
   selectedItems.value = items
@@ -121,26 +123,32 @@ function handleContactSaved() {
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">Contacts</h1>
-        <p class="text-muted-foreground">Manage your business contacts</p>
+        <h1 class="text-2xl font-bold">
+          Contatos
+        </h1>
+        <p class="text-muted-foreground">
+          Gerencie seus contatos de negócios
+        </p>
       </div>
       <div class="flex gap-2">
         <Button variant="outline">
           <Icon name="lucide:download" class="mr-2 h-4 w-4" />
-          Export
+          Exportar
         </Button>
         <Button @click="handleNewContact">
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-          New Contact
+          Novo Contato
         </Button>
       </div>
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Total Contacts</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Total de Contatos
+          </CardTitle>
           <Icon name="lucide:users" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -152,8 +160,10 @@ function handleContactSaved() {
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Companies</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Empresas
+          </CardTitle>
           <Icon name="lucide:building" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -165,8 +175,10 @@ function handleContactSaved() {
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Recent Contacts</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Contatos Recentes
+          </CardTitle>
           <Icon name="lucide:clock" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -178,8 +190,10 @@ function handleContactSaved() {
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle class="text-sm font-medium">Tagged Contacts</CardTitle>
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
+          <CardTitle class="text-sm font-medium">
+            Contatos com Tags
+          </CardTitle>
           <Icon name="lucide:tag" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
@@ -206,19 +220,23 @@ function handleContactSaved() {
     </div>
     <template v-else>
       <!-- DataTable -->
-    <DataTable
-      :data="contactsData || []"
-      :columns="columns"
-      :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
-      @selection-change="updateSelectedItems"
-    >
-      <template #toolbar="{ table }">
-        <DataTableToolbar :table="table" placeholder="Search contacts..." column-key="name" />
-      </template>
-      <template #pagination="{ table }">
-        <DataTablePagination :table="table" />
-      </template>
-    </DataTable>
+      <DataTable
+        :data="contactsData || []"
+        :columns="columns"
+        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
+        @selection-change="updateSelectedItems"
+      >
+        <template #toolbar="{ table }">
+          <DataTableToolbar :table="table" placeholder="Buscar contatos..." filter-column="name">
+            <template #options>
+              <DataTableViewOptions :table="table" />
+            </template>
+          </DataTableToolbar>
+        </template>
+        <template #pagination="{ table }">
+          <DataTablePagination :table="table" />
+        </template>
+      </DataTable>
     </template>
 
     <MultiActionBar
@@ -228,20 +246,23 @@ function handleContactSaved() {
     />
 
     <!-- Multi Delete Dialog -->
-    <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div
+      v-if="showMultiDeleteDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+    >
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
-          Delete Multiple Contacts
+          Excluir vários contatos
         </h2>
         <p class="mb-4">
-          Are you sure you want to delete {{ selectedItems.length }} contacts? This action cannot be undone.
+          Tem certeza que deseja excluir {{ selectedItems.length }} contatos? Esta ação não pode ser desfeita.
         </p>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancel
+            Cancelar
           </Button>
           <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Delete All
+            Excluir todos
           </Button>
         </div>
       </div>
@@ -249,21 +270,31 @@ function handleContactSaved() {
 
     <!-- Contact Dialog -->
     <Dialog v-model:open="isDialogOpen">
-      <DialogContent class="w-full sm:max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto p-0 overflow-hidden">
+      <DialogContent class="mx-auto w-full overflow-hidden p-0 lg:max-w-3xl md:max-w-2xl sm:max-w-lg">
         <DialogHeader class="border-b p-4 md:p-6">
-          <DialogTitle class="text-xl">{{ selectedContact ? 'Edit Contact' : 'Create Contact' }}</DialogTitle>
-          <DialogDescription class="text-sm text-muted-foreground mt-1">
-            {{ selectedContact ? 'Edit the contact details.' : 'Add a new contact to your database.' }}
+          <DialogTitle class="text-xl">
+            {{ selectedContact ? 'Editar Contato' : 'Criar Contato' }}
+          </DialogTitle>
+          <DialogDescription class="mt-1 text-sm text-muted-foreground">
+            {{ selectedContact ? 'Edite os dados do contato.' : 'Adicione um novo contato ao seu cadastro.' }}
           </DialogDescription>
         </DialogHeader>
         <div class="max-h-[calc(80vh-10rem)] overflow-y-auto p-4 md:p-6">
-          <ContactForm :initial-data="selectedContact || undefined" @success="handleContactSaved" @cancel="closeDialog" />
+          <ContactForm
+            :initial-data="selectedContact || undefined"
+            @success="handleContactSaved"
+            @cancel="closeDialog"
+          />
         </div>
-        <div class="border-t p-4 flex justify-end gap-2">
-          <Button variant="outline" @click="closeDialog">Cancel</Button>
-          <Button type="submit" form="contact-form">Save</Button>
+        <div class="flex justify-end gap-2 border-t p-4">
+          <Button variant="outline" @click="closeDialog">
+            Cancelar
+          </Button>
+          <Button type="submit" form="contact-form">
+            Salvar
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
   </div>
-</template> 
+</template>

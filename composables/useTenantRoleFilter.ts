@@ -1,8 +1,8 @@
 // Composable genérico para filtrar qualquer array de dados por tenant e role
 // Use este arquivo em qualquer página de listagem multi-tenant (ex: articles, crm, categories, etc)
-
 import type { Ref } from 'vue'
 import { computed } from 'vue'
+
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 

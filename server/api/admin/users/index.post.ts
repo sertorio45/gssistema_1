@@ -5,16 +5,12 @@ import { readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   // Inicializar cliente Supabase com service role key
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
     },
-  )
+  })
 
   try {
     const body = await readBody(event)

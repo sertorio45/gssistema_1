@@ -30,11 +30,7 @@ const breadcrumbLinks = ref([
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/breadcrumb"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/breadcrumb" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
@@ -152,9 +148,7 @@ const breadcrumbLinks = ref([
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink as-child>
-                    <a href="/">
-                      Home
-                    </a>
+                    <a href="/"> Home </a>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
@@ -192,6 +186,4 @@ const breadcrumbLinks = ref([
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

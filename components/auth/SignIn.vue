@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
+
 import PasswordInput from '~/components/PasswordInput.vue'
 import { useTenant } from '~/composables/useTenant'
 
@@ -48,9 +49,7 @@ async function onSubmit(event: Event) {
     </div>
 
     <div class="grid gap-2">
-      <Label for="email">
-        Email
-      </Label>
+      <Label for="email"> Email </Label>
       <Input
         id="email"
         v-model="email"
@@ -64,13 +63,8 @@ async function onSubmit(event: Event) {
     </div>
     <div class="grid gap-2">
       <div class="flex items-center">
-        <Label for="password">
-          Password
-        </Label>
-        <NuxtLink
-          to="/forgot-password"
-          class="ml-auto inline-block text-sm underline"
-        >
+        <Label for="password"> Password </Label>
+        <NuxtLink to="/forgot-password" class="ml-auto inline-block text-sm underline">
           Forgot your password?
         </NuxtLink>
       </div>
@@ -89,6 +83,4 @@ async function onSubmit(event: Event) {
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

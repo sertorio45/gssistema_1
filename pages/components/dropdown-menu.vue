@@ -21,21 +21,13 @@ const showPanel = ref<Checked>(false)
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/dropdown-menu"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/dropdown-menu" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/dropdown-menu"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/dropdown-menu" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -100,20 +92,13 @@ const showPanel = ref<Checked>(false)
               <DropdownMenuContent class="w-56">
                 <DropdownMenuLabel>Appearance</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  v-model:checked="showStatusBar"
-                >
+                <DropdownMenuCheckboxItem v-model:checked="showStatusBar">
                   Status Bar
                 </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  v-model:checked="showActivityBar"
-                  disabled
-                >
+                <DropdownMenuCheckboxItem v-model:checked="showActivityBar" disabled>
                   Activity Bar
                 </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  v-model:checked="showPanel"
-                >
+                <DropdownMenuCheckboxItem v-model:checked="showPanel">
                   Panel
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
@@ -125,6 +110,4 @@ const showPanel = ref<Checked>(false)
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

@@ -24,16 +24,21 @@ function setLinks() {
   return [{ title: 'Home', href: '/' }, ...breadcrumbs]
 }
 
-const links = ref<{
-  title: string
-  href: string
-}[]>(setLinks())
+const links = ref<
+  {
+    title: string
+    href: string
+  }[]
+>(setLinks())
 
-watch(() => route.fullPath, (val) => {
-  if (val) {
-    links.value = setLinks()
-  }
-})
+watch(
+  () => route.fullPath,
+  (val) => {
+    if (val) {
+      links.value = setLinks()
+    }
+  },
+)
 </script>
 
 <template>
@@ -49,6 +54,4 @@ watch(() => route.fullPath, (val) => {
   </header>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

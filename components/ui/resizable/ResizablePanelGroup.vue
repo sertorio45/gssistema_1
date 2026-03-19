@@ -3,6 +3,7 @@ import type { SplitterGroupEmits, SplitterGroupProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { SplitterGroup, useForwardPropsEmits } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<SplitterGroupProps & { class?: HTMLAttributes['class'] }>()
@@ -17,7 +18,10 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
-  <SplitterGroup v-bind="forwarded" :class="cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', props.class)">
+  <SplitterGroup
+    v-bind="forwarded"
+    :class="cn('flex h-full w-full data-[panel-group-direction=vertical]:flex-col', props.class)"
+  >
     <slot />
   </SplitterGroup>
 </template>

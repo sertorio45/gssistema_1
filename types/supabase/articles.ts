@@ -10,4 +10,4 @@ export type PublishStatus = 'draft' | 'published' | 'arquived' | 'scheduled'
 // Interface adicional para tipagem mais específica
 export interface ArticleCategoryExtended extends ArticleCategory {
   publish_status: PublishStatus
-} 
+}

@@ -49,10 +49,7 @@ const roleInfo = computed(() => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{{ userEmail }}</DropdownMenuLabel>
-        <div
-          v-if="currentRole" class="flex items-center gap-2 px-2 py-1 text-xs font-medium"
-          :class="roleInfo.color"
-        >
+        <div v-if="currentRole" class="flex items-center gap-2 px-2 py-1 text-xs font-medium" :class="roleInfo.color">
           <component :is="roleInfo.icon" class="h-3.5 w-3.5" />
           {{ roleInfo.text }}
         </div>

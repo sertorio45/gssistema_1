@@ -20,6 +20,4 @@ import tasks from '@/components/tasks/data/tasks.json'
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

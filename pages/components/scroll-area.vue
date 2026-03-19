@@ -1,7 +1,5 @@
 <script setup lang="ts">
-const tags = Array.from({ length: 50 }).map(
-  (_, i, a) => `v1.2.0-beta.${a.length - i}`,
-)
+const tags = Array.from({ length: 50 }).map((_, i, a) => `v1.2.0-beta.${a.length - i}`)
 </script>
 
 <template>
@@ -17,21 +15,13 @@ const tags = Array.from({ length: 50 }).map(
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/scroll-area"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/scroll-area" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/scroll-area"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/scroll-area" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -65,6 +55,4 @@ const tags = Array.from({ length: 50 }).map(
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

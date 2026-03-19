@@ -16,9 +16,7 @@ async function onSubmit(event: Event) {
   <form @submit="onSubmit">
     <div class="grid gap-4">
       <div class="grid gap-2">
-        <Label for="email">
-          Email
-        </Label>
+        <Label for="email"> Email </Label>
         <Input
           id="email"
           placeholder="name@example.com"
@@ -37,6 +35,4 @@ async function onSubmit(event: Event) {
   </form>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

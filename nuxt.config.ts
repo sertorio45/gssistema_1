@@ -14,9 +14,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
   ],
 
-  css: [
-    '@unocss/reset/tailwind.css',
-  ],
+  css: ['@unocss/reset/tailwind.css'],
 
   colorMode: {
     classSuffix: '',
@@ -33,14 +31,10 @@ export default defineNuxtConfig({
     },
   },
 
-  routeRules: {
-
-  },
+  routeRules: {},
 
   imports: {
-    dirs: [
-      './lib',
-    ],
+    dirs: ['./lib'],
   },
 
   compatibilityDate: '2024-12-14',

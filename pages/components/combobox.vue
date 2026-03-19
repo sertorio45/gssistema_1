@@ -26,11 +26,7 @@ const value = ref('')
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/combobox"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/combobox" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
@@ -46,15 +42,8 @@ const value = ref('')
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
             <Popover v-model:open="open">
               <PopoverTrigger as-child>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  :aria-expanded="open"
-                  class="w-[200px] justify-between"
-                >
-                  {{ value
-                    ? frameworks.find((framework) => framework.value === value)?.label
-                    : "Select framework..." }}
+                <Button variant="outline" role="combobox" :aria-expanded="open" class="w-[200px] justify-between">
+                  {{ value ? frameworks.find(framework => framework.value === value)?.label : 'Select framework...' }}
                   <Icon name="radix-icons:caret-sort" class="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -68,20 +57,19 @@ const value = ref('')
                         v-for="framework in frameworks"
                         :key="framework.value"
                         :value="framework.value"
-                        @select="(ev: any) => {
-                          if (typeof ev.detail.value === 'string') {
-                            value = ev.detail.value
+                        @select="
+                          (ev: any) => {
+                            if (typeof ev.detail.value === 'string') {
+                              value = ev.detail.value
+                            }
+                            open = false
                           }
-                          open = false
-                        }"
+                        "
                       >
                         {{ framework.label }}
                         <Icon
                           name="radix-icons:check"
-                          :class="cn(
-                            'ml-auto h-4 w-4',
-                            value === framework.value ? 'opacity-100' : 'opacity-0',
-                          )"
+                          :class="cn('ml-auto h-4 w-4', value === framework.value ? 'opacity-100' : 'opacity-0')"
                         />
                       </CommandItem>
                     </CommandGroup>
@@ -96,6 +84,4 @@ const value = ref('')
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

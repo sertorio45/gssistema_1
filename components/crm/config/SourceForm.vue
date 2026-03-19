@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
@@ -49,23 +50,38 @@ const isDisabled = computed(() => props.modelValue.is_default === true)
 </script>
 
 <template>
-  <form @submit="handleSubmit" class="space-y-6">
+  <form class="space-y-6" @submit="handleSubmit">
     <div class="space-y-2">
-      <Label for="source-name">Name</Label>
-      <Input id="source-name" v-model="local.name" :disabled="isDisabled || props.loading" required placeholder="Source name" @input="(e: Event) => handleInput('name', (e.target as HTMLInputElement).value)" :class="isDisabled ? 'pointer-events-none opacity-50' : ''" />
+      <Label for="source-name">Nome</Label>
+      <Input
+        id="source-name"
+        v-model="local.name"
+        :disabled="isDisabled || props.loading"
+        required
+        placeholder="Nome da origem"
+        :class="isDisabled ? 'pointer-events-none opacity-50' : ''"
+        @input="(e: Event) => handleInput('name', (e.target as HTMLInputElement).value)"
+      />
     </div>
     <div class="space-y-2">
-      <Label for="source-description">Description</Label>
-      <Textarea id="source-description" v-model="local.description" :disabled="isDisabled || props.loading" placeholder="Description (optional)" @input="(e: Event) => handleInput('description', (e.target as HTMLTextAreaElement).value)" :class="isDisabled ? 'pointer-events-none opacity-50' : ''" />
+      <Label for="source-description">Descrição</Label>
+      <Textarea
+        id="source-description"
+        v-model="local.description"
+        :disabled="isDisabled || props.loading"
+        placeholder="Descrição (opcional)"
+        :class="isDisabled ? 'pointer-events-none opacity-50' : ''"
+        @input="(e: Event) => handleInput('description', (e.target as HTMLTextAreaElement).value)"
+      />
     </div>
     <div class="flex items-center gap-2">
       <Switch id="source-default" :checked="!!local.is_default" disabled />
-      <Label for="source-default">Default (cannot be changed)</Label>
+      <Label for="source-default">Padrão (não pode ser alterado)</Label>
     </div>
     <div class="flex justify-end gap-2">
       <Button type="submit" :loading="props.loading" :disabled="isDisabled || props.loading">
-        {{ isEdit ? 'Save Changes' : 'Create Source' }}
+        {{ isEdit ? 'Salvar alterações' : 'Criar origem' }}
       </Button>
     </div>
   </form>
-</template> 
+</template>

@@ -153,6 +153,4 @@ function handleChangeDirection(dir: 'ltr' | 'rtl') {
   </Drawer>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

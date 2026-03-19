@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Icon } from '#components'
+
 import { ref } from 'vue'
+
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+
 import { useToast } from '~/components/ui/toast'
+
 import UserForm from './UserForm.vue'
 
 const emit = defineEmits<{
@@ -112,9 +116,7 @@ defineExpose({
     <DialogContent class="sm:max-w-[800px]">
       <DialogHeader>
         <DialogTitle>Editar Usuário</DialogTitle>
-        <DialogDescription>
-          Altere o email ou senha do usuário.
-        </DialogDescription>
+        <DialogDescription> Altere o email ou senha do usuário. </DialogDescription>
       </DialogHeader>
 
       <UserForm
@@ -137,11 +139,7 @@ defineExpose({
           <Button variant="outline" @click="isOpen = false">
             Cancelar
           </Button>
-          <Button
-            :disabled="isLoading"
-            class="min-w-24"
-            @click="handleSubmit"
-          >
+          <Button :disabled="isLoading" class="min-w-24" @click="handleSubmit">
             <Icon v-if="isLoading" name="lucide:loader-2" class="mr-2 h-4 w-4 animate-spin" />
             {{ isLoading ? 'Atualizando...' : 'Atualizar' }}
           </Button>

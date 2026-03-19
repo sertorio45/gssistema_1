@@ -1,13 +1,78 @@
-import type { Company, Contact, DashboardKPI, Lead, Meeting, SalesStage, WhatsAppConversation, WhatsAppMessage } from '~/types/crm'
+import type {
+  Company,
+  Contact,
+  DashboardKPI,
+  Lead,
+  Meeting,
+  SalesStage,
+  WhatsAppConversation,
+  WhatsAppMessage,
+} from '~/types/crm'
 
 export const salesStages: SalesStage[] = [
-  { id: '1', name: 'New Lead', order: 1, color: '#3b82f6', description: 'Newly acquired leads', tenant_id: 'tenant-1', is_default: false },
-  { id: '2', name: 'Contacted', order: 2, color: '#8b5cf6', description: 'Initial contact made', tenant_id: 'tenant-1', is_default: false },
-  { id: '3', name: 'Qualified', order: 3, color: '#06b6d4', description: 'Lead has been qualified', tenant_id: 'tenant-1', is_default: false },
-  { id: '4', name: 'Proposal', order: 4, color: '#f59e0b', description: 'Proposal sent', tenant_id: 'tenant-1', is_default: false },
-  { id: '5', name: 'Negotiation', order: 5, color: '#ef4444', description: 'In negotiation phase', tenant_id: 'tenant-1', is_default: false },
-  { id: '6', name: 'Won', order: 6, color: '#10b981', description: 'Deal closed successfully', tenant_id: 'tenant-1', is_default: false },
-  { id: '7', name: 'Lost', order: 7, color: '#6b7280', description: 'Deal lost', tenant_id: 'tenant-1', is_default: false },
+  {
+    id: '1',
+    name: 'New Lead',
+    order: 1,
+    color: '#3b82f6',
+    description: 'Newly acquired leads',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
+  {
+    id: '2',
+    name: 'Contacted',
+    order: 2,
+    color: '#8b5cf6',
+    description: 'Initial contact made',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
+  {
+    id: '3',
+    name: 'Qualified',
+    order: 3,
+    color: '#06b6d4',
+    description: 'Lead has been qualified',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
+  {
+    id: '4',
+    name: 'Proposal',
+    order: 4,
+    color: '#f59e0b',
+    description: 'Proposal sent',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
+  {
+    id: '5',
+    name: 'Negotiation',
+    order: 5,
+    color: '#ef4444',
+    description: 'In negotiation phase',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
+  {
+    id: '6',
+    name: 'Won',
+    order: 6,
+    color: '#10b981',
+    description: 'Deal closed successfully',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
+  {
+    id: '7',
+    name: 'Lost',
+    order: 7,
+    color: '#6b7280',
+    description: 'Deal lost',
+    tenant_id: 'tenant-1',
+    is_default: false,
+  },
 ]
 
 export const companies: Company[] = [
@@ -566,4 +631,4 @@ export const dashboardKPI: DashboardKPI = {
     { name: 'User 2', deals: 2, revenue: 105000 },
     { name: 'User 3', deals: 2, revenue: 95000 },
   ],
-} 
+}

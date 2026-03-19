@@ -1,8 +1,9 @@
 import type { ColumnDef } from '@tanstack/vue-table'
-
 import type { Task } from '../data/schema'
+
 import { h } from 'vue'
 import { Badge } from '@/components/ui/badge'
+
 import { Checkbox } from '@/components/ui/checkbox'
 import { labels, priorities, statuses } from '../data/data'
 import DataTableColumnHeader from './DataTableColumnHeader.vue'
@@ -11,13 +12,20 @@ import DataTableRowActions from './DataTableRowActions.vue'
 export const columns: ColumnDef<Task>[] = [
   {
     id: 'select',
-    header: ({ table }) => h(Checkbox, {
-      'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
-      'onUpdate:checked': value => table.toggleAllPageRowsSelected(!!value),
-      'ariaLabel': 'Select all',
-      'class': 'translate-y-0.5',
-    }),
-    cell: ({ row }) => h(Checkbox, { 'checked': row.getIsSelected(), 'onUpdate:checked': value => row.toggleSelected(!!value), 'ariaLabel': 'Select row', 'class': 'translate-y-0.5' }),
+    header: ({ table }) =>
+      h(Checkbox, {
+        'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
+        'onUpdate:checked': value => table.toggleAllPageRowsSelected(!!value),
+        'ariaLabel': 'Select all',
+        'class': 'translate-y-0.5',
+      }),
+    cell: ({ row }) =>
+      h(Checkbox, {
+        'checked': row.getIsSelected(),
+        'onUpdate:checked': value => row.toggleSelected(!!value),
+        'ariaLabel': 'Select row',
+        'class': 'translate-y-0.5',
+      }),
     enableSorting: false,
     enableHiding: false,
   },
@@ -46,9 +54,7 @@ export const columns: ColumnDef<Task>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Status' }),
 
     cell: ({ row }) => {
-      const status = statuses.find(
-        status => status.value === row.getValue('status'),
-      )
+      const status = statuses.find(status => status.value === row.getValue('status'))
 
       if (!status)
         return null
@@ -66,9 +72,7 @@ export const columns: ColumnDef<Task>[] = [
     accessorKey: 'priority',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Priority' }),
     cell: ({ row }) => {
-      const priority = priorities.find(
-        priority => priority.value === row.getValue('priority'),
-      )
+      const priority = priorities.find(priority => priority.value === row.getValue('priority'))
 
       if (!priority)
         return null

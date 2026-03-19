@@ -1,4 +1,5 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
@@ -16,7 +17,9 @@ export default defineEventHandler(async (event) => {
     // Buscar tenantId do contexto ou body
     let tenantId = body.tenant_id || event.context.auth?.tenantId
     if (!tenantId) {
-      const { data: { user } } = await client.auth.getUser()
+      const {
+        data: { user },
+      } = await client.auth.getUser()
       if (user && user.user_metadata?.tenant_id) {
         tenantId = user.user_metadata.tenant_id
       }
@@ -41,12 +44,7 @@ export default defineEventHandler(async (event) => {
       name: body.name,
       description: body.description,
     }
-    const { data, error } = await client
-      .from('crm_lead_source_table')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
+    const { data, error } = await client.from('crm_lead_source_table').update(updateData).eq('id', id).select().single()
     if (error) {
       throw createError({ statusCode: 500, message: error.message || 'Falha ao atualizar lead source' })
     }
@@ -55,4 +53,4 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     throw createError({ statusCode: error.statusCode || 500, message: error.message || 'Erro interno do servidor' })
   }
-}) 
+})

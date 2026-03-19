@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Table } from '@tanstack/vue-table'
 import type { Task } from '../data/schema'
+
 import { computed } from 'vue'
 
 interface DataTableViewOptionsProps {
@@ -9,21 +10,15 @@ interface DataTableViewOptionsProps {
 
 const props = defineProps<DataTableViewOptionsProps>()
 
-const columns = computed(() => props.table.getAllColumns()
-  .filter(
-    column =>
-      typeof column.accessorFn !== 'undefined' && column.getCanHide(),
-  ))
+const columns = computed(() =>
+  props.table.getAllColumns().filter(column => typeof column.accessorFn !== 'undefined' && column.getCanHide()),
+)
 </script>
 
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger as-child>
-      <Button
-        variant="outline"
-        size="sm"
-        class="ml-auto hidden h-8 lg:flex"
-      >
+      <Button variant="outline" size="sm" class="ml-auto hidden h-8 lg:flex">
         <Icon name="i-radix-icons-mixer-horizontal" class="mr-2 h-4 w-4" />
         View
       </Button>
@@ -37,7 +32,7 @@ const columns = computed(() => props.table.getAllColumns()
         :key="column.id"
         class="capitalize"
         :checked="column.getIsVisible()"
-        @update:checked="(value) => column.toggleVisibility(!!value)"
+        @update:checked="value => column.toggleVisibility(!!value)"
       >
         {{ column.id }}
       </DropdownMenuCheckboxItem>

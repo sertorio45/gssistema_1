@@ -1,5 +1,6 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-import { defineEventHandler, readBody, createError } from 'h3'
+
+import { createError, defineEventHandler, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -7,7 +8,9 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     let tenantId = body.tenant_id || event.context.auth?.tenantId
     if (!tenantId) {
-      const { data: { user } } = await client.auth.getUser()
+      const {
+        data: { user },
+      } = await client.auth.getUser()
       if (user && user.user_metadata?.tenant_id) {
         tenantId = user.user_metadata.tenant_id
       }
@@ -30,6 +33,8 @@ export default defineEventHandler(async (event) => {
       next_follow_up: body.next_follow_up,
       tags: body.tags,
       tenant_id: tenantId,
+      pipeline_id: body.pipeline_id ?? null,
+      sales_stage_id: body.sales_stage_id ?? null,
     }
     if (!leadToInsert.name) {
       throw createError({ statusCode: 400, message: 'Nome é obrigatório' })
@@ -39,7 +44,8 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, message: error.message || 'Falha ao criar lead' })
     }
     return { statusCode: 201, body: data }
-  } catch (error) {
+  }
+  catch (error) {
     throw createError({ statusCode: error.statusCode || 500, message: error.message || 'Erro interno do servidor' })
   }
-}) 
+})

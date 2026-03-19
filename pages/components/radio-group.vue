@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -9,26 +8,19 @@
           Radio Group
         </h2>
         <p class="text-muted-foreground">
-          A set of checkable buttons—known as radio buttons—where no more than one of the buttons can be checked at a time.
+          A set of checkable buttons—known as radio buttons—where no more than one of the buttons can be checked at a
+          time.
         </p>
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/radio-group"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/radio-group" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/radio-group"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/radio-group" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -62,6 +54,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

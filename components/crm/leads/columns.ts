@@ -1,11 +1,12 @@
 import type { ColumnDef } from '@tanstack/vue-table'
-import type { Lead } from '~/types/crm'
+import type { LeadSource } from '~/types/crm'
+
 import { h, resolveComponent } from 'vue'
+import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
-import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
-import type { LeadSource } from '~/types/crm'
 
 const statusOptions = [
   { value: 'new', label: 'New', color: 'bg-blue-100 text-blue-800' },
@@ -35,18 +36,20 @@ const sourceOptions = [
 export const columns: ColumnDef<any>[] = [
   {
     id: 'select',
-    header: ({ table }) => h(Checkbox, {
-      'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
-      'onUpdate:checked': value => table.toggleAllPageRowsSelected(!!value),
-      'ariaLabel': 'Select all',
-      'class': 'translate-y-0.5',
-    }),
-    cell: ({ row }) => h(Checkbox, {
-      'checked': row.getIsSelected(),
-      'onUpdate:checked': value => row.toggleSelected(!!value),
-      'ariaLabel': 'Select row',
-      'class': 'translate-y-0.5',
-    }),
+    header: ({ table }) =>
+      h(Checkbox, {
+        'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
+        'onUpdate:checked': value => table.toggleAllPageRowsSelected(!!value),
+        'ariaLabel': 'Selecionar todos',
+        'class': 'translate-y-0.5',
+      }),
+    cell: ({ row }) =>
+      h(Checkbox, {
+        'checked': row.getIsSelected(),
+        'onUpdate:checked': value => row.toggleSelected(!!value),
+        'ariaLabel': 'Selecionar linha',
+        'class': 'translate-y-0.5',
+      }),
     enableSorting: false,
     enableHiding: false,
   },
@@ -70,12 +73,17 @@ export const columns: ColumnDef<any>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Status' }),
     cell: ({ row }) => {
       const status = statusOptions.find(s => s.value === row.getValue('status'))
-      if (!status) return null
-      
-      return h(Badge, { 
-        variant: 'secondary',
-        class: status.color 
-      }, () => status.label)
+      if (!status)
+        return null
+
+      return h(
+        Badge,
+        {
+          variant: 'secondary',
+          class: status.color,
+        },
+        () => status.label,
+      )
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -86,12 +94,17 @@ export const columns: ColumnDef<any>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Priority' }),
     cell: ({ row }) => {
       const priority = priorityOptions.find(p => p.value === row.getValue('priority'))
-      if (!priority) return null
-      
-      return h(Badge, { 
-        variant: 'outline',
-        class: priority.color 
-      }, () => priority.label)
+      if (!priority)
+        return null
+
+      return h(
+        Badge,
+        {
+          variant: 'outline',
+          class: priority.color,
+        },
+        () => priority.label,
+      )
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
@@ -113,11 +126,13 @@ export const columns: ColumnDef<any>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Value' }),
     cell: ({ row }) => {
       const value = row.getValue('value') as number
-      return h('span', { class: 'font-medium' }, 
-        new Intl.NumberFormat('pt-BR', { 
-          style: 'currency', 
-          currency: 'BRL' 
-        }).format(value)
+      return h(
+        'span',
+        { class: 'font-medium' },
+        new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+        }).format(value),
       )
     },
   },
@@ -143,18 +158,20 @@ export const columns: ColumnDef<any>[] = [
 export const sourceColumns: ColumnDef<LeadSource>[] = [
   {
     id: 'select',
-    header: ({ table }) => h(Checkbox, {
-      'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
-      'onUpdate:checked': value => table.toggleAllPageRowsSelected(!!value),
-      'ariaLabel': 'Select all',
-      'class': 'translate-y-0.5',
-    }),
-    cell: ({ row }) => h(Checkbox, {
-      'checked': row.getIsSelected(),
-      'onUpdate:checked': value => row.toggleSelected(!!value),
-      'ariaLabel': 'Select row',
-      'class': 'translate-y-0.5',
-    }),
+    header: ({ table }) =>
+      h(Checkbox, {
+        'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
+        'onUpdate:checked': value => table.toggleAllPageRowsSelected(!!value),
+        'ariaLabel': 'Selecionar todos',
+        'class': 'translate-y-0.5',
+      }),
+    cell: ({ row }) =>
+      h(Checkbox, {
+        'checked': row.getIsSelected(),
+        'onUpdate:checked': value => row.toggleSelected(!!value),
+        'ariaLabel': 'Selecionar linha',
+        'class': 'translate-y-0.5',
+      }),
     enableSorting: false,
     enableHiding: false,
   },
@@ -174,19 +191,23 @@ export const sourceColumns: ColumnDef<LeadSource>[] = [
     cell: ({ row }) => {
       const isDefault = row.original.is_default
       return h('div', { class: 'flex items-center' }, [
-        h('span', {
-          class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${
-            isDefault
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-              : 'bg-muted text-muted-foreground'
-          }`,
-        }, [
-          h(resolveComponent('Icon'), {
-            name: isDefault ? 'lucide:check-circle' : 'lucide:circle',
-            class: 'mr-1 h-3.5 w-3.5',
-          }),
-          isDefault ? 'Default' : 'Custom',
-        ]),
+        h(
+          'span',
+          {
+            class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${
+              isDefault
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                : 'bg-muted text-muted-foreground'
+            }`,
+          },
+          [
+            h(resolveComponent('Icon'), {
+              name: isDefault ? 'lucide:check-circle' : 'lucide:circle',
+              class: 'mr-1 h-3.5 w-3.5',
+            }),
+            isDefault ? 'Default' : 'Custom',
+          ],
+        ),
       ])
     },
     enableSorting: false,
@@ -195,17 +216,15 @@ export const sourceColumns: ColumnDef<LeadSource>[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row, table }) => h(
-      DataTableRowActions,
-      {
+    cell: ({ row, table }) =>
+      h(DataTableRowActions, {
         row,
         onEdit: () => (table.options.meta as any)?.onEdit?.(row.original),
         onDelete: () => (table.options.meta as any)?.onDelete?.(row.original),
-      },
-    ),
+      }),
     enableSorting: false,
     enableHiding: false,
   },
 ]
 
-export { priorityOptions, sourceOptions, statusOptions } 
+export { priorityOptions, sourceOptions, statusOptions }

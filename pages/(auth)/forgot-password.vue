@@ -35,19 +35,14 @@ onMounted(async () => {
           <CardTitle class="text-xl">
             Forgot Password
           </CardTitle>
-          <CardDescription>
-            Enter your email below to reset your password
-          </CardDescription>
+          <CardDescription> Enter your email below to reset your password </CardDescription>
         </CardHeader>
         <CardContent>
           <div class="grid mx-auto max-w-sm gap-6">
             <AuthForgotPassword />
             <p class="text-center text-sm text-muted-foreground">
               Already have an account?
-              <NuxtLink
-                to="/login"
-                class="underline underline-offset-4 hover:text-primary"
-              >
+              <NuxtLink to="/login" class="underline underline-offset-4 hover:text-primary">
                 Login
               </NuxtLink>
             </p>
@@ -58,6 +53,4 @@ onMounted(async () => {
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

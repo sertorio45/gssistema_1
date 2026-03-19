@@ -3,12 +3,15 @@ interface Links {
   title: string
   href: string
 }
-withDefaults(defineProps<{
-  links: Links[]
-  separator?: string
-}>(), {
-  separator: 'i-lucide-chevron-right',
-})
+withDefaults(
+  defineProps<{
+    links: Links[]
+    separator?: string
+  }>(),
+  {
+    separator: 'i-lucide-chevron-right',
+  },
+)
 </script>
 
 <template>
@@ -33,6 +36,4 @@ withDefaults(defineProps<{
   </Breadcrumb>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

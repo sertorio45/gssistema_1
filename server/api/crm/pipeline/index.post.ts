@@ -22,6 +22,8 @@ export default defineEventHandler(async (event) => {
       name: body.name,
       description: body.description,
       is_default: false, // Custom sources are never default
+      is_active: body.is_active ?? true,
+      priority: body.priority ?? 0,
       tenant_id: tenantId,
     }
 
@@ -73,4 +75,4 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     throw createError({ statusCode: error.statusCode || 500, message: error.message || 'Erro interno do servidor' })
   }
-}) 
+})

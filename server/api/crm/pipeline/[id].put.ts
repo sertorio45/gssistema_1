@@ -40,6 +40,8 @@ export default defineEventHandler(async (event) => {
     const updateData = {
       name: body.name,
       description: body.description,
+      is_active: body.is_active,
+      priority: body.priority,
     }
     const { data: pipeline, error } = await client
       .from('crm_pipeline')

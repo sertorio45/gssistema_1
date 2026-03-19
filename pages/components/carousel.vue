@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -14,21 +13,13 @@
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/carousel"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/carousel" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/carousel"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/carousel" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -122,6 +113,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

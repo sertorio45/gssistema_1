@@ -3,6 +3,7 @@ import type { ToastTitleProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { ToastTitle } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<ToastTitleProps & { class?: HTMLAttributes['class'] }>()

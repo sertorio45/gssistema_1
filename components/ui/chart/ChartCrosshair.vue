@@ -4,16 +4,20 @@ import type { Component } from 'vue'
 import { omit } from '@unovis/ts'
 import { VisCrosshair, VisTooltip } from '@unovis/vue'
 import { createApp } from 'vue'
+
 import { ChartTooltip } from '.'
 
-const props = withDefaults(defineProps<{
-  colors?: string[]
-  index: string
-  items: BulletLegendItemInterface[]
-  customTooltip?: Component
-}>(), {
-  colors: () => [],
-})
+const props = withDefaults(
+  defineProps<{
+    colors?: string[]
+    index: string
+    items: BulletLegendItemInterface[]
+    customTooltip?: Component
+  }>(),
+  {
+    colors: () => [],
+  },
+)
 
 // Use weakmap to store reference to each datapoint for Tooltip
 const wm = new WeakMap()

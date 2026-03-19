@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import type { DateValue } from '@internationalized/date'
-import { computed, ref, watch } from 'vue'
 import { CalendarDate, DateFormatter, getLocalTimeZone } from '@internationalized/date'
-import { Calendar as CalendarIcon, Clock as ClockIcon } from 'lucide-vue-next'
+import { Calendar as CalendarIcon } from 'lucide-vue-next'
+import { ref, watch } from 'vue'
+
 import Button from '@/components/ui/button/Button.vue'
 import Calendar from '@/components/ui/calendar/Calendar.vue'
 import Label from '@/components/ui/label/Label.vue'
 import Popover from '@/components/ui/popover/Popover.vue'
 import PopoverContent from '@/components/ui/popover/PopoverContent.vue'
 import PopoverTrigger from '@/components/ui/popover/PopoverTrigger.vue'
-import { cn } from '@/lib/utils'
 
 const props = defineProps<{
   modelValue?: {
@@ -70,31 +70,41 @@ function initializeValues() {
 initializeValues()
 
 // Watch props changes
-watch(() => props.modelValue, (newVal) => {
-  if (newVal?.start && (!internalValue.value.start || newVal.start.getTime() !== internalValue.value.start.getTime())) {
-    internalValue.value.start = new Date(newVal.start)
-    selectedStartTime.value = formatTime(internalValue.value.start)
-  }
-  if (newVal?.end && (!internalValue.value.end || newVal.end.getTime() !== internalValue.value.end.getTime())) {
-    internalValue.value.end = new Date(newVal.end)
-    selectedEndTime.value = formatTime(internalValue.value.end)
-  }
-}, { deep: true })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (
+      newVal?.start
+      && (!internalValue.value.start || newVal.start.getTime() !== internalValue.value.start.getTime())
+    ) {
+      internalValue.value.start = new Date(newVal.start)
+      selectedStartTime.value = formatTime(internalValue.value.start)
+    }
+    if (newVal?.end && (!internalValue.value.end || newVal.end.getTime() !== internalValue.value.end.getTime())) {
+      internalValue.value.end = new Date(newVal.end)
+      selectedEndTime.value = formatTime(internalValue.value.end)
+    }
+  },
+  { deep: true },
+)
 
 // Conversões entre Date e DateValue
 function dateToCalendarDate(date: Date | null): DateValue | undefined {
-  if (!date) return undefined
+  if (!date)
+    return undefined
   return new CalendarDate(date.getFullYear(), date.getMonth() + 1, date.getDate())
 }
 
 function calendarDateToDate(dateValue: DateValue | undefined): Date | null {
-  if (!dateValue) return null
+  if (!dateValue)
+    return null
   return dateValue.toDate(localTz)
 }
 
 // Função para formatar tempo
 function formatTime(date: Date | null): string {
-  if (!date) return ''
+  if (!date)
+    return ''
   const hours = date.getHours().toString().padStart(2, '0')
   const minutes = date.getMinutes().toString().padStart(2, '0')
   return `${hours}:${minutes}`
@@ -102,7 +112,8 @@ function formatTime(date: Date | null): string {
 
 // Função para criar data com horário
 function createDateWithTime(date: Date | null, timeString: string): Date | null {
-  if (!date || !timeString) return null
+  if (!date || !timeString)
+    return null
   const [hours, minutes] = timeString.split(':').map(Number)
   const newDate = new Date(date)
   newDate.setHours(hours, minutes, 0, 0)
@@ -113,7 +124,7 @@ function createDateWithTime(date: Date | null, timeString: string): Date | null 
 function emitUpdate() {
   emit('update:modelValue', {
     start: internalValue.value.start,
-    end: internalValue.value.end
+    end: internalValue.value.end,
   })
 }
 
@@ -124,7 +135,8 @@ function handleStartDateChange(dateValue: DateValue | undefined) {
     // Preservar horário se já existe
     if (selectedStartTime.value) {
       internalValue.value.start = createDateWithTime(newDate, selectedStartTime.value)
-    } else {
+    }
+    else {
       // Horário padrão
       newDate.setHours(9, 0, 0, 0)
       internalValue.value.start = newDate
@@ -138,7 +150,8 @@ function handleStartTimeSelect(time: string) {
   selectedStartTime.value = time
   if (internalValue.value.start) {
     internalValue.value.start = createDateWithTime(internalValue.value.start, time)
-  } else {
+  }
+  else {
     // Se não há data, usar hoje
     const today = new Date()
     internalValue.value.start = createDateWithTime(today, time)
@@ -154,7 +167,8 @@ function handleEndDateChange(dateValue: DateValue | undefined) {
     // Preservar horário se já existe
     if (selectedEndTime.value) {
       internalValue.value.end = createDateWithTime(newDate, selectedEndTime.value)
-    } else {
+    }
+    else {
       // Horário padrão (1 hora depois do início)
       newDate.setHours(10, 0, 0, 0)
       internalValue.value.end = newDate
@@ -168,7 +182,8 @@ function handleEndTimeSelect(time: string) {
   selectedEndTime.value = time
   if (internalValue.value.end) {
     internalValue.value.end = createDateWithTime(internalValue.value.end, time)
-  } else {
+  }
+  else {
     // Se não há data, usar hoje
     const today = new Date()
     internalValue.value.end = createDateWithTime(today, time)
@@ -183,11 +198,12 @@ function formatDisplayDate(date: Date | null): string {
 }
 
 function formatDisplayTime(date: Date | null): string {
-  if (!date) return 'Pick time'
-  return date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false 
+  if (!date)
+    return 'Pick time'
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   })
 }
 </script>
@@ -201,7 +217,7 @@ function formatDisplayTime(date: Date | null): string {
         <PopoverTrigger as-child>
           <Button variant="outline" class="w-full justify-start text-left font-normal">
             <CalendarIcon class="mr-2 h-4 w-4" />
-            {{ formatDisplayDate(internalValue.start) }} 
+            {{ formatDisplayDate(internalValue.start) }}
             <span v-if="internalValue.start" class="ml-2 text-muted-foreground">
               at {{ formatDisplayTime(internalValue.start) }}
             </span>
@@ -217,11 +233,11 @@ function formatDisplayTime(date: Date | null): string {
               />
             </div>
             <!-- Time Slots -->
-            <div class="border-l p-3 min-w-[120px]">
-              <div class="text-sm font-medium mb-2">
+            <div class="min-w-[120px] border-l p-3">
+              <div class="mb-2 text-sm font-medium">
                 {{ internalValue.start ? df.format(internalValue.start).split(',')[0] : 'Select time' }}
               </div>
-              <div class="grid gap-1 max-h-[200px] overflow-y-auto">
+              <div class="grid max-h-[200px] gap-1 overflow-y-auto">
                 <Button
                   v-for="time in timeSlots"
                   :key="time"
@@ -263,11 +279,11 @@ function formatDisplayTime(date: Date | null): string {
               />
             </div>
             <!-- Time Slots -->
-            <div class="border-l p-3 min-w-[120px]">
-              <div class="text-sm font-medium mb-2">
+            <div class="min-w-[120px] border-l p-3">
+              <div class="mb-2 text-sm font-medium">
                 {{ internalValue.end ? df.format(internalValue.end).split(',')[0] : 'Select time' }}
               </div>
-              <div class="grid gap-1 max-h-[200px] overflow-y-auto">
+              <div class="grid max-h-[200px] gap-1 overflow-y-auto">
                 <Button
                   v-for="time in timeSlots"
                   :key="time"
@@ -302,4 +318,4 @@ function formatDisplayTime(date: Date | null): string {
   background: hsl(var(--border));
   border-radius: 2px;
 }
-</style> 
+</style>

@@ -1,6 +1,4 @@
-<script setup lang="ts">
-
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="pb-16 space-y-6">
@@ -26,6 +24,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

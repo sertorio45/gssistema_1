@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Icon } from '#components'
+
 import { onMounted, ref } from 'vue'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { columns } from '@/components/users/columns'
 import DataTable from '@/components/users/DataTable.vue'
+
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import { useToast } from '~/components/ui/toast'
 import CreateUserDialog from '~/components/users/CreateUserDialog.vue'
@@ -175,10 +178,7 @@ onMounted(() => {
           Manage system users
         </p>
       </div>
-      <Button
-        class="bg-primary hover:bg-primary/90"
-        @click="createUserDialog?.open()"
-      >
+      <Button class="bg-primary hover:bg-primary/90" @click="createUserDialog?.open()">
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
         New User
       </Button>
@@ -233,7 +233,10 @@ onMounted(() => {
           <AlertDialogCancel @click="isDeleteAlertOpen = false">
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="deleteUser">
+          <AlertDialogAction
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="deleteUser"
+          >
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>
@@ -253,7 +256,10 @@ onMounted(() => {
           <AlertDialogCancel @click="showMultiDeleteDialog = false">
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="handleMultiDeleteConfirm">
+          <AlertDialogAction
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="handleMultiDeleteConfirm"
+          >
             Delete
           </AlertDialogAction>
         </AlertDialogFooter>

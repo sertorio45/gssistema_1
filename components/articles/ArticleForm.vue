@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import type { ArticleForm } from '~/types/articles'
+
 import { defineEmits, defineProps, ref, watch } from 'vue'
 import Tiny from '~/components/articles/Tiny.vue'
 import TagsInput from '~/components/ui/tags-input/TagsInput.vue'
-import { useToast } from '~/components/ui/toast'
 
 const props = defineProps<{
-  modelValue: Partial<ArticleForm>,
-  loading?: boolean,
-  categories: Array<{ id: string; title: string }>,
-  tags: Array<{ id: string; title: string }>,
-  isEdit?: boolean,
+  modelValue: Partial<ArticleForm>
+  loading?: boolean
+  categories: Array<{ id: string, title: string }>
+  tags: Array<{ id: string, title: string }>
+  isEdit?: boolean
 }>()
 
 const emit = defineEmits<{
-  (e: 'submit', value: ArticleForm): void,
-  (e: 'cancel'): void,
-  (e: 'update:modelValue', value: Partial<ArticleForm>): void,
+  (e: 'submit', value: ArticleForm): void
+  (e: 'cancel'): void
+  (e: 'update:modelValue', value: Partial<ArticleForm>): void
 }>()
 
 const form = ref<ArticleForm>({
@@ -32,17 +32,21 @@ const form = ref<ArticleForm>({
   is_public: false,
 })
 
-watch(() => props.modelValue, (val) => {
-  if (val) {
-    form.value = {
-      ...form.value,
-      ...val,
-      content: val.content ?? '',
-      tags: val.tags ?? [],
-      featured_image: val.featured_image ?? '',
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val) {
+      form.value = {
+        ...form.value,
+        ...val,
+        content: val.content ?? '',
+        tags: val.tags ?? [],
+        featured_image: val.featured_image ?? '',
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 function handleSubmit() {
   emit('submit', { ...form.value })
@@ -67,7 +71,14 @@ function handleCancel() {
         </div>
         <div class="space-y-2">
           <Label for="meta_description">Meta Description</Label>
-          <Textarea id="meta_description" v-model="form.meta_description" placeholder="Short description" :disabled="props.loading" required rows="3" />
+          <Textarea
+            id="meta_description"
+            v-model="form.meta_description"
+            placeholder="Short description"
+            :disabled="props.loading"
+            required
+            rows="3"
+          />
         </div>
         <div class="space-y-2">
           <Label for="content">Content</Label>
@@ -83,10 +94,18 @@ function handleCancel() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="arquived">Arquived</SelectItem>
-                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="draft">
+                  Draft
+                </SelectItem>
+                <SelectItem value="published">
+                  Published
+                </SelectItem>
+                <SelectItem value="arquived">
+                  Arquived
+                </SelectItem>
+                <SelectItem value="scheduled">
+                  Scheduled
+                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -99,7 +118,9 @@ function handleCancel() {
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem v-for="cat in props.categories" :key="cat.id" :value="cat.id">{{ cat.title }}</SelectItem>
+                <SelectItem v-for="cat in props.categories" :key="cat.id" :value="cat.id">
+                  {{ cat.title }}
+                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -110,13 +131,22 @@ function handleCancel() {
         </div>
         <div class="space-y-2">
           <Label for="featured_image">Thumbnail URL</Label>
-          <Input id="featured_image" v-model="form.featured_image" placeholder="https://..." :disabled="props.loading" />
+          <Input
+            id="featured_image"
+            v-model="form.featured_image"
+            placeholder="https://..."
+            :disabled="props.loading"
+          />
         </div>
       </div>
     </div>
-    <div class="flex gap-2 justify-end">
-      <Button type="button" variant="outline" @click="handleCancel" :disabled="props.loading">Cancel</Button>
-      <Button type="submit" :disabled="props.loading">{{ props.isEdit ? 'Update' : 'Create' }}</Button>
+    <div class="flex justify-end gap-2">
+      <Button type="button" variant="outline" :disabled="props.loading" @click="handleCancel">
+        Cancel
+      </Button>
+      <Button type="submit" :disabled="props.loading">
+        {{ props.isEdit ? 'Update' : 'Create' }}
+      </Button>
     </div>
   </form>
-</template> 
+</template>

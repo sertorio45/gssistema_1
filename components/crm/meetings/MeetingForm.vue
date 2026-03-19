@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { Meeting } from '~/types/crm'
+
 import { toast } from 'vue-sonner'
-import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
+
 import Textarea from '@/components/ui/textarea/Textarea.vue'
 import AppointmentPicker from '~/components/ui/calendar/AppointmentPicker.vue'
 import { useTenant } from '~/composables/useTenant'
+
 import SelectWithAdd from './SelectWithAdd.vue'
 
 interface Props {
@@ -52,11 +54,7 @@ async function fetchOptions() {
   if (!tenantId.value)
     return
 
-  await Promise.all([
-    fetchLeads(),
-    fetchContacts(),
-    fetchCompanies(),
-  ])
+  await Promise.all([fetchLeads(), fetchContacts(), fetchCompanies()])
 }
 
 async function fetchLeads() {
@@ -126,20 +124,20 @@ async function handleSubmit() {
         method: 'PUT',
         body: payload,
       })
-      toast.success('Meeting updated successfully')
+      toast.success('Reunião atualizada com sucesso')
     }
     else {
       await $fetch('/api/crm/meetings', {
         method: 'POST',
         body: payload,
       })
-      toast.success('Meeting created successfully')
+      toast.success('Reunião criada com sucesso')
     }
 
     emit('success')
   }
   catch (error: any) {
-    toast.error(error?.data?.message || 'Failed to save meeting')
+    toast.error(error?.data?.message || 'Erro ao salvar reunião')
   }
   finally {
     isSubmitting.value = false
@@ -152,10 +150,10 @@ function handleCancel() {
 
 // Lead creation fields - Campos obrigatórios: name, email, phone + outros essenciais
 const leadCreateFields = [
-  { key: 'name', label: 'Name', placeholder: 'Enter lead name' },
-  { key: 'email', label: 'Email', placeholder: 'Enter email address', type: 'email' },
-  { key: 'phone', label: 'Phone', placeholder: 'Enter phone number' },
-  { key: 'company', label: 'Company', placeholder: 'Enter company name' },
+  { key: 'name', label: 'Nome', placeholder: 'Nome do lead' },
+  { key: 'email', label: 'E-mail', placeholder: 'E-mail', type: 'email' },
+  { key: 'phone', label: 'Telefone', placeholder: 'Telefone' },
+  { key: 'company', label: 'Empresa', placeholder: 'Nome da empresa' },
 ]
 
 // Valores padrão para lead (campos obrigatórios que não são capturados no form)
@@ -168,51 +166,41 @@ const leadDefaultValues = {
 
 // Contact creation fields - Campos obrigatórios: name, email, phone + position opcional
 const contactCreateFields = [
-  { key: 'name', label: 'Name', placeholder: 'Enter contact name' },
-  { key: 'email', label: 'Email', placeholder: 'Enter email address', type: 'email' },
-  { key: 'phone', label: 'Phone', placeholder: 'Enter phone number' },
-  { key: 'position', label: 'Position', placeholder: 'Enter position' },
+  { key: 'name', label: 'Nome', placeholder: 'Nome do contato' },
+  { key: 'email', label: 'E-mail', placeholder: 'E-mail', type: 'email' },
+  { key: 'phone', label: 'Telefone', placeholder: 'Telefone' },
+  { key: 'position', label: 'Cargo', placeholder: 'Cargo' },
 ]
 
-// Company creation fields - Apenas name é obrigatório, resto opcional 
+// Company creation fields - Apenas name é obrigatório, resto opcional
 const companyCreateFields = [
-  { key: 'name', label: 'Name', placeholder: 'Enter company name' },
-  { key: 'website', label: 'Website', placeholder: 'Enter website URL', type: 'url' },
-  { key: 'industry', label: 'Industry', placeholder: 'Enter industry' },
+  { key: 'name', label: 'Nome', placeholder: 'Nome da empresa' },
+  { key: 'website', label: 'Site', placeholder: 'URL do site', type: 'url' },
+  { key: 'industry', label: 'Indústria', placeholder: 'Indústria' },
 ]
 </script>
 
 <template>
-  <form id="meeting-form" @submit.prevent="handleSubmit" class="space-y-6">
+  <form id="meeting-form" class="space-y-6" @submit.prevent="handleSubmit">
     <div class="grid gap-6">
       <!-- Basic Information -->
       <div class="space-y-4">
         <div>
-          <Label for="title">Title</Label>
-          <Input
-            id="title"
-            v-model="form.title"
-            placeholder="Meeting title"
-            required
-          />
+          <Label for="title">Título</Label>
+          <Input id="title" v-model="form.title" placeholder="Título da reunião" required />
         </div>
         <div>
-          <Label for="description">Description</Label>
-          <Textarea
-            id="description"
-            v-model="form.description"
-            placeholder="Meeting description"
-            rows="3"
-          />
+          <Label for="description">Descrição</Label>
+          <Textarea id="description" v-model="form.description" placeholder="Descrição da reunião" rows="3" />
         </div>
       </div>
       <!-- Related Records with Add Functionality -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <SelectWithAdd
           v-model="form.lead_id"
           label="Lead"
           :items="leads"
-          placeholder="Select lead..."
+          placeholder="Selecione o lead..."
           api-endpoint="/api/crm/lead"
           :create-fields="leadCreateFields"
           :default-values="leadDefaultValues"
@@ -220,18 +208,18 @@ const companyCreateFields = [
         />
         <SelectWithAdd
           v-model="form.contact_id"
-          label="Contact"
+          label="Contato"
           :items="contacts"
-          placeholder="Select contact..."
+          placeholder="Selecione o contato..."
           api-endpoint="/api/crm/contacts"
           :create-fields="contactCreateFields"
           @refresh="fetchContacts"
         />
         <SelectWithAdd
           v-model="form.company_id"
-          label="Company"
+          label="Empresa"
           :items="companies"
-          placeholder="Select company..."
+          placeholder="Selecione a empresa..."
           api-endpoint="/api/crm/company"
           :create-fields="companyCreateFields"
           @refresh="fetchCompanies"
@@ -239,70 +227,40 @@ const companyCreateFields = [
       </div>
       <!-- Date and Time -->
       <div class="space-y-4">
-        <AppointmentPicker
-          :start-time="form.start_time"
-          :end-time="form.end_time"
-          @update="handleDateTimeUpdate"
-        />
+        <AppointmentPicker :start-time="form.start_time" :end-time="form.end_time" @update="handleDateTimeUpdate" />
       </div>
       <!-- Additional Details -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <Label for="location">Location</Label>
-          <Input
-            id="location"
-            v-model="form.location"
-            placeholder="Meeting location"
-          />
+          <Label for="location">Local</Label>
+          <Input id="location" v-model="form.location" placeholder="Local da reunião" />
         </div>
         <div>
-          <Label for="type">Type</Label>
-          <Input
-            id="type"
-            v-model="form.type"
-            placeholder="Meeting type"
-          />
+          <Label for="type">Tipo</Label>
+          <Input id="type" v-model="form.type" placeholder="Tipo da reunião" />
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <Label for="status">Status</Label>
-          <Input
-            id="status"
-            v-model="form.status"
-            placeholder="Meeting status"
-          />
+          <Input id="status" v-model="form.status" placeholder="Status da reunião" />
         </div>
         <div>
-          <Label for="attendees">Attendees</Label>
-          <Input
-            id="attendees"
-            v-model="form.attendees"
-            placeholder="Meeting attendees"
-          />
+          <Label for="attendees">Participantes</Label>
+          <Input id="attendees" v-model="form.attendees" placeholder="Participantes" />
         </div>
       </div>
       <!-- Notes and Outcome -->
       <div class="space-y-4">
         <div>
-          <Label for="notes">Notes</Label>
-          <Textarea
-            id="notes"
-            v-model="form.notes"
-            placeholder="Meeting notes"
-            rows="3"
-          />
+          <Label for="notes">Observações</Label>
+          <Textarea id="notes" v-model="form.notes" placeholder="Observações da reunião" rows="3" />
         </div>
         <div>
-          <Label for="outcome">Outcome</Label>
-          <Textarea
-            id="outcome"
-            v-model="form.outcome"
-            placeholder="Meeting outcome"
-            rows="3"
-          />
+          <Label for="outcome">Resultado</Label>
+          <Textarea id="outcome" v-model="form.outcome" placeholder="Resultado da reunião" rows="3" />
         </div>
       </div>
     </div>
   </form>
-</template> 
+</template>

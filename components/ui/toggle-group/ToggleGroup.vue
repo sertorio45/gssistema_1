@@ -4,16 +4,19 @@ import type { ToggleGroupRootEmits, ToggleGroupRootProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import type { toggleVariants } from '@/components/ui/toggle'
 import { ToggleGroupRoot, useForwardPropsEmits } from 'radix-vue'
+
 import { computed, provide } from 'vue'
 import { cn } from '@/lib/utils'
 
 type ToggleGroupVariants = VariantProps<typeof toggleVariants>
 
-const props = defineProps<ToggleGroupRootProps & {
-  class?: HTMLAttributes['class']
-  variant?: ToggleGroupVariants['variant']
-  size?: ToggleGroupVariants['size']
-}>()
+const props = defineProps<
+  ToggleGroupRootProps & {
+    class?: HTMLAttributes['class']
+    variant?: ToggleGroupVariants['variant']
+    size?: ToggleGroupVariants['size']
+  }
+>()
 const emits = defineEmits<ToggleGroupRootEmits>()
 
 provide('toggleGroup', {

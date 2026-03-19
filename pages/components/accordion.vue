@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -14,21 +13,13 @@
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/accordion"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/accordion" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/accordion"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/accordion" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -44,7 +35,8 @@
             <AccordionItem v-for="i in 4" :key="i" :value="`item-${i}`">
               <AccordionTrigger>Item {{ i }}</AccordionTrigger>
               <AccordionContent>
-                Lorem ipsum dolor sit amet, consectetur adipisicing elit. Assumenda at aut cum dolorem mollitia praesentium quis quo! Id officia, veniam.
+                Lorem ipsum dolor sit amet, consectetur adipisicing elit. Assumenda at aut cum dolorem mollitia
+                praesentium quis quo! Id officia, veniam.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -59,7 +51,8 @@
             <AccordionItem v-for="i in 4" :key="i" :value="`item-${i}`">
               <AccordionTrigger>Item {{ i }}</AccordionTrigger>
               <AccordionContent>
-                Lorem ipsum dolor sit amet, consectetur adipisicing elit. Assumenda at aut cum dolorem mollitia praesentium quis quo! Id officia, veniam.
+                Lorem ipsum dolor sit amet, consectetur adipisicing elit. Assumenda at aut cum dolorem mollitia
+                praesentium quis quo! Id officia, veniam.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -69,6 +62,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

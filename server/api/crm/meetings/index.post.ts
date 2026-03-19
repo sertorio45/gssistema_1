@@ -61,4 +61,4 @@ export default defineEventHandler(async (event) => {
       statusMessage: error.message || 'Failed to create meeting',
     })
   }
-}) 
+})

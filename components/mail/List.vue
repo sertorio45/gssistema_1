@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { Mail } from './data/mails'
+
 import { formatDistanceToNow } from 'date-fns'
+
 import { cn } from '@/lib/utils'
 
 interface MailListProps {
@@ -28,10 +30,12 @@ function getBadgeVariantFromLabel(label: string) {
         <button
           v-for="item of items"
           :key="item.id"
-          :class="cn(
-            'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
-            selectedMail === item.id && 'bg-muted',
-          )"
+          :class="
+            cn(
+              'flex flex-col items-start gap-2 rounded-lg border p-3 text-left text-sm transition-all hover:bg-accent',
+              selectedMail === item.id && 'bg-muted',
+            )
+          "
           @click="selectedMail = item.id"
         >
           <div class="w-full flex flex-col gap-1">
@@ -43,12 +47,7 @@ function getBadgeVariantFromLabel(label: string) {
                 <span v-if="!item.read" class="h-2 w-2 flex rounded-full bg-blue-600" />
               </div>
               <div
-                :class="cn(
-                  'ml-auto text-xs',
-                  selectedMail === item.id
-                    ? 'text-foreground'
-                    : 'text-muted-foreground',
-                )"
+                :class="cn('ml-auto text-xs', selectedMail === item.id ? 'text-foreground' : 'text-muted-foreground')"
               >
                 {{ formatDistanceToNow(new Date(item.date), { addSuffix: true }) }}
               </div>

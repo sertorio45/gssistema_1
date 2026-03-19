@@ -400,15 +400,15 @@ function cancel() {
         <div v-if="activeTab === 'lead'" class="space-y-6">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label for="lead-name">Lead Name <span class="text-destructive">*</span></Label>
-              <Input id="lead-name" v-model="leadForm.name" placeholder="Enter lead name" required />
+              <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
+              <Input id="lead-name" v-model="leadForm.name" placeholder="Nome do lead" required />
             </div>
             
             <div class="space-y-2">
-              <Label for="lead-priority">Priority</Label>
+              <Label for="lead-priority">Prioridade</Label>
               <Select v-model="leadForm.priority">
                 <SelectTrigger id="lead-priority">
-                  <SelectValue placeholder="Select priority" />
+                  <SelectValue placeholder="Selecione a prioridade" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="priority in priorityOptions" :key="priority.value" :value="priority.value">
@@ -419,10 +419,10 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="lead-source">Source</Label>
+              <Label for="lead-source">Origem</Label>
               <Select v-model="leadForm.source">
                 <SelectTrigger id="lead-source">
-                  <SelectValue placeholder="Select source" />
+                  <SelectValue placeholder="Selecione a origem" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="source in leadSources" :key="source.id" :value="source.id">
@@ -436,7 +436,7 @@ function cancel() {
               <Label for="lead-status">Status</Label>
               <Select v-model="leadForm.status">
                 <SelectTrigger id="lead-status">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder="Selecione o status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="status in statusOptions" :key="status.value" :value="status.value">
@@ -447,10 +447,10 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="lead-stage">Sales Stage</Label>
+              <Label for="lead-stage">Estágio de vendas</Label>
               <Select v-model="leadForm.sales_stage_id">
                 <SelectTrigger id="lead-stage">
-                  <SelectValue placeholder="Select stage" />
+                  <SelectValue placeholder="Selecione o estágio" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="stage in salesStages" :key="stage.id" :value="stage.id">
@@ -461,14 +461,14 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="lead-value">Estimated Value</Label>
+              <Label for="lead-value">Valor estimado</Label>
               <Input id="lead-value" v-model="leadForm.value" placeholder="$0.00" type="number" />
             </div>
           </div>
 
           <div class="space-y-2">
-            <Label for="lead-notes">Notes</Label>
-            <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Add notes about the lead" rows="3" />
+            <Label for="lead-notes">Observações</Label>
+            <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Observações sobre o lead" rows="3" />
           </div>
         </div>
 
@@ -476,8 +476,8 @@ function cancel() {
         <div v-if="activeTab === 'contact'" class="space-y-6">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label for="contact-name">Contact Name</Label>
-              <Input id="contact-name" v-model="contactForm.name" placeholder="Enter contact name" />
+              <Label for="contact-name">Nome do contato</Label>
+              <Input id="contact-name" v-model="contactForm.name" placeholder="Nome do contato" />
             </div>
             
             <div class="space-y-2">
@@ -486,19 +486,19 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="contact-phone">Phone</Label>
+              <Label for="contact-phone">Telefone</Label>
               <Input id="contact-phone" v-model="contactForm.phone" placeholder="(00) 00000-0000" />
             </div>
 
             <div class="space-y-2">
-              <Label for="contact-position">Position</Label>
-              <Input id="contact-position" v-model="contactForm.position" placeholder="Contact position" />
+              <Label for="contact-position">Cargo</Label>
+              <Input id="contact-position" v-model="contactForm.position" placeholder="Cargo do contato" />
             </div>
           </div>
 
           <div class="space-y-2">
-            <Label for="contact-notes">Notes</Label>
-            <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Add notes about the contact" rows="3" />
+            <Label for="contact-notes">Observações</Label>
+            <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Observações sobre o contato" rows="3" />
           </div>
         </div>
 
@@ -506,15 +506,15 @@ function cancel() {
         <div v-if="activeTab === 'company'" class="space-y-6">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label for="company-name">Company Name</Label>
-              <Input id="company-name" v-model="companyForm.name" placeholder="Enter company name" />
+              <Label for="company-name">Nome da empresa</Label>
+              <Input id="company-name" v-model="companyForm.name" placeholder="Nome da empresa" />
             </div>
             
             <div class="space-y-2">
-              <Label for="company-segment">Segment</Label>
+              <Label for="company-segment">Segmento</Label>
               <Select v-model="companyForm.segment">
                 <SelectTrigger id="company-segment">
-                  <SelectValue placeholder="Select segment" />
+                  <SelectValue placeholder="Selecione o segmento" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="segment in companySegmentOptions" :key="segment.value" :value="segment.value">
@@ -525,10 +525,10 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="company-size">Company Size</Label>
+              <Label for="company-size">Porte da empresa</Label>
               <Select v-model="companyForm.size">
                 <SelectTrigger id="company-size">
-                  <SelectValue placeholder="Select size" />
+                  <SelectValue placeholder="Selecione o porte" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="size in companySizeOptions" :key="size.value" :value="size.value">
@@ -539,14 +539,14 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="company-website">Website</Label>
+              <Label for="company-website">Site</Label>
               <Input id="company-website" v-model="companyForm.website" placeholder="www.example.com" />
             </div>
           </div>
 
           <div class="space-y-2">
-            <Label for="company-address">Address</Label>
-            <Input id="company-address" v-model="companyForm.address" placeholder="Company address" />
+            <Label for="company-address">Endereço</Label>
+            <Input id="company-address" v-model="companyForm.address" placeholder="Endereço da empresa" />
           </div>
         </div>
 
@@ -554,20 +554,20 @@ function cancel() {
         <div v-if="activeTab === 'meeting'" class="space-y-6">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label for="meeting-date">Date</Label>
+              <Label for="meeting-date">Data</Label>
               <Input id="meeting-date" v-model="meetingForm.date" type="date" />
             </div>
             
             <div class="space-y-2">
-              <Label for="meeting-time">Time</Label>
+              <Label for="meeting-time">Horário</Label>
               <Input id="meeting-time" v-model="meetingForm.time" type="time" />
             </div>
 
             <div class="space-y-2">
-              <Label for="meeting-type">Meeting Type</Label>
+              <Label for="meeting-type">Tipo de reunião</Label>
               <Select v-model="meetingForm.type">
                 <SelectTrigger id="meeting-type">
-                  <SelectValue placeholder="Select type" />
+                  <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="type in meetingTypeOptions" :key="type.value" :value="type.value">
@@ -578,14 +578,14 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
-              <Label for="meeting-duration">Duration (minutes)</Label>
+              <Label for="meeting-duration">Duração (minutos)</Label>
               <Input id="meeting-duration" v-model="meetingForm.duration" type="number" placeholder="30" />
             </div>
           </div>
 
           <div class="space-y-2">
-            <Label for="meeting-agenda">Agenda</Label>
-            <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Describe the meeting agenda" rows="3" />
+            <Label for="meeting-agenda">Pauta</Label>
+            <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Descreva a pauta da reunião" rows="3" />
           </div>
         </div>
 

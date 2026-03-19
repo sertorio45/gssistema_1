@@ -36,4 +36,4 @@ export interface Database {
       // Adicione outras tabelas conforme necessário
     }
   }
-} 
+}

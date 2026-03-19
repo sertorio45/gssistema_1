@@ -50,15 +50,10 @@ onMounted(() => {
         v-for="item in sidebarNavItems"
         :key="item.title"
         variant="ghost"
-        :class="cn(
-          'w-full text-left justify-start items-start',
-          route.path === item.href && 'bg-muted hover:bg-muted',
-        )"
+        :class="cn('w-full text-left justify-start items-start', route.path === item.href && 'bg-muted hover:bg-muted')"
         as-child
       >
-        <NuxtLink
-          :to="item.href"
-        >
+        <NuxtLink :to="item.href">
           {{ item.title }}
         </NuxtLink>
       </Button>

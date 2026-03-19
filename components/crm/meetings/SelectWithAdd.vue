@@ -2,6 +2,7 @@
 import { Check, ChevronDown, Plus } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+
 import Button from '@/components/ui/button/Button.vue'
 import Command from '@/components/ui/command/Command.vue'
 import CommandEmpty from '@/components/ui/command/CommandEmpty.vue'
@@ -58,11 +59,7 @@ const filteredItems = computed(() => {
   if (!search.value)
     return props.items
 
-  return props.items.filter(item =>
-    item[props.itemLabel]
-      .toLowerCase()
-      .includes(search.value.toLowerCase()),
-  )
+  return props.items.filter(item => item[props.itemLabel].toLowerCase().includes(search.value.toLowerCase()))
 })
 
 const selectedItem = computed(() => {
@@ -97,7 +94,7 @@ function openAddDialog() {
 async function createItem() {
   isCreating.value = true
   try {
-    const payload: any = { 
+    const payload: any = {
       ...newItemData.value,
       ...props.defaultValues,
     }
@@ -149,12 +146,7 @@ watch(open, (newValue) => {
     <Label>{{ label }}</Label>
     <Popover v-model:open="open">
       <PopoverTrigger as-child>
-        <Button
-          variant="outline"
-          role="combobox"
-          :aria-expanded="open"
-          class="w-full justify-between"
-        >
+        <Button variant="outline" role="combobox" :aria-expanded="open" class="w-full justify-between">
           <span :class="cn('truncate', !modelValue && 'text-muted-foreground')">
             {{ displayValue }}
           </span>
@@ -163,17 +155,14 @@ watch(open, (newValue) => {
       </PopoverTrigger>
       <PopoverContent class="w-full p-0" align="start">
         <Command>
-          <CommandInput
-            v-model:model-value="search"
-            :placeholder="`Search ${label.toLowerCase()}...`"
-          />
+          <CommandInput v-model:model-value="search" :placeholder="`Buscar ${label.toLowerCase()}...`" />
           <CommandList>
             <CommandEmpty>
               <div class="flex flex-col items-center gap-2 py-4">
-                <span>No {{ label.toLowerCase() }} found.</span>
+                <span>Nenhum {{ label.toLowerCase() }} encontrado.</span>
                 <Button size="sm" @click="openAddDialog">
                   <Plus class="mr-2 h-4 w-4" />
-                  Add New {{ label }}
+                  Adicionar {{ label }}
                 </Button>
               </div>
             </CommandEmpty>
@@ -182,24 +171,18 @@ watch(open, (newValue) => {
                 v-for="item in filteredItems"
                 :key="item[itemValue]"
                 :value="item[itemLabel]"
-                @select="handleSelect(item)"
                 class="cursor-pointer"
+                @select="handleSelect(item)"
               >
-                <Check
-                  :class="cn('mr-2 h-4 w-4', modelValue === item[itemValue] ? 'opacity-100' : 'opacity-0')"
-                />
+                <Check :class="cn('mr-2 h-4 w-4', modelValue === item[itemValue] ? 'opacity-100' : 'opacity-0')" />
                 {{ item[itemLabel] }}
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup>
-              <CommandItem
-                value="add-new"
-                @select="openAddDialog"
-                class="cursor-pointer"
-              >
+              <CommandItem value="add-new" class="cursor-pointer" @select="openAddDialog">
                 <Plus class="mr-2 h-4 w-4" />
-                Add New {{ label }}
+                Adicionar {{ label }}
               </CommandItem>
             </CommandGroup>
           </CommandList>
@@ -211,17 +194,11 @@ watch(open, (newValue) => {
     <Dialog v-model:open="showAddDialog">
       <DialogContent class="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add New {{ label }}</DialogTitle>
-          <DialogDescription>
-            Create a new {{ label.toLowerCase() }} to add to your list.
-          </DialogDescription>
+          <DialogTitle>Adicionar {{ label }}</DialogTitle>
+          <DialogDescription> Crie um novo {{ label.toLowerCase() }} para adicionar à lista. </DialogDescription>
         </DialogHeader>
         <div class="grid gap-4 py-4">
-          <div
-            v-for="field in createFields"
-            :key="field.key"
-            class="space-y-2"
-          >
+          <div v-for="field in createFields" :key="field.key" class="space-y-2">
             <Label :for="field.key">{{ field.label }}</Label>
             <Input
               :id="field.key"
@@ -233,14 +210,11 @@ watch(open, (newValue) => {
         </div>
         <div class="flex justify-end gap-2">
           <Button variant="outline" @click="showAddDialog = false">
-            Cancel
+            Cancelar
           </Button>
-          <Button
-            @click="createItem"
-            :disabled="isCreating"
-          >
-            <span v-if="isCreating">Creating...</span>
-            <span v-else>Create {{ label }}</span>
+          <Button :disabled="isCreating" @click="createItem">
+            <span v-if="isCreating">Criando...</span>
+            <span v-else>Criar {{ label }}</span>
           </Button>
         </div>
       </DialogContent>

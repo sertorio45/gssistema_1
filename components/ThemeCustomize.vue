@@ -46,9 +46,7 @@ watch(radius, () => {
 })
 
 function setClassTheme() {
-  document.body.classList.remove(
-    ...allColors.map(color => `theme-${color}`),
-  )
+  document.body.classList.remove(...allColors.map(color => `theme-${color}`))
   document.body.classList.add(`theme-${theme.value}`)
 }
 
@@ -76,7 +74,10 @@ const colorMode = useColorMode()
             :class="{ 'border-primary border-2': theme === color }"
             @click="setTheme(color)"
           >
-            <span class="h-5 w-5 flex items-center justify-center rounded-full" :style="{ backgroundColor: backgroundColor(color) }">
+            <span
+              class="h-5 w-5 flex items-center justify-center rounded-full"
+              :style="{ backgroundColor: backgroundColor(color) }"
+            >
               <Icon v-if="theme === color" name="i-radix-icons-check" size="16" class="text-white" />
             </span>
             <span class="text-xs capitalize">{{ color }}</span>
@@ -134,6 +135,4 @@ const colorMode = useColorMode()
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

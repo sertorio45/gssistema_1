@@ -3,6 +3,7 @@ import type { MenubarTriggerProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { MenubarTrigger, useForwardProps } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<MenubarTriggerProps & { class?: HTMLAttributes['class'] }>()

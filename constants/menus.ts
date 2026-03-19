@@ -9,20 +9,22 @@ export const navMenu: NavMenu[] = [
         icon: 'i-lucide-briefcase',
         roles: ['admin', 'funcionario', 'cliente'],
         children: [
-          { title: 'Dashboard', icon: 'i-lucide-layout-dashboard', link: '/crm/dashboard' },
-          { title: 'Sales Pipeline', icon: 'i-lucide-trending-up', link: '/crm/pipeline' },
-          { title: 'Companies', icon: 'i-lucide-building', link: '/crm/company' },
-          { title: 'Contacts', icon: 'i-lucide-contact', link: '/crm/contacts' },
-          { title: 'Meetings', icon: 'i-lucide-calendar', link: '/crm/meetings' },
+          { title: 'Painel', icon: 'i-lucide-layout-dashboard', link: '/crm/dashboard' },
+          { title: 'Pipeline de Vendas', icon: 'i-lucide-trending-up', link: '/crm/pipeline' },
+          { title: 'Empresas', icon: 'i-lucide-building', link: '/crm/company' },
+          { title: 'Contatos', icon: 'i-lucide-contact', link: '/crm/contacts' },
+          { title: 'Reuniões', icon: 'i-lucide-calendar', link: '/crm/meetings' },
+          { title: 'Produtos & Serviços', icon: 'i-lucide-package', link: '/crm/products' },
           { title: 'WhatsApp', icon: 'i-lucide-message-circle', link: '/crm/whatsapp', new: true },
           {
             title: 'Configurações',
             icon: 'i-lucide-bar-chart-3',
             link: '/crm/config',
             children: [
-              { title: 'Sources', icon: 'i-lucide-circle', link: '/crm/config/sources' },
-              { title: 'Sales Stages', icon: 'i-lucide-list-checks', link: '/crm/config/sales-stages' },
+              { title: 'Origens', icon: 'i-lucide-circle', link: '/crm/config/sources' },
+              { title: 'Estágios de Vendas', icon: 'i-lucide-list-checks', link: '/crm/config/sales-stages' },
               { title: 'Pipelines', icon: 'i-lucide-layers', link: '/crm/config/pipelines' },
+              { title: 'Produtos', icon: 'i-lucide-package', link: '/crm/config/products' },
             ],
           },
         ],
@@ -37,49 +39,10 @@ export const navMenu: NavMenu[] = [
         icon: 'i-lucide-book-a',
         roles: ['admin', 'funcionario', 'cliente'],
         children: [
-          {
-            title: 'Ver artigos',
-            icon: 'i-lucide-circle',
-            link: '/articles',
-          },
-          {
-            title: 'Criar',
-            icon: 'i-lucide-circle',
-            link: '/articles/new',
-          },
-          {
-            title: 'Categorias',
-            icon: 'i-lucide-circle',
-            link: '/articles/category',
-          },
-          {
-            title: 'Tags',
-            icon: 'i-lucide-circle',
-            link: '/articles/tag',
-          },
-        ],
-      },
-    ],
-  },
-
-  {
-    heading: '',
-    items: [
-      {
-        title: 'Administration',
-        icon: 'i-lucide-lock-keyhole-open',
-        roles: ['admin'],
-        children: [
-          {
-            title: 'Users',
-            icon: 'i-lucide-circle',
-            link: '/admin/users',
-          },
-          {
-            title: 'Tenants',
-            icon: 'i-lucide-circle',
-            link: '/admin/tenants',
-          },
+          { title: 'View articles', icon: 'i-lucide-file-text', link: '/articles' },
+          { title: 'Create', icon: 'i-lucide-plus-circle', link: '/articles/new' },
+          { title: 'Categories', icon: 'i-lucide-folder', link: '/articles/category' },
+          { title: 'Tags', icon: 'i-lucide-tags', link: '/articles/tag' },
         ],
       },
     ],
@@ -457,6 +420,24 @@ export const navMenu: NavMenu[] = [
             icon: 'i-lucide-circle',
             link: '/components/tooltip',
           },
+        ],
+      },
+    ],
+  },
+]
+
+/** Administration: only for admin role, shown in a separate section at the bottom of the sidebar */
+export const navMenuAdmin: NavMenu[] = [
+  {
+    heading: 'Administration',
+    items: [
+      {
+        title: 'Administration',
+        icon: 'i-lucide-lock-keyhole-open',
+        roles: ['admin'],
+        children: [
+          { title: 'Users', icon: 'i-lucide-users', link: '/admin/users' },
+          { title: 'Tenants', icon: 'i-lucide-building-2', link: '/admin/tenants' },
         ],
       },
     ],

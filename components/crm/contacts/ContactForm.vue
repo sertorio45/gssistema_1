@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Contact } from '~/types/crm'
 import { Loader2 } from 'lucide-vue-next'
+
 import { toast } from 'vue-sonner'
 import { useTenant } from '~/composables/useTenant'
 
@@ -21,7 +22,7 @@ const { tenantId } = useTenant()
 
 // State
 const isSubmitting = ref(false)
-const companiesData = ref<Array<{ id: string; name: string }>>([])
+const companiesData = ref<Array<{ id: string, name: string }>>([])
 const isLoadingCompanies = ref(false)
 
 // Form data
@@ -30,7 +31,7 @@ const formData = reactive({
   email: props.initialData?.email || '',
   phone: props.initialData?.phone || '',
   position: props.initialData?.position || '',
-  company_id: props.initialData?.company_id ?? null as string | null,
+  company_id: props.initialData?.company_id ?? (null as string | null),
   notes: props.initialData?.notes || '',
   tags: props.initialData?.tags || [],
 })
@@ -50,12 +51,13 @@ async function fetchCompanies() {
     if (formData.company_id && !companiesData.value.find(c => c.id === formData.company_id)) {
       try {
         const company = await $fetch(`/api/crm/company/${formData.company_id}`, {
-          query: { tenant_id: tenantId.value }
+          query: { tenant_id: tenantId.value },
         })
         if (company?.data && !companiesData.value.find(c => c.id === company.data.id)) {
           companiesData.value.push(company.data)
         }
-      } catch (e) {
+      }
+      catch (e) {
         // ignora se não encontrar
       }
     }
@@ -76,30 +78,30 @@ onMounted(() => {
 // Handle form submission
 async function handleSubmit() {
   if (!formData.name.trim()) {
-    toast.error('Contact name is required')
+    toast.error('Nome do contato é obrigatório')
     return
   }
 
   if (!formData.email.trim()) {
-    toast.error('Email is required')
+    toast.error('E-mail é obrigatório')
     return
   }
 
   // Validação de email
-  if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-    toast.error('Please enter a valid email address')
+  if (!/^\S[^\s@]*@\S[^\s.]*\.\S+$/.test(formData.email)) {
+    toast.error('Informe um e-mail válido')
     return
   }
 
   // Validação de telefone
   const phoneDigits = formData.phone.replace(/\D/g, '')
   if (formData.phone && phoneDigits.length < 10) {
-    toast.error('Please enter a valid phone number (at least 10 digits)')
+    toast.error('Informe um telefone válido (mínimo 10 dígitos)')
     return
   }
 
   if (!tenantId.value) {
-    toast.error('No tenant ID available')
+    toast.error('Nenhum tenant disponível')
     return
   }
 
@@ -117,7 +119,7 @@ async function handleSubmit() {
         method: 'PUT',
         body: payload,
       })
-      toast.success('Contact updated successfully')
+      toast.success('Contato atualizado com sucesso')
     }
     else {
       // Create new contact
@@ -125,13 +127,13 @@ async function handleSubmit() {
         method: 'POST',
         body: payload,
       })
-      toast.success('Contact created successfully')
+      toast.success('Contato criado com sucesso')
     }
 
     emit('success')
   }
   catch (error: any) {
-    toast.error(error?.data?.message || 'Failed to save contact')
+    toast.error(error?.data?.message || 'Erro ao salvar contato')
   }
   finally {
     isSubmitting.value = false
@@ -155,84 +157,65 @@ function removeTag(index: number) {
 </script>
 
 <template>
-  <form id="contact-form" @submit.prevent="handleSubmit" class="space-y-6">
+  <form id="contact-form" class="space-y-6" @submit.prevent="handleSubmit">
     <!-- Contact Name -->
     <div class="space-y-2">
-      <Label for="name">Contact Name <span class="text-destructive">*</span></Label>
-      <Input
-        id="name"
-        v-model="formData.name"
-        placeholder="Enter contact name"
-        required
-      />
+      <Label for="name">Nome do contato <span class="text-destructive">*</span></Label>
+      <Input id="name" v-model="formData.name" placeholder="Nome do contato" required />
     </div>
 
     <!-- Email and Phone -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div class="space-y-2">
         <Label for="email">Email <span class="text-destructive">*</span></Label>
-        <Input
-          id="email"
-          v-model="formData.email"
-          placeholder="contact@example.com"
-          type="email"
-          required
-        />
+        <Input id="email" v-model="formData.email" placeholder="contact@example.com" type="email" required />
       </div>
 
       <div class="space-y-2">
-        <Label for="phone">Phone</Label>
+        <Label for="phone">Telefone</Label>
         <Input
           id="phone"
           v-model="formData.phone"
+          v-maska="{ mask: ['(##) #####-####', '(##) ####-####'] }"
           placeholder="(00) 00000-0000"
           type="tel"
-          v-maska="{ mask: ['(##) #####-####', '(##) ####-####'] }"
         />
       </div>
     </div>
 
     <!-- Position and Company -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div class="space-y-2">
-        <Label for="position">Position</Label>
-        <Input
-          id="position"
-          v-model="formData.position"
-          placeholder="e.g., CEO, CTO, Manager"
-        />
+        <Label for="position">Cargo</Label>
+        <Input id="position" v-model="formData.position" placeholder="ex.: CEO, CTO, Gerente" />
       </div>
 
       <div class="space-y-2">
-        <Label for="company">Company</Label>
+        <Label for="company">Empresa</Label>
         <Select v-model="formData.company_id" :disabled="isLoadingCompanies">
           <SelectTrigger>
-            <SelectValue placeholder="Select a company" />
+            <SelectValue placeholder="Selecione uma empresa" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem
-              v-for="company in companiesData"
-              :key="company.id"
-              :value="company.id"
-            >
+            <SelectItem v-for="company in companiesData" :key="company.id" :value="company.id">
               {{ company.name }}
             </SelectItem>
           </SelectContent>
         </Select>
         <div v-if="isLoadingCompanies" class="flex items-center text-sm text-muted-foreground">
           <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-          Loading companies...
+          Carregando empresas...
         </div>
       </div>
     </div>
 
     <!-- Notes -->
     <div class="space-y-2">
-      <Label for="notes">Notes</Label>
+      <Label for="notes">Observações</Label>
       <Textarea
         id="notes"
         v-model="formData.notes"
-        placeholder="Add any additional notes about this contact"
+        placeholder="Observações sobre o contato"
         :rows="3"
       />
     </div>
@@ -242,36 +225,21 @@ function removeTag(index: number) {
       <Label>Tags</Label>
       <div class="space-y-2">
         <div class="flex gap-2">
-          <Input
-            v-model="newTag"
-            placeholder="Add a tag"
-            @keyup.enter="addTag"
-          />
+          <Input v-model="newTag" placeholder="Adicionar tag" @keyup.enter="addTag" />
           <Button type="button" variant="outline" size="sm" @click="addTag">
-            Add
+            Adicionar
           </Button>
         </div>
-        
+
         <div v-if="formData.tags.length > 0" class="flex flex-wrap gap-2">
-          <Badge
-            v-for="(tag, index) in formData.tags"
-            :key="index"
-            variant="outline"
-            class="text-xs"
-          >
+          <Badge v-for="(tag, index) in formData.tags" :key="index" variant="outline" class="text-xs">
             {{ tag }}
-            <button
-              type="button"
-              class="ml-1 text-muted-foreground hover:text-destructive"
-              @click="removeTag(index)"
-            >
+            <button type="button" class="ml-1 text-muted-foreground hover:text-destructive" @click="removeTag(index)">
               ×
             </button>
           </Badge>
         </div>
       </div>
     </div>
-
-
   </form>
-</template> 
+</template>

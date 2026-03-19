@@ -1,25 +1,30 @@
 <script setup lang="ts">
-const stepsBasic = [{
-  step: 1,
-  title: 'Address',
-  description: 'Add your address here',
-  icon: 'i-lucide-book-user',
-}, {
-  step: 2,
-  title: 'Shipping',
-  description: 'Set your preferred shipping method',
-  icon: 'i-lucide-truck',
-}, {
-  step: 3,
-  title: 'Payment',
-  description: 'Add any payment information you have',
-  icon: 'i-lucide-credit-card',
-}, {
-  step: 4,
-  title: 'Checkout',
-  description: 'Confirm your order',
-  icon: 'i-lucide-check',
-}]
+const stepsBasic = [
+  {
+    step: 1,
+    title: 'Address',
+    description: 'Add your address here',
+    icon: 'i-lucide-book-user',
+  },
+  {
+    step: 2,
+    title: 'Shipping',
+    description: 'Set your preferred shipping method',
+    icon: 'i-lucide-truck',
+  },
+  {
+    step: 3,
+    title: 'Payment',
+    description: 'Add any payment information you have',
+    icon: 'i-lucide-credit-card',
+  },
+  {
+    step: 4,
+    title: 'Checkout',
+    description: 'Confirm your order',
+    icon: 'i-lucide-check',
+  },
+]
 
 const steps = [
   {
@@ -53,21 +58,13 @@ const steps = [
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/stepper"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/stepper" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/stepper"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/stepper" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -81,12 +78,7 @@ const steps = [
         <CardContent>
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
             <Stepper>
-              <StepperItem
-                v-for="item in stepsBasic"
-                :key="item.step"
-                class="basis-1/4"
-                :step="item.step"
-              >
+              <StepperItem v-for="item in stepsBasic" :key="item.step" class="basis-1/4" :step="item.step">
                 <StepperTrigger>
                   <StepperIndicator>
                     <Icon :name="item.icon" class="h-4 w-4" />
@@ -100,10 +92,7 @@ const steps = [
                     </StepperDescription>
                   </div>
                 </StepperTrigger>
-                <StepperSeparator
-                  v-if="item.step !== stepsBasic[stepsBasic.length - 1].step"
-                  class="h-px w-full"
-                />
+                <StepperSeparator v-if="item.step !== stepsBasic[stepsBasic.length - 1].step" class="h-px w-full" />
               </StepperItem>
             </Stepper>
           </div>
@@ -215,6 +204,4 @@ const steps = [
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

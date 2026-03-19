@@ -2,8 +2,10 @@
 import type { Mail } from './data/mails'
 import type { LinkProp } from '~/components/mail/Nav.vue'
 import { useMediaQuery } from '@vueuse/core'
+
 import { Search } from 'lucide-vue-next'
 import { ConfigProvider } from 'radix-vue'
+
 import { cn } from '~/lib/utils'
 
 const props = withDefaults(defineProps<MailProps>(), {
@@ -36,14 +38,15 @@ const filteredMailList = computed(() => {
   if (!searchValue) {
     output = props.mails
   }
-
   else {
     output = props.mails.filter((item) => {
-      return item.name.includes(debouncedSearch.value)
+      return (
+        item.name.includes(debouncedSearch.value)
         || item.email.includes(debouncedSearch.value)
         || item.name.includes(debouncedSearch.value)
         || item.subject.includes(debouncedSearch.value)
         || item.text.includes(debouncedSearch.value)
+      )
     })
   }
 
@@ -136,9 +139,12 @@ function onExpand() {
 
 const defaultCollapse = useMediaQuery('(max-width: 768px)')
 
-watch(() => defaultCollapse.value, () => {
-  isCollapsed.value = defaultCollapse.value
-})
+watch(
+  () => defaultCollapse.value,
+  () => {
+    isCollapsed.value = defaultCollapse.value
+  },
+)
 </script>
 
 <template>
@@ -164,15 +170,9 @@ watch(() => defaultCollapse.value, () => {
             <MailAccountSwitcher :is-collapsed="isCollapsed" :accounts="accounts" />
           </div>
           <Separator />
-          <MailNav
-            :is-collapsed="isCollapsed"
-            :links="links"
-          />
+          <MailNav :is-collapsed="isCollapsed" :links="links" />
           <Separator />
-          <MailNav
-            :is-collapsed="isCollapsed"
-            :links="links2"
-          />
+          <MailNav :is-collapsed="isCollapsed" :links="links2" />
         </ResizablePanel>
         <ResizableHandle id="resize-handle-1" with-handle />
         <ResizablePanel id="resize-panel-2" :default-size="defaultLayout[1]" :min-size="30">

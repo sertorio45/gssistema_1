@@ -15,16 +15,19 @@ const sat = ref(42)
 const light = ref(50)
 
 // Atualiza HSL ao receber nova cor
-watch(() => props.modelValue, (val) => {
-  if (!val) {
-    return
-  }
-  local.value = val
-  const [h, s, l] = hexToHsl(val)
-  hue.value = h
-  sat.value = s
-  light.value = l
-})
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (!val) {
+      return
+    }
+    local.value = val
+    const [h, s, l] = hexToHsl(val)
+    hue.value = h
+    sat.value = s
+    light.value = l
+  },
+)
 
 // Atualiza cor ao mexer nos sliders/inputs
 watch([hue, sat, light], ([h, s, l]) => {
@@ -89,7 +92,8 @@ function hexToHsl(hex: string): [number, number, number] {
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)]
 }
 function hslToHex(h: number, s: number, l: number) {
-  s /= 100; l /= 100
+  s /= 100
+  l /= 100
   const k = (n: number) => (n + h / 30) % 12
   const a = s * Math.min(l, 1 - l)
   const f = (n: number) => {
@@ -113,30 +117,32 @@ function onSatLightClick(e: MouseEvent) {
   sat.value = s
   light.value = l
 }
-
 </script>
 
 <template>
   <div class="relative inline-block">
     <button
-      class="w-10 h-10 rounded border border-gray-300 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+      class="h-10 w-10 flex items-center justify-center border border-gray-300 rounded transition-all focus:outline-none focus:ring-2 focus:ring-primary"
       :style="{ background: local }"
       :aria-label="`Selected color: ${local}`"
       :disabled="props.disabled"
-      @click.prevent="showPopover = !showPopover"
       type="button"
+      @click.prevent="showPopover = !showPopover"
     >
       <span class="sr-only">Open color picker</span>
     </button>
-    <div v-if="showPopover" class="absolute z-50 mt-2 bg-zinc-900 border border-zinc-800 rounded-lg shadow-lg p-4 min-w-[260px] max-w-xs flex flex-col gap-3">
+    <div
+      v-if="showPopover"
+      class="absolute z-50 mt-2 max-w-xs min-w-[260px] flex flex-col gap-3 border border-zinc-800 rounded-lg bg-zinc-900 p-4 shadow-lg"
+    >
       <!-- Área de saturação/luminosidade -->
       <div
-        class="w-full h-28 rounded border border-zinc-700 cursor-crosshair relative mb-2"
+        class="relative mb-2 h-28 w-full cursor-crosshair border border-zinc-700 rounded"
         :style="{ background: satLightBg }"
         @click="onSatLightClick"
       >
         <div
-          class="absolute w-4 h-4 rounded-full border-2 border-white shadow"
+          class="absolute h-4 w-4 border-2 border-white rounded-full shadow"
           :style="{
             left: `calc(${sat}% - 8px)`,
             top: `calc(${100 - light}% - 8px)`,
@@ -147,20 +153,41 @@ function onSatLightClick(e: MouseEvent) {
       </div>
       <!-- Slider de hue -->
       <input
+        v-model="hue"
         type="range"
         min="0"
         max="360"
         step="1"
-        v-model="hue"
-        class="w-full accent-[var(--primary)] mb-2"
+        class="mb-2 w-full accent-[var(--primary)]"
         :style="{ background: 'linear-gradient(90deg, red, yellow, lime, cyan, blue, magenta, red)' }"
-      />
+      >
       <!-- Inputs HSL -->
-      <div class="flex gap-2 items-center mb-2">
-        <span class="bg-zinc-800 text-xs px-2 py-1 rounded">HSL</span>
-        <input type="number" min="0" max="360" :value="hue" @input="onInputH" class="w-12 px-1 py-1 rounded text-xs bg-zinc-800 border border-zinc-700 text-white" />
-        <input type="number" min="0" max="100" :value="sat" @input="onInputS" class="w-10 px-1 py-1 rounded text-xs bg-zinc-800 border border-zinc-700 text-white" />
-        <input type="number" min="0" max="100" :value="light" @input="onInputL" class="w-10 px-1 py-1 rounded text-xs bg-zinc-800 border border-zinc-700 text-white" />
+      <div class="mb-2 flex items-center gap-2">
+        <span class="rounded bg-zinc-800 px-2 py-1 text-xs">HSL</span>
+        <input
+          type="number"
+          min="0"
+          max="360"
+          :value="hue"
+          class="w-12 border border-zinc-700 rounded bg-zinc-800 px-1 py-1 text-xs text-white"
+          @input="onInputH"
+        >
+        <input
+          type="number"
+          min="0"
+          max="100"
+          :value="sat"
+          class="w-10 border border-zinc-700 rounded bg-zinc-800 px-1 py-1 text-xs text-white"
+          @input="onInputS"
+        >
+        <input
+          type="number"
+          min="0"
+          max="100"
+          :value="light"
+          class="w-10 border border-zinc-700 rounded bg-zinc-800 px-1 py-1 text-xs text-white"
+          @input="onInputL"
+        >
       </div>
     </div>
   </div>
@@ -174,4 +201,4 @@ button[disabled] {
 .absolute {
   position: absolute;
 }
-</style> 
+</style>

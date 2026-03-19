@@ -1,25 +1,26 @@
 <script setup lang="ts">
-import { computed, ref, watch, onMounted } from 'vue'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
-import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
+import { computed, onMounted, ref, watch } from 'vue'
+
 import { salesStageColumns } from '~/components/crm/config/salesStageColumns'
+import SalesStageForm from '~/components/crm/config/SalesStageForm.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
-import DataTable from '~/components/ui/table/DataTable.vue'
-import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
-import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import Dialog from '~/components/ui/dialog/Dialog.vue'
 import DialogContent from '~/components/ui/dialog/DialogContent.vue'
 import DialogFooter from '~/components/ui/dialog/DialogFooter.vue'
 import DialogHeader from '~/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
-import SalesStageForm from '~/components/crm/config/SalesStageForm.vue'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
-import { supabase } from '~/lib/supabase'
-import { toast } from 'react-hot-toast'
+import DataTableViewOptions from '~/components/tasks/components/DataTableViewOptions.vue'
+import DataTable from '~/components/ui/table/DataTable.vue'
+import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
+import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import { toast } from '~/components/ui/toast'
+import { useAuth } from '~/composables/useAuth'
+import { useTenant } from '~/composables/useTenant'
+import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
 const { tenantId, setTenantFromJWT, tenants, setCurrentTenantById, listTenants } = useTenant()
 const { currentRole } = useAuth()
@@ -37,9 +38,9 @@ const {
   data: stagesRaw,
   pending,
   refresh: refreshStages,
-} = await useAsyncData('crm-sales-stages', () => $fetch('/api/crm/sales_stage'), { watch: [tenantId] })
+} = await useAsyncData('crm-sales-stages', () => $fetch('/api/crm/sales_stage', { query: { tenant_id: tenantId.value } }), { watch: [tenantId] })
 
-const stagesArray = computed(() => Array.isArray(stagesRaw.value) ? stagesRaw.value : [])
+const stagesArray = computed(() => (Array.isArray(stagesRaw.value) ? stagesRaw.value : []))
 const { filteredData: stagesByTenant } = useTenantRoleFilter<any>(stagesArray, 'tenant_id')
 
 const filteredStages = computed(() => {
@@ -74,7 +75,8 @@ function randomColor(): string {
 }
 
 function hslToHex(h: number, s: number, l: number): string {
-  s /= 100; l /= 100
+  s /= 100
+  l /= 100
   const k = (n: number) => (n + h / 30) % 12
   const a = s * Math.min(l, 1 - l)
   const f = (n: number) => {
@@ -120,12 +122,11 @@ async function handleFormSubmit(_data: any) {
   // Validação de nome duplicado (case insensitive)
   const nameToCheck = (_data.name || '').trim().toLowerCase()
   const isEdit = formMode.value === 'edit'
-  const alreadyExists = filteredStages.value.some(stage =>
-    stage.name?.trim().toLowerCase() === nameToCheck &&
-    (!isEdit || stage.id !== formModel.value.id)
+  const alreadyExists = filteredStages.value.some(
+    stage => stage.name?.trim().toLowerCase() === nameToCheck && (!isEdit || stage.id !== formModel.value.id),
   )
   if (alreadyExists) {
-    nameError.value = 'A stage with this name already exists.'
+    nameError.value = 'Já existe um estágio com este nome.'
     return
   }
 
@@ -163,7 +164,7 @@ async function handleDeleteConfirm() {
     return
   }
   showDeleteDialog.value = false
-  const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : (tenantId.value || '')
+  const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : tenantId.value || ''
   await useFetch(`/api/crm/sales_stage/${stageToDelete.value.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })
   stageToDelete.value = null
   await refreshStages()
@@ -175,15 +176,18 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
-  const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : (tenantId.value || '')
+  const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : tenantId.value || ''
   const idsToDelete = selectedItems.value.filter(item => item && !item.is_default).map(item => item.id)
-  await Promise.all(idsToDelete.map(id => useFetch(`/api/crm/sales_stage/${id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })))
+  await Promise.all(
+    idsToDelete.map(id => useFetch(`/api/crm/sales_stage/${id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })),
+  )
   selectedItems.value = []
   await refreshStages()
 }
 
 async function fetchSalesStages() {
-  if (!tenantId.value) return
+  if (!tenantId.value)
+    return
 
   isLoading.value = true
   try {
@@ -195,12 +199,18 @@ async function fetchSalesStages() {
 
     if (error) {
       console.error('Error fetching sales stages:', error)
-      toast.error('Failed to load sales stages')
+      toast({
+        title: 'Error',
+        description: 'Failed to load sales stages',
+        variant: 'destructive',
+      })
       salesStages.value = []
-    } else {
+    }
+    else {
       salesStages.value = data || []
     }
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }
@@ -231,25 +241,33 @@ watch(currentRole, async (role) => {
   }
 })
 
-watch(tenantId, (val) => {
-  if (val) {
-    refreshStages()
-  }
-  showDialog.value = false
-  formModel.value = { name: '', order: 1, color: '#cccccc', description: '', is_default: false }
-}, { immediate: true })
+watch(
+  tenantId,
+  (val) => {
+    if (val) {
+      refreshStages()
+    }
+    showDialog.value = false
+    formModel.value = { name: '', order: 1, color: '#cccccc', description: '', is_default: false }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <div>
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">Sales Stages</h1>
-        <p class="text-muted-foreground">Manage all sales stages for your CRM pipeline.</p>
+        <h1 class="text-2xl font-bold tracking-tight">
+          Estágios de Vendas
+        </h1>
+        <p class="text-muted-foreground">
+          Gerencie todos os estágios de vendas do seu pipeline CRM.
+        </p>
       </div>
       <Button class="bg-primary hover:bg-primary/90" @click="handleCreate">
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-        New Stage
+        Novo Estágio
       </Button>
     </div>
     <div v-if="isLoading" class="space-y-4">
@@ -268,11 +286,15 @@ watch(tenantId, (val) => {
       <DataTable
         :data="filteredStages"
         :columns="salesStageColumns"
-        @selection-change="updateSelectedItems"
         :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
+        @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
-          <DataTableToolbar :table="table" filter-column="name" placeholder="Filter stages..." />
+          <DataTableToolbar :table="table" filter-column="name" placeholder="Filtrar estágios...">
+          <template #options>
+            <DataTableViewOptions :table="table" />
+          </template>
+        </DataTableToolbar>
         </template>
         <template #pagination="{ table }">
           <DataTablePagination :table="table" />
@@ -288,7 +310,7 @@ watch(tenantId, (val) => {
     <Dialog :open="showDialog" @update:open="showDialog = $event">
       <DialogContent class="max-w-lg w-full">
         <DialogHeader>
-          <DialogTitle>{{ formMode === 'edit' ? 'Edit Stage' : 'New Stage' }}</DialogTitle>
+          <DialogTitle>{{ formMode === 'edit' ? 'Editar Estágio' : 'Novo Estágio' }}</DialogTitle>
         </DialogHeader>
         <SalesStageForm
           v-model="formModel"
@@ -298,31 +320,52 @@ watch(tenantId, (val) => {
           @submit="handleFormSubmit"
         />
         <DialogFooter>
-          <Button variant="outline" @click="showDialog = false">Cancel</Button>
+          <Button variant="outline" @click="showDialog = false">
+            Cancelar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
     <!-- Dialog de deletar -->
     <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">Delete Stage</h2>
-        <p class="mb-4">Are you sure you want to delete the stage "{{ stageToDelete?.name }}"? This action cannot be undone.</p>
+        <h2 class="mb-2 text-lg font-bold">
+          Excluir estágio
+        </h2>
+        <p class="mb-4">
+          Tem certeza que deseja excluir o estágio "{{ stageToDelete?.name }}"? Esta ação não pode ser desfeita.
+        </p>
         <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">Cancel</Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">Delete</Button>
+          <Button variant="outline" @click="showDeleteDialog = false">
+            Cancelar
+          </Button>
+          <Button variant="destructive" @click="handleDeleteConfirm">
+            Excluir
+          </Button>
         </div>
       </div>
     </div>
     <!-- Dialog de deletar múltiplos -->
-    <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div
+      v-if="showMultiDeleteDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+    >
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">Delete Multiple Stages</h2>
-        <p class="mb-4">Are you sure you want to delete {{ selectedItems.length }} stages? This action cannot be undone.</p>
+        <h2 class="mb-2 text-lg font-bold">
+          Excluir vários estágios
+        </h2>
+        <p class="mb-4">
+          Tem certeza que deseja excluir {{ selectedItems.length }} estágios? Esta ação não pode ser desfeita.
+        </p>
         <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">Cancel</Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">Delete All</Button>
+          <Button variant="outline" @click="showMultiDeleteDialog = false">
+            Cancelar
+          </Button>
+          <Button variant="destructive" @click="handleMultiDeleteConfirm">
+            Excluir todos
+          </Button>
         </div>
       </div>
     </div>
   </div>
-</template> 
+</template>

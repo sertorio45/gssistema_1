@@ -2,8 +2,8 @@
 import { dashboardKPI } from '~/data/crm-mock'
 
 definePageMeta({
-  title: 'CRM Dashboard',
-  description: 'Overview of your sales performance and key metrics',
+  title: 'Painel CRM',
+  description: 'Visão geral do desempenho de vendas e métricas principais',
 })
 
 const kpi = ref(dashboardKPI)
@@ -72,27 +72,27 @@ function getStageColor(stage: string) {
 // Mock recent activity data
 const recentActivity = [
   {
-    title: 'New lead created',
-    description: 'João Silva from TechCorp Solutions',
-    time: '2 hours ago',
+    title: 'Novo lead criado',
+    description: 'João Silva da TechCorp Solutions',
+    time: 'Há 2 horas',
     icon: 'lucide:user-plus',
   },
   {
-    title: 'Meeting scheduled',
-    description: 'Demo with Digital Marketing Pro',
-    time: '4 hours ago',
+    title: 'Reunião agendada',
+    description: 'Demo com Digital Marketing Pro',
+    time: 'Há 4 horas',
     icon: 'lucide:calendar',
   },
   {
-    title: 'Deal won',
+    title: 'Negócio ganho',
     description: 'Retail Solutions - R$ 85.000',
-    time: '1 day ago',
+    time: 'Há 1 dia',
     icon: 'lucide:check-circle',
   },
   {
-    title: 'Proposal sent',
-    description: 'E-commerce Plus custom solution',
-    time: '2 days ago',
+    title: 'Proposta enviada',
+    description: 'Solução personalizada E-commerce Plus',
+    time: 'Há 2 dias',
     icon: 'lucide:mail',
   },
 ]
@@ -103,93 +103,103 @@ const recentActivity = [
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">CRM Dashboard</h1>
-        <p class="text-muted-foreground">Overview of your sales performance and key metrics</p>
+        <h1 class="text-2xl font-bold">
+          Painel CRM
+        </h1>
+        <p class="text-muted-foreground">
+          Visão geral do desempenho de vendas e métricas principais
+        </p>
       </div>
       <div class="flex gap-2">
         <Button variant="outline">
           <Icon name="lucide:download" class="mr-2 h-4 w-4" />
-          Export
+          Exportar
         </Button>
         <Button>
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-          New Lead
+          Novo Lead
         </Button>
       </div>
     </div>
 
     <!-- KPI Cards -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Total Leads
+            Total de Leads
           </CardTitle>
           <Icon name="lucide:users" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ kpi.totalLeads }}</div>
+          <div class="text-2xl font-bold">
+            {{ kpi.totalLeads }}
+          </div>
           <p class="text-xs text-muted-foreground">
-            +{{ kpi.newLeadsThisMonth }} new this month
+            +{{ kpi.newLeadsThisMonth }} novos este mês
           </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Total Revenue
+            Receita Total
           </CardTitle>
           <Icon name="lucide:dollar-sign" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ formattedRevenue }}</div>
+          <div class="text-2xl font-bold">
+            {{ formattedRevenue }}
+          </div>
           <p class="text-xs text-muted-foreground">
-            {{ formattedMonthlyRevenue }} this month
+            {{ formattedMonthlyRevenue }} este mês
           </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Conversion Rate
+            Taxa de Conversão
           </CardTitle>
           <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ kpi.conversionRate }}%</div>
+          <div class="text-2xl font-bold">
+            {{ kpi.conversionRate }}%
+          </div>
           <p class="text-xs text-muted-foreground">
-            +2.1% from last month
+            +2,1% em relação ao mês passado
           </p>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Average Deal Size
+            Ticket Médio
           </CardTitle>
           <Icon name="lucide:target" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ formattedAverageDeal }}</div>
+          <div class="text-2xl font-bold">
+            {{ formattedAverageDeal }}
+          </div>
           <p class="text-xs text-muted-foreground">
-            +5.2% from last month
+            +5,2% em relação ao mês passado
           </p>
         </CardContent>
       </Card>
     </div>
 
     <!-- Charts Row -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+    <div class="grid gap-4 lg:grid-cols-7 md:grid-cols-2">
       <!-- Revenue Chart -->
       <Card class="col-span-4">
         <CardHeader>
-          <CardTitle>Revenue Overview</CardTitle>
-          <CardDescription>
-            Monthly revenue for the last 6 months
-          </CardDescription>
+          <CardTitle>Visão da Receita</CardTitle>
+          <CardDescription>Receita mensal dos últimos 6 meses</CardDescription>
         </CardHeader>
         <CardContent class="pl-2">
           <!-- Substituído por tabela simples -->
@@ -197,19 +207,27 @@ const recentActivity = [
             <table class="w-full">
               <thead>
                 <tr>
-                  <th class="text-left p-2">Month</th>
-                  <th class="text-right p-2">Revenue</th>
+                  <th class="p-2 text-left">
+                    Mês
+                  </th>
+                  <th class="p-2 text-right">
+                    Receita
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="item in revenueChartData" :key="item.month" class="border-b">
-                  <td class="p-2">{{ item.month }}</td>
-                  <td class="text-right p-2">
-                    {{ new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                      minimumFractionDigits: 0,
-                    }).format(item.revenue) }}
+                  <td class="p-2">
+                    {{ item.month }}
+                  </td>
+                  <td class="p-2 text-right">
+                    {{
+                      new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                        minimumFractionDigits: 0,
+                      }).format(item.revenue)
+                    }}
                   </td>
                 </tr>
               </tbody>
@@ -221,24 +239,22 @@ const recentActivity = [
       <!-- Pipeline Overview -->
       <Card class="col-span-3">
         <CardHeader>
-          <CardTitle>Sales Pipeline</CardTitle>
-          <CardDescription>
-            Leads distribution by stage
-          </CardDescription>
+          <CardTitle>Pipeline de Vendas</CardTitle>
+          <CardDescription>Distribuição de leads por estágio</CardDescription>
         </CardHeader>
         <CardContent>
           <!-- Substituído por tabela simples -->
           <div class="h-[300px] overflow-auto">
             <div v-for="item in pipelineChartData" :key="item.stage" class="mb-3">
-              <div class="flex justify-between mb-1">
+              <div class="mb-1 flex justify-between">
                 <span class="text-sm">{{ item.stage }}</span>
                 <span class="text-sm">{{ item.count }} leads</span>
               </div>
-              <div class="w-full bg-muted rounded-full h-2">
+              <div class="h-2 w-full rounded-full bg-muted">
                 <div
                   class="h-2 rounded-full"
                   :style="{ width: `${(item.count / kpi.totalLeads) * 100}%`, backgroundColor: item.fill }"
-                ></div>
+                />
               </div>
             </div>
           </div>
@@ -247,28 +263,26 @@ const recentActivity = [
     </div>
 
     <!-- Bottom Row -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+    <div class="grid gap-4 lg:grid-cols-7 md:grid-cols-2">
       <!-- Top Sources Chart -->
       <Card class="col-span-4">
         <CardHeader>
-          <CardTitle>Lead Sources Performance</CardTitle>
-          <CardDescription>
-            Number of leads by source
-          </CardDescription>
+          <CardTitle>Desempenho por Origem</CardTitle>
+          <CardDescription>Quantidade de leads por origem</CardDescription>
         </CardHeader>
         <CardContent>
           <!-- Substituído por tabela simples -->
           <div class="h-[300px] overflow-auto">
             <div v-for="item in leadSourcesChartData" :key="item.source" class="mb-3">
-              <div class="flex justify-between mb-1">
+              <div class="mb-1 flex justify-between">
                 <span class="text-sm capitalize">{{ item.source }}</span>
                 <span class="text-sm">{{ item.count }} leads</span>
               </div>
-              <div class="w-full bg-muted rounded-full h-2">
+              <div class="h-2 w-full rounded-full bg-muted">
                 <div
-                  class="bg-primary h-2 rounded-full"
+                  class="h-2 rounded-full bg-primary"
                   :style="{ width: `${(item.count / kpi.topSources.reduce((sum, s) => sum + s.count, 0)) * 100}%` }"
-                ></div>
+                />
               </div>
             </div>
           </div>
@@ -278,32 +292,41 @@ const recentActivity = [
       <!-- Top Performers -->
       <Card class="col-span-3">
         <CardHeader>
-          <CardTitle>Top Performers</CardTitle>
-          <CardDescription>
-            Team members with best sales performance
-          </CardDescription>
+          <CardTitle>Melhores Performers</CardTitle>
+          <CardDescription>Membros da equipe com melhor desempenho em vendas</CardDescription>
         </CardHeader>
         <CardContent>
           <div class="space-y-4">
             <div v-for="performer in kpi.topPerformers" :key="performer.name" class="flex items-center">
-              <Avatar class="h-9 w-9 mr-3">
-                <AvatarFallback>{{ performer.name.split(' ').map(n => n[0]).join('') }}</AvatarFallback>
+              <Avatar class="mr-3 h-9 w-9">
+                <AvatarFallback>
+                  {{
+                    performer.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                  }}
+                </AvatarFallback>
               </Avatar>
               <div class="flex-1 space-y-1">
                 <div class="flex items-center justify-between">
-                  <p class="text-sm font-medium">{{ performer.name }}</p>
+                  <p class="text-sm font-medium">
+                    {{ performer.name }}
+                  </p>
                   <div class="text-right">
                     <p class="text-sm font-medium">
-                      {{ new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                        minimumFractionDigits: 0,
-                      }).format(performer.revenue) }}
+                      {{
+                        new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL',
+                          minimumFractionDigits: 0,
+                        }).format(performer.revenue)
+                      }}
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center text-muted-foreground">
-                  <span class="text-xs">{{ performer.deals }} deals</span>
+                  <span class="text-xs">{{ performer.deals }} negócios</span>
                 </div>
               </div>
             </div>
@@ -315,26 +338,32 @@ const recentActivity = [
     <!-- Recent Activity -->
     <Card>
       <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Latest actions and updates</CardDescription>
+        <CardTitle>Atividade Recente</CardTitle>
+        <CardDescription>Últimas ações e atualizações</CardDescription>
       </CardHeader>
       <CardContent>
         <div class="space-y-8">
           <div v-for="(activity, i) in recentActivity" :key="i" class="flex">
             <div class="mr-4 flex flex-col items-center">
-              <div class="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+              <div class="h-8 w-8 flex items-center justify-center rounded-full bg-muted">
                 <Icon :name="activity.icon" class="h-4 w-4" />
               </div>
-              <div class="h-full w-px bg-muted" v-if="i !== recentActivity.length - 1" />
+              <div v-if="i !== recentActivity.length - 1" class="h-full w-px bg-muted" />
             </div>
             <div class="space-y-1">
-              <p class="text-sm font-medium leading-none">{{ activity.title }}</p>
-              <p class="text-sm text-muted-foreground">{{ activity.description }}</p>
-              <p class="text-xs text-muted-foreground">{{ activity.time }}</p>
+              <p class="text-sm font-medium leading-none">
+                {{ activity.title }}
+              </p>
+              <p class="text-sm text-muted-foreground">
+                {{ activity.description }}
+              </p>
+              <p class="text-xs text-muted-foreground">
+                {{ activity.time }}
+              </p>
             </div>
           </div>
         </div>
       </CardContent>
     </Card>
   </div>
-</template> 
+</template>

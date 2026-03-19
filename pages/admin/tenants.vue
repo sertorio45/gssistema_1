@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Tenant } from '@/components/users/tenant-columns'
+
 import { Icon } from '#components'
 import { useSupabaseClient } from '#imports'
+
 import { onMounted, ref } from 'vue'
 import {
   AlertDialog,
@@ -20,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import DataTable from '@/components/users/DataTable.vue'
 import { columns } from '@/components/users/tenant-columns'
+
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import { useToast } from '~/components/ui/toast'
 
@@ -54,10 +57,7 @@ const supabase = useSupabaseClient()
 async function loadData() {
   isLoading.value = true
   try {
-    const { data, error } = await supabase
-      .from('tenant')
-      .select('*')
-      .order('name')
+    const { data, error } = await supabase.from('tenant').select('*').order('name')
 
     if (error) {
       throw error
@@ -91,10 +91,7 @@ async function deleteTenant() {
   }
 
   try {
-    const { error } = await supabase
-      .from('tenant')
-      .delete()
-      .eq('id', selectedTenant.value.id)
+    const { error } = await supabase.from('tenant').delete().eq('id', selectedTenant.value.id)
 
     if (error) {
       throw error
@@ -238,10 +235,7 @@ async function handleMultiDeleteConfirm() {
 
   for (const id of itemIds) {
     try {
-      const { error } = await supabase
-        .from('tenant')
-        .delete()
-        .eq('id', id)
+      const { error } = await supabase.from('tenant').delete().eq('id', id)
 
       if (error) {
         allSuccess = false
@@ -295,10 +289,7 @@ onMounted(() => {
           Manage system tenants
         </p>
       </div>
-      <Button
-        class="bg-primary hover:bg-primary/90"
-        @click="showCreateDialog = true"
-      >
+      <Button class="bg-primary hover:bg-primary/90" @click="showCreateDialog = true">
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
         New Tenant
       </Button>
@@ -341,22 +332,20 @@ onMounted(() => {
             Create New Tenant
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Fill in the information below to create a new tenant.
-            Tenants are used to separate data between different organizations.
+            Fill in the information below to create a new tenant. Tenants are used to separate data between different
+            organizations.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div class="py-4 space-y-6">
           <div class="space-y-2">
-            <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="name">
+            <label
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              for="name"
+            >
               Name <span class="text-destructive">*</span>
             </label>
-            <Input
-              id="name"
-              v-model="formData.name"
-              placeholder="Enter tenant name"
-              auto-focus
-            />
+            <Input id="name" v-model="formData.name" placeholder="Enter tenant name" auto-focus />
             <p class="text-sm text-muted-foreground">
               The name will be displayed in the user interface.
             </p>
@@ -374,7 +363,9 @@ onMounted(() => {
 
           <div v-if="formData.name" class="space-y-2">
             <label class="text-sm font-medium leading-none">Slug</label>
-            <div class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <div
+              class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
+            >
               {{ generateSlug(formData.name) }}
             </div>
             <p class="text-sm text-muted-foreground">
@@ -382,9 +373,10 @@ onMounted(() => {
             </p>
           </div>
         </div>
-
         <AlertDialogFooter>
-          <AlertDialogCancel @click="showCreateDialog = false; resetForm()">
+          <AlertDialogCancel
+            @click="showCreateDialog = false; resetForm()"
+          >
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
@@ -406,22 +398,18 @@ onMounted(() => {
           <AlertDialogTitle class="text-xl">
             Edit Tenant
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            Update the selected tenant information.
-          </AlertDialogDescription>
+          <AlertDialogDescription> Update the selected tenant information. </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div class="py-4 space-y-6">
           <div class="space-y-2">
-            <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" for="edit-name">
+            <label
+              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              for="edit-name"
+            >
               Name <span class="text-destructive">*</span>
             </label>
-            <Input
-              id="edit-name"
-              v-model="formData.name"
-              placeholder="Enter tenant name"
-              auto-focus
-            />
+            <Input id="edit-name" v-model="formData.name" placeholder="Enter tenant name" auto-focus />
           </div>
 
           <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
@@ -436,7 +424,9 @@ onMounted(() => {
 
           <div v-if="editingTenant" class="space-y-2">
             <label class="text-sm font-medium leading-none">Slug</label>
-            <div class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <div
+              class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
+            >
               {{ editingTenant.slug }}
             </div>
             <p class="text-sm text-muted-foreground">
@@ -446,7 +436,12 @@ onMounted(() => {
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel @click="showEditDialog = false; resetForm()">
+          <AlertDialogCancel
+            @click="
+              showEditDialog = false;
+              resetForm();
+            "
+          >
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
@@ -475,7 +470,10 @@ onMounted(() => {
           <AlertDialogCancel @click="isDeleteAlertOpen = false">
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="deleteTenant">
+          <AlertDialogAction
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="deleteTenant"
+          >
             <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
             Delete
           </AlertDialogAction>
@@ -489,14 +487,18 @@ onMounted(() => {
         <AlertDialogHeader>
           <AlertDialogTitle>Delete Multiple Tenants</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete <span class="font-medium">{{ selectedItems.length }}</span> tenants? This action cannot be undone.
+            Are you sure you want to delete <span class="font-medium">{{ selectedItems.length }}</span> tenants? This
+            action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel @click="showMultiDeleteDialog = false">
             Cancel
           </AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="handleMultiDeleteConfirm">
+          <AlertDialogAction
+            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="handleMultiDeleteConfirm"
+          >
             <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
             Delete {{ selectedItems.length }} Tenants
           </AlertDialogAction>

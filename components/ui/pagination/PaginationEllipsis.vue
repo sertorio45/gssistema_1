@@ -3,6 +3,7 @@ import type { PaginationEllipsisProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { PaginationEllipsis } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<PaginationEllipsisProps & { class?: HTMLAttributes['class'] }>()

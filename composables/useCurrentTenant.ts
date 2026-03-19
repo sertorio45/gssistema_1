@@ -1,4 +1,5 @@
 import { storeToRefs } from 'pinia'
+
 import { useTenantStore } from '~/stores/tenant'
 
 export function useCurrentTenant() {

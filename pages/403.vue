@@ -18,7 +18,8 @@ function goHome() {
         Acesso Negado
       </h1>
       <p class="max-w-lg text-balance text-muted-foreground">
-        Você não tem permissão para acessar esta página. Por favor, entre com uma conta que tenha as permissões necessárias.
+        Você não tem permissão para acessar esta página. Por favor, entre com uma conta que tenha as permissões
+        necessárias.
       </p>
     </div>
     <div class="flex gap-2">

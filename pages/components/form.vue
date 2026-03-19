@@ -4,23 +4,17 @@ import { useForm } from 'vee-validate'
 import { toast } from 'vue-sonner'
 import * as z from 'zod'
 
-const formSchema = toTypedSchema(z.object({
-  username: z
-    .string()
-    .min(2)
-    .max(50),
-  email: z
-    .string({ required_error: 'Please select an email to display.' })
-    .email(),
-  mobile: z
-    .boolean(),
-  type: z
-    .enum(['all', 'mentions', 'none'], {
+const formSchema = toTypedSchema(
+  z.object({
+    username: z.string().min(2).max(50),
+    email: z.string({ required_error: 'Please select an email to display.' }).email(),
+    mobile: z.boolean(),
+    type: z.enum(['all', 'mentions', 'none'], {
       required_error: 'You need to select a notification type.',
     }),
-  duration: z
-    .array(z.number().min(0).max(60)),
-}))
+    duration: z.array(z.number().min(0).max(60)),
+  }),
+)
 
 const { isFieldDirty, handleSubmit } = useForm({
   validationSchema: formSchema,
@@ -31,7 +25,11 @@ const { isFieldDirty, handleSubmit } = useForm({
 
 const onSubmit = handleSubmit((values) => {
   toast('You submitted the following values:', {
-    description: h('pre', { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' }, h('code', { class: 'text-white' }, JSON.stringify(values, null, 2))),
+    description: h(
+      'pre',
+      { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' },
+      h('code', { class: 'text-white' }, JSON.stringify(values, null, 2)),
+    ),
   })
 })
 </script>
@@ -49,21 +47,13 @@ const onSubmit = handleSubmit((values) => {
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/form"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/form" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://vee-validate.logaretm.com/v4/guide/overview/"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://vee-validate.logaretm.com/v4/guide/overview/" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -83,9 +73,7 @@ const onSubmit = handleSubmit((values) => {
                   <FormControl>
                     <Input type="text" placeholder="shadcn" v-bind="componentField" />
                   </FormControl>
-                  <FormDescription>
-                    This is your public display name.
-                  </FormDescription>
+                  <FormDescription> This is your public display name. </FormDescription>
                   <FormMessage />
                 </FormItem>
               </FormField>
@@ -140,10 +128,7 @@ const onSubmit = handleSubmit((values) => {
                   <FormLabel>Notify me about...</FormLabel>
 
                   <FormControl>
-                    <RadioGroup
-                      class="flex flex-col space-y-1"
-                      v-bind="componentField"
-                    >
+                    <RadioGroup class="flex flex-col space-y-1" v-bind="componentField">
                       <FormItem class="flex items-center gap-x-3 space-y-0">
                         <FormControl>
                           <RadioGroupItem value="all" />
@@ -177,13 +162,7 @@ const onSubmit = handleSubmit((values) => {
                 <FormItem>
                   <FormLabel>Duration</FormLabel>
                   <FormControl>
-                    <Slider
-                      v-bind="componentField"
-                      :default-value="[30]"
-                      :max="100"
-                      :min="0"
-                      :step="5"
-                    />
+                    <Slider v-bind="componentField" :default-value="[30]" :max="100" :min="0" :step="5" />
                     <FormDescription class="flex justify-between">
                       <span>How many minutes are you available?</span>
                       <span>{{ value?.[0] }} min</span>
@@ -204,6 +183,4 @@ const onSubmit = handleSubmit((values) => {
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

@@ -4,17 +4,21 @@ import type { Component } from 'vue'
 import { omit } from '@unovis/ts'
 import { VisTooltip } from '@unovis/vue'
 import { createApp } from 'vue'
+
 import { ChartTooltip } from '.'
 
-const props = withDefaults(defineProps<{
-  selector: string
-  index: string
-  items?: BulletLegendItemInterface[]
-  valueFormatter?: (tick: number, i?: number, ticks?: number[]) => string
-  customTooltip?: Component
-}>(), {
-  valueFormatter: (tick: number) => `${tick}`,
-})
+const props = withDefaults(
+  defineProps<{
+    selector: string
+    index: string
+    items?: BulletLegendItemInterface[]
+    valueFormatter?: (tick: number, i?: number, ticks?: number[]) => string
+    customTooltip?: Component
+  }>(),
+  {
+    valueFormatter: (tick: number) => `${tick}`,
+  },
+)
 
 // Use weakmap to store reference to each datapoint for Tooltip
 const wm = new WeakMap()
@@ -36,7 +40,6 @@ function template(d: any, i: number, elements: (HTMLElement | SVGElement)[]) {
       return componentDiv.innerHTML
     }
   }
-
   else {
     const data = d.data
 
@@ -59,7 +62,9 @@ function template(d: any, i: number, elements: (HTMLElement | SVGElement)[]) {
 
 <template>
   <VisTooltip
-    :horizontal-shift="20" :vertical-shift="20" :triggers="{
+    :horizontal-shift="20"
+    :vertical-shift="20"
+    :triggers="{
       [selector]: template,
     }"
   />

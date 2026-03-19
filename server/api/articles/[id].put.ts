@@ -1,11 +1,12 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
+
 import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {
     // Cliente Supabase com service role
     const client = await serverSupabaseServiceRole(event)
-    
+
     // Obter ID do artigo da rota
     const id = getRouterParam(event, 'id')
     if (!id) {
@@ -17,7 +18,7 @@ export default defineEventHandler(async (event) => {
 
     // Ler corpo da requisição
     const body = await readBody(event)
-    
+
     // Validar dados de entrada
     const validationErrors = validateArticleUpdate(body)
     if (validationErrors.length > 0) {
@@ -29,26 +30,28 @@ export default defineEventHandler(async (event) => {
 
     // Tentar recuperar o tenant_id de diferentes formas
     let tenantId: string | null = null
-    
+
     // 1. Verificar no corpo da requisição
     if (body.tenant_id) {
       tenantId = body.tenant_id
     }
-    
+
     // 2. Verificar no contexto de autenticação
     if (!tenantId && event.context.auth?.tenantId) {
       tenantId = event.context.auth.tenantId
     }
-    
+
     // 3. Se ainda não tiver, tentar recuperar do usuário autenticado
     if (!tenantId) {
-      const { data: { user } } = await client.auth.getUser()
-      
+      const {
+        data: { user },
+      } = await client.auth.getUser()
+
       if (user && user.user_metadata?.tenant_id) {
         tenantId = user.user_metadata.tenant_id
       }
     }
-    
+
     // Se não conseguir recuperar o tenant_id, lançar erro
     if (!tenantId) {
       throw createError({
@@ -64,7 +67,7 @@ export default defineEventHandler(async (event) => {
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
-    
+
     if (existError || !existingArticle) {
       throw createError({
         statusCode: 404,
@@ -107,7 +110,7 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     // Log detalhado do erro
     console.error('Erro na atualização do artigo:', error)
-    
+
     // Propagar o erro com detalhes
     throw createError({
       statusCode: error.statusCode || 500,

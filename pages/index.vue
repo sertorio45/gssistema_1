@@ -105,17 +105,15 @@ onMounted(() => {
           </CardHeader>
           <CardContent>
             <div class="text-2xl font-bold">
-              <NumberFlow
-                :value="dataCard.subscriptions"
-                prefix="+"
-              />
+              <NumberFlow :value="dataCard.subscriptions" prefix="+" />
             </div>
             <p class="text-xs text-muted-foreground">
               <NumberFlow
                 :value="dataCard.subscriptionsDesc"
                 prefix="+"
                 :format="{ style: 'percent', minimumFractionDigits: 1 }"
-              /> from last month
+              />
+              from last month
             </p>
           </CardContent>
         </Card>
@@ -128,17 +126,15 @@ onMounted(() => {
           </CardHeader>
           <CardContent>
             <div class="text-2xl font-bold">
-              <NumberFlow
-                :value="dataCard.sales"
-                prefix="+"
-              />
+              <NumberFlow :value="dataCard.sales" prefix="+" />
             </div>
             <p class="text-xs text-muted-foreground">
               <NumberFlow
                 :value="dataCard.salesDesc"
                 prefix="+"
                 :format="{ style: 'percent', minimumFractionDigits: 1 }"
-              /> from last month
+              />
+              from last month
             </p>
           </CardContent>
         </Card>
@@ -151,16 +147,10 @@ onMounted(() => {
           </CardHeader>
           <CardContent>
             <div class="text-2xl font-bold">
-              <NumberFlow
-                :value="dataCard.activeNow"
-                prefix="+"
-              />
+              <NumberFlow :value="dataCard.activeNow" prefix="+" />
             </div>
             <p class="text-xs text-muted-foreground">
-              <NumberFlow
-                :value="dataCard.activeNowDesc"
-                prefix="+"
-              /> since last hour
+              <NumberFlow :value="dataCard.activeNowDesc" prefix="+" /> since last hour
             </p>
           </CardContent>
         </Card>
@@ -179,12 +169,16 @@ onMounted(() => {
             <CardTitle>Recent Sales</CardTitle>
           </CardHeader>
           <CardContent class="grid gap-8">
-            <div
-              v-for="recentSales in dataRecentSales" :key="recentSales.name"
-              class="flex items-center gap-4"
-            >
+            <div v-for="recentSales in dataRecentSales" :key="recentSales.name" class="flex items-center gap-4">
               <Avatar class="hidden h-9 w-9 sm:flex">
-                <AvatarFallback>{{ recentSales.name.split(' ').map((n: string) => n[0]).join('') }}</AvatarFallback>
+                <AvatarFallback>
+                  {{
+                    recentSales.name
+                      .split(' ')
+                      .map((n: string) => n[0])
+                      .join('')
+                  }}
+                </AvatarFallback>
               </Avatar>
               <div class="grid gap-1">
                 <p class="text-sm font-medium leading-none">

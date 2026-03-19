@@ -3,6 +3,7 @@ import type { ContextMenuLabelProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { ContextMenuLabel } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<ContextMenuLabelProps & { class?: HTMLAttributes['class'], inset?: boolean }>()
@@ -17,10 +18,7 @@ const delegatedProps = computed(() => {
 <template>
   <ContextMenuLabel
     v-bind="delegatedProps"
-    :class="
-      cn('px-2 py-1.5 text-sm font-semibold text-foreground',
-         inset && 'pl-8', props.class,
-      )"
+    :class="cn('px-2 py-1.5 text-sm font-semibold text-foreground', inset && 'pl-8', props.class)"
   >
     <slot />
   </ContextMenuLabel>

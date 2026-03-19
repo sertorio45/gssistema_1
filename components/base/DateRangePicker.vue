@@ -2,8 +2,8 @@
 import type { DateRange } from 'radix-vue'
 import type { Ref } from 'vue'
 import { CalendarDate, DateFormatter, getLocalTimeZone } from '@internationalized/date'
-
 import { Calendar as CalendarIcon } from 'lucide-vue-next'
+
 import { cn } from '@/lib/utils'
 
 const df = new DateFormatter('en-US', {
@@ -25,16 +25,14 @@ const value = ref({
         <Button
           id="date"
           variant="outline"
-          :class="cn(
-            'justify-start text-left font-normal',
-            !value && 'text-muted-foreground',
-          )"
+          :class="cn('justify-start text-left font-normal', !value && 'text-muted-foreground')"
         >
           <CalendarIcon class="mr-2 h-4 w-4" />
 
           <template v-if="value.start">
             <template v-if="value.end">
-              {{ df.format(value.start.toDate(getLocalTimeZone())) }} - {{ df.format(value.end.toDate(getLocalTimeZone())) }}
+              {{ df.format(value.start.toDate(getLocalTimeZone())) }} -
+              {{ df.format(value.end.toDate(getLocalTimeZone())) }}
             </template>
 
             <template v-else>
@@ -53,7 +51,7 @@ const value = ref({
           :number-of-months="2"
           initial-focus
           :placeholder="value.start"
-          @update:start-value="(startDate: any) => value.start = startDate"
+          @update:start-value="(startDate: any) => (value.start = startDate)"
         />
       </PopoverContent>
     </Popover>

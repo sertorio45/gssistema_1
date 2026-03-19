@@ -1,25 +1,29 @@
 import type { ColumnDef } from '@tanstack/vue-table'
 import type { Meeting } from '~/types/crm'
+
 import { h } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
 import { Checkbox } from '@/components/ui/checkbox'
+
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 
 export const columns: ColumnDef<Meeting>[] = [
   {
     id: 'select',
-    header: ({ table }) => h(Checkbox, {
-      'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
-      'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
-      'ariaLabel': 'Select all',
-      'class': 'translate-y-0.5',
-    }),
-    cell: ({ row }) => h(Checkbox, {
-      'checked': row.getIsSelected(),
-      'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
-      'ariaLabel': 'Select row',
-      'class': 'translate-y-0.5',
-    }),
+    header: ({ table }) =>
+      h(Checkbox, {
+        'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
+        'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
+        'ariaLabel': 'Select all',
+        'class': 'translate-y-0.5',
+      }),
+    cell: ({ row }) =>
+      h(Checkbox, {
+        'checked': row.getIsSelected(),
+        'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
+        'ariaLabel': 'Select row',
+        'class': 'translate-y-0.5',
+      }),
     enableSorting: false,
     enableHiding: false,
   },
@@ -82,15 +86,13 @@ export const columns: ColumnDef<Meeting>[] = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row, table }) => h(
-      DataTableRowActions,
-      {
+    cell: ({ row, table }) =>
+      h(DataTableRowActions, {
         row,
         onEdit: () => (table.options.meta as any)?.onEdit?.(row.original),
         onDelete: () => (table.options.meta as any)?.onDelete?.(row.original),
-      },
-    ),
+      }),
     enableSorting: false,
     enableHiding: false,
   },
-] 
+]

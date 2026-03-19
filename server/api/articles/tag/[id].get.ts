@@ -1,4 +1,5 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 import { defineEventHandler, getRouterParam } from 'h3'
 
 export default defineEventHandler(async (event) => {
@@ -14,11 +15,7 @@ export default defineEventHandler(async (event) => {
   const { tenantId, role } = event.context.auth || {}
 
   // Buscar tag completa
-  const { data: tag, error } = await client
-    .from('articles_tag')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const { data: tag, error } = await client.from('articles_tag').select('*').eq('id', id).single()
 
   if (error || !tag) {
     return { status: 404, message: 'Tag not found' }

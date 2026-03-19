@@ -15,21 +15,13 @@ import { toast } from 'vue-sonner'
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/sonner"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/sonner" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://vue-sonner.vercel.app/"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://vue-sonner.vercel.app/" external target="_blank">
             Docs
           </NuxtLink>
         </Button>
@@ -43,15 +35,18 @@ import { toast } from 'vue-sonner'
         <CardContent>
           <div class="min-h-100px w-full flex items-center justify-center gap-4 md:min-h-200px">
             <Button
-              variant="outline" @click="() => {
-                toast('Event has been created', {
-                  description: 'Sunday, December 03, 2023 at 9:00 AM',
-                  action: {
-                    label: 'Undo',
-                    onClick: () => console.log('Undo'),
-                  },
-                })
-              }"
+              variant="outline"
+              @click="
+                () => {
+                  toast('Event has been created', {
+                    description: 'Sunday, December 03, 2023 at 9:00 AM',
+                    action: {
+                      label: 'Undo',
+                      onClick: () => console.log('Undo'),
+                    },
+                  })
+                }
+              "
             >
               Add to calendar
             </Button>
@@ -62,6 +57,4 @@ import { toast } from 'vue-sonner'
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

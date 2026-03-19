@@ -31,9 +31,7 @@ export function useCustomize() {
 
   const themePrimary = computed(() => {
     const t = themes.find(t => t.name === theme.value)
-    return `hsl(${
-      t?.cssVars[isDark ? 'dark' : 'light'].primary
-    })`
+    return `hsl(${t?.cssVars[isDark ? 'dark' : 'light'].primary})`
   })
 
   return {
@@ -54,9 +52,12 @@ export function useJwt() {
         return null
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
       const jsonPayload = decodeURIComponent(
-        atob(base64).split('').map((c) => {
-          return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
-        }).join(''),
+        atob(base64)
+          .split('')
+          .map((c) => {
+            return `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+          })
+          .join(''),
       )
       return JSON.parse(jsonPayload)
     }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import Tiny from '~/components/articles/Tiny.vue'
 import { useToast } from '~/components/ui/toast'
@@ -43,13 +44,7 @@ function generateSlug(text: string): string {
 
 const { toast } = useToast()
 const tenantStore = useTenantStore()
-const { 
-  tenantId, 
-  tenants, 
-  setCurrentTenantById, 
-  listTenants, 
-  setTenantFromJWT 
-} = useTenant()
+const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
 const { currentRole } = useAuth()
 
 const form = ref<ArticleForm>({
@@ -74,7 +69,7 @@ function updateSlug() {
 async function fetchCategories() {
   try {
     const response = await $fetch('/api/articles/category', { method: 'GET' })
-    
+
     // Verificar se a resposta é um array ou tem status de erro
     if (response && typeof response === 'object' && 'status' in response) {
       // Se for um objeto de erro
@@ -86,19 +81,19 @@ async function fetchCategories() {
     // Verificar se a resposta é um array
     if (Array.isArray(response)) {
       // Filtrar categorias pelo tenant do Pinia
-      categories.value = response.filter(category => 
-        category.tenant_id === tenantStore.tenantId
-      )
-    } else {
+      categories.value = response.filter(category => category.tenant_id === tenantStore.tenantId)
+    }
+    else {
       // Se não for um array, tratar como erro
       throw new TypeError('Resposta inválida ao buscar categorias')
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Erro ao buscar categorias:', error)
-    toast({ 
-      title: 'Erro', 
-      description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias', 
-      variant: 'destructive' 
+    toast({
+      title: 'Erro',
+      description: error instanceof Error ? error.message : 'Não foi possível carregar as categorias',
+      variant: 'destructive',
     })
     // Definir categorias como array vazio em caso de erro
     categories.value = []
@@ -108,24 +103,24 @@ async function fetchCategories() {
 async function saveArticle() {
   // Verificar se o tenant está selecionado usando o Pinia store
   if (!tenantStore.tenantId) {
-    toast({ 
-      title: 'Erro', 
-      description: 'Selecione um tenant antes de criar o artigo', 
-      variant: 'destructive' 
+    toast({
+      title: 'Erro',
+      description: 'Selecione um tenant antes de criar o artigo',
+      variant: 'destructive',
     })
     return
   }
 
   // Validar campos obrigatórios
   if (!form.value.title || !form.value.slug || !form.value.content || !form.value.description) {
-    toast({ 
-      title: 'Erro', 
-      description: 'Preencha todos os campos obrigatórios', 
-      variant: 'destructive' 
+    toast({
+      title: 'Erro',
+      description: 'Preencha todos os campos obrigatórios',
+      variant: 'destructive',
     })
     return
   }
-  
+
   loading.value = true
   const articleData = {
     title: form.value.title,
@@ -136,18 +131,18 @@ async function saveArticle() {
     tenant_id: tenantStore.tenantId,
     category_id: form.value.category_id,
   }
-  
+
   try {
-    const _response = await $fetch('/api/articles', { 
-      method: 'POST', 
-      body: articleData 
+    const _response = await $fetch('/api/articles', {
+      method: 'POST',
+      body: articleData,
     })
-    
-    toast({ 
-      title: 'Sucesso', 
-      description: 'Artigo criado com sucesso!' 
+
+    toast({
+      title: 'Sucesso',
+      description: 'Artigo criado com sucesso!',
     })
-    
+
     form.value = {
       title: '',
       slug: '',
@@ -156,15 +151,15 @@ async function saveArticle() {
       category_id: '',
       publish_status: 'draft',
     }
-    
+
     navigateTo('/articles')
   }
   catch (e: any) {
     console.error('Erro ao salvar artigo:', e)
-    toast({ 
-      title: 'Erro', 
-      description: e?.data?.message || 'Ocorreu um erro ao salvar o artigo', 
-      variant: 'destructive' 
+    toast({
+      title: 'Erro',
+      description: e?.data?.message || 'Ocorreu um erro ao salvar o artigo',
+      variant: 'destructive',
     })
   }
   finally {
@@ -176,14 +171,14 @@ onMounted(async () => {
   // Lógica de inicialização de tenant
   if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
     await listTenants()
-    
+
     // Se não houver tenant selecionado, mas existem tenants disponíveis
     if (tenants.value.length > 0 && !tenantStore.tenantId) {
       // Não selecionar automaticamente, manter o estado atual
       console.warn('Nenhum tenant selecionado')
     }
   }
-  
+
   if (currentRole.value === 'cliente') {
     await setTenantFromJWT()
   }
@@ -206,9 +201,9 @@ onMounted(async () => {
       await fetchCategories()
     }
   }
-  
+
   window.addEventListener('tenant-changed', handleTenantChanged)
-  
+
   // Remover listener quando o componente for desmontado
   return () => {
     window.removeEventListener('tenant-changed', handleTenantChanged)
@@ -219,14 +214,14 @@ onMounted(async () => {
 watch(currentRole, async (role) => {
   if (role === 'admin' || role === 'funcionario') {
     await listTenants()
-    
+
     // Se não houver tenant selecionado, mas existem tenants disponíveis
     if (tenants.value.length > 0 && !tenantStore.tenantId) {
       // Não selecionar automaticamente, manter o estado atual
       console.warn('Nenhum tenant selecionado')
     }
   }
-  
+
   if (role === 'cliente') {
     await setTenantFromJWT()
   }
@@ -240,10 +235,7 @@ watch(currentRole, async (role) => {
         <h1 class="text-2xl font-bold">
           Criando Artigo
         </h1>
-        <Button
-          class="bg-primary hover:bg-primary/90"
-          @click="() => navigateTo('/articles')"
-        >
+        <Button class="bg-primary hover:bg-primary/90" @click="() => navigateTo('/articles')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           Voltar
         </Button>
@@ -253,9 +245,7 @@ watch(currentRole, async (role) => {
           <Card class="md:col-span-8">
             <CardHeader>
               <CardTitle>Informações Básicas</CardTitle>
-              <CardDescription>
-                Preencha as informações principais do artigo
-              </CardDescription>
+              <CardDescription> Preencha as informações principais do artigo </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
@@ -272,19 +262,8 @@ watch(currentRole, async (role) => {
               <div class="space-y-2">
                 <Label for="slug">URL do Artigo</Label>
                 <div class="flex gap-2">
-                  <Input
-                    id="slug"
-                    v-model="form.slug"
-                    placeholder="url-do-artigo"
-                    :disabled="loading"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    :disabled="loading"
-                    @click="updateSlug"
-                  >
+                  <Input id="slug" v-model="form.slug" placeholder="url-do-artigo" :disabled="loading" required />
+                  <Button type="button" variant="outline" :disabled="loading" @click="updateSlug">
                     <Icon name="lucide:refresh-cw" class="h-4 w-4" />
                   </Button>
                 </div>
@@ -305,9 +284,7 @@ watch(currentRole, async (role) => {
           <Card class="md:col-span-4">
             <CardHeader>
               <CardTitle>Status</CardTitle>
-              <CardDescription>
-                Defina o status do artigo
-              </CardDescription>
+              <CardDescription> Defina o status do artigo </CardDescription>
             </CardHeader>
             <CardContent class="space-y-6">
               <div class="space-y-2">
@@ -336,7 +313,8 @@ watch(currentRole, async (role) => {
               </div>
               <!-- Categoria (apenas HTML, sem lógica) -->
               <div class="space-y-2">
-                <Label>Categorias <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
+                <Label>Categorias
+                  <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/category" class="text-purple hover:text-purple/80">Gerenciar categorias</a></span></Label>
                 <div class="flex items-center gap-2">
                   <Select v-model="form.category_id" :disabled="loading">
                     <SelectTrigger class="h-10">
@@ -344,36 +322,52 @@ watch(currentRole, async (role) => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectItem v-for="category in categories" :value="category.id" :key="category.id">
+                        <SelectItem v-for="category in categories" :key="category.id" :value="category.id">
                           {{ category.title }}
                         </SelectItem>
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="outline" class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground" disabled>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 w-10 border-2 rounded-md p-0 transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground"
+                    disabled
+                  >
                     <Icon name="lucide:plus" class="h-4 w-4" />
                   </Button>
-                  <Button type="button" variant="outline" class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground" disabled title="Excluir categoria selecionada">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    class="h-10 w-10 border-2 border-destructive rounded-md p-0 text-destructive transition-colors duration-200 hover:bg-destructive hover:text-destructive-foreground"
+                    disabled
+                    title="Excluir categoria selecionada"
+                  >
                     <Icon name="lucide:trash-2" class="h-4 w-4" />
                   </Button>
                 </div>
                 <p class="text-sm text-muted-foreground">
-                  Selecione uma categoria para o artigo<br> (opcional)
+                  Selecione uma categoria para o artigo<br>
+                  (opcional)
                 </p>
               </div>
               <!-- Tags (apenas HTML, sem lógica) -->
               <div class="space-y-2">
-                <Label>Tags <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
+                <Label>Tags
+                  <span class="ms-2 text-xs text-muted-foreground"><a href="/articles/tags" class="text-purple hover:text-purple/80">Gerenciar tags</a></span></Label>
                 <div class="space-y-3">
                   <div class="relative">
                     <div class="flex items-center overflow-x-auto whitespace-nowrap border rounded-md px-3 py-2">
                       <div class="max-w-full flex items-center gap-1.5">
-                        <span class="inline-flex shrink-0 items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium">Tag Exemplo</span>
+                        <span
+                          class="inline-flex shrink-0 items-center rounded-sm bg-muted px-1.5 py-0.5 text-xs font-medium"
+                        >Tag Exemplo</span>
                         <div class="flex-1" />
                       </div>
                     </div>
                     <p class="text-sm text-muted-foreground">
-                      Digite e pressione enter para adicionar <br> (opcional)
+                      Digite e pressione enter para adicionar <br>
+                      (opcional)
                     </p>
                   </div>
                 </div>
@@ -384,16 +378,10 @@ watch(currentRole, async (role) => {
         <Card>
           <CardHeader>
             <CardTitle>Conteúdo</CardTitle>
-            <CardDescription>
-              Escreva o conteúdo do seu artigo usando o editor abaixo
-            </CardDescription>
+            <CardDescription> Escreva o conteúdo do seu artigo usando o editor abaixo </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tiny
-              v-model="form.content"
-              :height="500"
-              :disabled="loading"
-            />
+            <Tiny v-model="form.content" :height="500" :disabled="loading" />
           </CardContent>
         </Card>
       </form>

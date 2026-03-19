@@ -16,14 +16,13 @@ export default defineEventHandler(async (event) => {
   }
 
   // Inicializar cliente Supabase com credenciais de aplicação
-  const supabase = createClient(
-    process.env.SUPABASE_URL || '',
-    process.env.SUPABASE_KEY || '',
-  )
+  const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_KEY || '')
 
   try {
     // Decodificar JWT para obter as claims
-    const { data: { user } } = await supabase.auth.getUser(token)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser(token)
 
     if (!user) {
       return

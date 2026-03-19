@@ -1,5 +1,6 @@
 import type { ColumnDef } from '@tanstack/vue-table'
 import { h, resolveComponent } from 'vue'
+
 import { Checkbox } from '../ui/checkbox'
 import DataTableColumnHeader from './DataTableColumnHeader.vue'
 import TenantRowActions from './TenantRowActions.vue'
@@ -20,18 +21,20 @@ export interface Tenant {
 export const columns: ColumnDef<any>[] = [
   {
     id: 'select',
-    header: ({ table }: any) => h(Checkbox, {
-      'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
-      'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
-      'ariaLabel': 'Select all',
-      'class': 'translate-y-0.5',
-    }),
-    cell: ({ row }: any) => h(Checkbox, {
-      'checked': row.getIsSelected(),
-      'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
-      'ariaLabel': 'Select row',
-      'class': 'translate-y-0.5',
-    }),
+    header: ({ table }: any) =>
+      h(Checkbox, {
+        'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
+        'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
+        'ariaLabel': 'Select all',
+        'class': 'translate-y-0.5',
+      }),
+    cell: ({ row }: any) =>
+      h(Checkbox, {
+        'checked': row.getIsSelected(),
+        'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
+        'ariaLabel': 'Select row',
+        'class': 'translate-y-0.5',
+      }),
     enableSorting: false,
     enableHiding: false,
   },
@@ -51,19 +54,23 @@ export const columns: ColumnDef<any>[] = [
     cell: ({ row }: any) => {
       const isActive = row.getValue('is_active') as boolean
       return h('div', { class: 'flex w-[100px] items-center' }, [
-        h('div', {
-          class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${
-            isActive
-              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-              : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-          }`,
-        }, [
-          h(resolveComponent('Icon'), {
-            name: isActive ? 'lucide:check-circle' : 'lucide:x-circle',
-            class: 'mr-1 h-3.5 w-3.5',
-          }),
-          isActive ? 'Active' : 'Inactive',
-        ]),
+        h(
+          'div',
+          {
+            class: `inline-flex items-center border rounded-full px-2.5 py-1 text-xs font-medium ${
+              isActive
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+            }`,
+          },
+          [
+            h(resolveComponent('Icon'), {
+              name: isActive ? 'lucide:check-circle' : 'lucide:x-circle',
+              class: 'mr-1 h-3.5 w-3.5',
+            }),
+            isActive ? 'Active' : 'Inactive',
+          ],
+        ),
       ])
     },
     filterFn: (row: any, id: string, value: any) => {
@@ -85,10 +92,11 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     id: 'actions',
-    cell: ({ row, table }: any) => h(TenantRowActions, {
-      row,
-      onEdit: () => table.options.meta?.onEdit?.(row.original),
-      onDelete: () => table.options.meta?.onDelete?.(row.original),
-    }),
+    cell: ({ row, table }: any) =>
+      h(TenantRowActions, {
+        row,
+        onEdit: () => table.options.meta?.onEdit?.(row.original),
+        onDelete: () => table.options.meta?.onDelete?.(row.original),
+      }),
   },
 ]

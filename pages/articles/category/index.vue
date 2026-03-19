@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
+
 import { columns } from '~/components/articles/category/columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
@@ -19,17 +20,25 @@ const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
 // Debug: log tenantId and categoriesRaw
-watch(tenantId, (val) => {
-  console.warn('[DEBUG] tenantId:', val)
-}, { immediate: true })
+watch(
+  tenantId,
+  (val) => {
+    console.warn('[DEBUG] tenantId:', val)
+  },
+  { immediate: true },
+)
 
 const { data: categoriesRaw, pending: loading, refresh: refreshCategories } = useFetch<any[]>('/api/articles/category')
 
 const { filteredData: categories } = useTenantRoleFilter<any>(categoriesRaw as any, 'tenant_id') // Filter categories by tenantId
 
-watch(categoriesRaw, (val) => {
-  console.warn('[DEBUG] categoriesRaw:', val)
-}, { immediate: true })
+watch(
+  categoriesRaw,
+  (val) => {
+    console.warn('[DEBUG] categoriesRaw:', val)
+  },
+  { immediate: true },
+)
 
 function handleDeleteClick(category: any) {
   categoryToDelete.value = category
@@ -87,10 +96,7 @@ watch(tenantId, () => {
           Manage your article categories
         </p>
       </div>
-      <Button
-        class="bg-primary hover:bg-primary/90"
-        @click="() => navigateTo('/articles/category/new')"
-      >
+      <Button class="bg-primary hover:bg-primary/90" @click="() => navigateTo('/articles/category/new')">
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
         New Category
       </Button>
@@ -112,9 +118,9 @@ watch(tenantId, () => {
       <DataTable
         :data="categories"
         :columns="columns"
+        :meta="{ onEdit: handleEditClick, onDelete: handleDeleteClick }"
         @delete="handleDeleteClick"
         @selection-change="updateSelectedItems"
-        :meta="{ onEdit: handleEditClick, onDelete: handleDeleteClick }"
       >
         <template #toolbar="{ table }">
           <DataTableToolbar :table="table" placeholder="Filter categories..." />
@@ -123,13 +129,19 @@ watch(tenantId, () => {
           <DataTablePagination :table="table" />
         </template>
         <template #actions="{ row }">
-          <DataTableRowActions :row="row" :onEdit="handleEditClick" :onDelete="handleDeleteClick" />
+          <DataTableRowActions :row="row" :on-edit="handleEditClick" :on-delete="handleDeleteClick" />
         </template>
       </DataTable>
-      <div v-if="categories.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
+      <div
+        v-if="categories.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')"
+        class="p-6 text-center text-muted-foreground"
+      >
         No categories found for this tenant.
       </div>
-      <div v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')" class="p-6 text-center text-muted-foreground">
+      <div
+        v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')"
+        class="p-6 text-center text-muted-foreground"
+      >
         Select a tenant to view categories.
       </div>
       <div v-else-if="categories.length === 0" class="p-6 text-center text-muted-foreground">
@@ -164,7 +176,10 @@ watch(tenantId, () => {
     </div>
 
     <!-- Multi Delete Dialog -->
-    <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div
+      v-if="showMultiDeleteDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+    >
       <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
         <h2 class="mb-2 text-lg font-bold">
           Delete Multiple Categories
@@ -185,5 +200,4 @@ watch(tenantId, () => {
   </div>
 </template>
 
-<style>
-</style>
+<style></style>

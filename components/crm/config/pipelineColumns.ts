@@ -1,6 +1,7 @@
 import type { ColumnDef } from '@tanstack/vue-table'
 import { h, resolveComponent } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
+import { Badge } from '@/components/ui/badge/index'
 import { Checkbox } from '@/components/ui/checkbox'
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 
@@ -24,17 +25,40 @@ export const pipelineColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Pipeline Name' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome do pipeline' }),
     cell: ({ row }) => h('span', { class: 'font-medium text-muted-foreground' }, row.getValue('name')),
   },
   {
     accessorKey: 'description',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Description' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Descrição' }),
     cell: ({ row }) => h('span', { class: 'truncate text-xs text-muted-foreground' }, row.getValue('description')),
   },
   {
+    accessorKey: 'priority',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Prioridade' }),
+    cell: ({ row }) => {
+      const priority = row.getValue('priority') || 0
+      return h('span', { class: 'text-center font-medium' }, priority.toString())
+    },
+  },
+  {
+    accessorKey: 'is_active',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Status' }),
+    cell: ({ row }) => {
+      const isActive = row.getValue('is_active')
+      return h(Badge, {
+        variant: 'secondary',
+        class: isActive
+          ? 'bg-green-100 text-green-800 hover:bg-green-100'
+          : 'bg-gray-100 text-gray-800 hover:bg-gray-100',
+      }, () => isActive ? 'Ativo' : 'Inativo')
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
+  {
     accessorKey: 'is_default',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Default' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Padrão' }),
     cell: ({ row }) => {
       const isDefault = row.original.is_default
       return h('div', { class: 'flex items-center' }, [
@@ -49,7 +73,7 @@ export const pipelineColumns: ColumnDef<any>[] = [
             name: isDefault ? 'lucide:check-circle' : 'lucide:circle',
             class: 'mr-1 h-3.5 w-3.5',
           }),
-          isDefault ? 'Default' : 'Custom',
+          isDefault ? 'Padrão' : 'Personalizado',
         ]),
       ])
     },
@@ -70,4 +94,4 @@ export const pipelineColumns: ColumnDef<any>[] = [
     enableSorting: false,
     enableHiding: false,
   },
-] 
+]

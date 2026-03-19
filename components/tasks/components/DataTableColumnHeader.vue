@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Column } from '@tanstack/vue-table'
+
 import { cn } from '@/lib/utils'
 
 interface DataTableColumnHeaderProps {
@@ -20,14 +21,10 @@ export default {
   <div v-if="column.getCanSort()" :class="cn('flex items-center space-x-2', $attrs.class ?? '')">
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 -ml-3 data-[state=open]:bg-accent"
-        >
+        <Button variant="ghost" size="sm" class="h-8 -ml-3 data-[state=open]:bg-accent">
           <span>{{ title }}</span>
           <Icon v-if="column.getIsSorted() === 'desc'" name="i-radix-icons-arrow-down" class="ml-2 h-4 w-4" />
-          <Icon v-else-if=" column.getIsSorted() === 'asc'" name="i-radix-icons-arrow-up" class="ml-2 h-4 w-4" />
+          <Icon v-else-if="column.getIsSorted() === 'asc'" name="i-radix-icons-arrow-up" class="ml-2 h-4 w-4" />
           <Icon v-else name="i-radix-icons-caret-sort" class="ml-2 h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

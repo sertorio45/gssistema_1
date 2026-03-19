@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { Icon } from '#components'
+
 import { computed, onMounted, ref } from 'vue'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
+
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 
@@ -27,9 +25,8 @@ const filteredTenants = computed(() => {
     return tenants.value
   }
   const query = searchQuery.value.toLowerCase()
-  return tenants.value.filter(tenant =>
-    tenant.name.toLowerCase().includes(query)
-    || tenant.slug.toLowerCase().includes(query),
+  return tenants.value.filter(
+    tenant => tenant.name.toLowerCase().includes(query) || tenant.slug.toLowerCase().includes(query),
   )
 })
 
@@ -38,12 +35,12 @@ async function loadTenants() {
   isLoading.value = true
   try {
     tenants.value = await listTenants()
-    
+
     // Para cliente, filtra só o tenant vinculado
     if (currentRole.value === 'cliente' && currentTenant.value) {
       tenants.value = tenants.value.filter(t => t.id === currentTenant.value.id)
     }
-    
+
     // Se não houver tenant selecionado, selecionar o primeiro da lista
     if (!currentTenant.value && tenants.value.length > 0) {
       await setCurrentTenantById(tenants.value[0].id)
@@ -67,19 +64,21 @@ async function selectTenant(tenant: any) {
   try {
     // Manter o tenant selecionado independente da rota
     await setCurrentTenantById(tenant.id)
-    
+
     toast({
       title: 'Tenant Selecionado',
       description: `Você está agora no tenant: ${tenant.name}`,
     })
-    
+
     // Fechar dropdown
     isOpen.value = false
-    
+
     // Emitir evento global para atualizar o front
-    window.dispatchEvent(new CustomEvent('tenant-changed', { 
-      detail: { tenantId: tenant.id },
-    }))
+    window.dispatchEvent(
+      new CustomEvent('tenant-changed', {
+        detail: { tenantId: tenant.id },
+      }),
+    )
   }
   catch (error: any) {
     console.error('Error selecting tenant:', error)
@@ -94,7 +93,7 @@ async function selectTenant(tenant: any) {
 // Adicionar listener global para manter o tenant selecionado
 onMounted(async () => {
   await loadTenants()
-  
+
   // Adicionar listener para manter o tenant selecionado
   const handleTenantChanged = (event: Event) => {
     const customEvent = event as CustomEvent
@@ -102,9 +101,9 @@ onMounted(async () => {
       // Lógica adicional se necessário
     }
   }
-  
+
   window.addEventListener('tenant-changed', handleTenantChanged)
-  
+
   // Remover listener quando o componente for desmontado
   return () => {
     window.removeEventListener('tenant-changed', handleTenantChanged)
@@ -115,7 +114,9 @@ onMounted(async () => {
 <template>
   <div v-if="currentRole !== 'cliente'">
     <DropdownMenu v-model:open="isOpen">
-      <DropdownMenuTrigger class="w-full flex items-center rounded-md px-3 py-2 outline-none space-x-2 hover:bg-muted/50 focus:outline-none focus:ring-0">
+      <DropdownMenuTrigger
+        class="w-full flex items-center rounded-md px-3 py-2 outline-none space-x-2 hover:bg-muted/50 focus:outline-none focus:ring-0"
+      >
         <div class="w-full flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <div class="h-8 w-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -132,7 +133,10 @@ onMounted(async () => {
         <!-- Search -->
         <div class="relative px-3 py-1.5">
           <div class="relative">
-            <Icon name="lucide:search" class="absolute left-2 top-1/2 h-3.5 w-3.5 transform text-muted-foreground -translate-y-1/2" />
+            <Icon
+              name="lucide:search"
+              class="absolute left-2 top-1/2 h-3.5 w-3.5 transform text-muted-foreground -translate-y-1/2"
+            />
             <input
               v-model="searchQuery"
               type="text"
@@ -164,10 +168,7 @@ onMounted(async () => {
             <div class="px-3 py-1 text-xs text-muted-foreground font-semibold">
               Current Account
             </div>
-            <DropdownMenuItem
-              v-if="currentTenant"
-              class="flex cursor-default items-center px-3 py-1.5 space-x-2"
-            >
+            <DropdownMenuItem v-if="currentTenant" class="flex cursor-default items-center px-3 py-1.5 space-x-2">
               <div class="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <span class="text-xs text-white font-medium">{{ currentTenant.name.charAt(0) }}</span>
               </div>

@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import { useFetch } from '#app'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useTenant } from '~/composables/useTenant'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
 import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
-import { useFetch } from '#app'
 import { toast } from '~/components/ui/toast/use-toast'
+import { useTenant } from '~/composables/useTenant'
 
 const router = useRouter()
 const { tenantId } = useTenant()
@@ -16,6 +16,8 @@ const { tenantId } = useTenant()
 const form = ref({
   name: '',
   description: '',
+  is_active: true,
+  priority: 0,
 })
 
 // Cores fixas para os stages default
@@ -26,9 +28,9 @@ const defaultStageColors = {
 }
 
 const defaultStages = ref([
-  { key: 'new', label: 'New', name: 'New', color: defaultStageColors.new },
-  { key: 'won', label: 'Won', name: 'Won', color: defaultStageColors.won },
-  { key: 'lost', label: 'Lost', name: 'Lost', color: defaultStageColors.lost },
+  { key: 'new', label: 'Novo', name: 'Novo', color: defaultStageColors.new },
+  { key: 'won', label: 'Ganho', name: 'Ganho', color: defaultStageColors.won },
+  { key: 'lost', label: 'Perdido', name: 'Perdido', color: defaultStageColors.lost },
 ])
 
 interface CustomStage {
@@ -73,12 +75,6 @@ async function handleSubmit() {
     console.warn('Tenant não identificado. Selecione um tenant antes de criar o pipeline.')
     return
   }
-  // Debug: logar dados enviados
-  console.log('Enviando pipeline:', {
-    name: form.value.name,
-    description: form.value.description,
-    tenant_id: currentTenantId,
-  })
   // 1. Cria pipeline e stages customizados juntos
   const validCustomStages = customStages.value.filter(stage => stage.name && stage.name.trim() && stage.color)
   const { data, error } = await useFetch('/api/crm/pipeline', {
@@ -86,6 +82,8 @@ async function handleSubmit() {
     body: {
       name: form.value.name,
       description: form.value.description,
+      is_active: form.value.is_active,
+      priority: form.value.priority,
       tenant_id: currentTenantId,
       customStages: validCustomStages,
     },
@@ -96,7 +94,7 @@ async function handleSubmit() {
     toast({ title: 'Erro ao criar pipeline', description: error.value?.data?.message || error.value?.message || 'Erro ao criar pipeline. Tente novamente.' })
     return
   }
-  toast({ title: 'Pipeline created successfully!' })
+  toast({ title: 'Pipeline criado com sucesso!' })
   setTimeout(() => {
     router.push('/crm/config/pipeline')
   }, 800)
@@ -110,43 +108,79 @@ function goBack() {
   <div>
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">Pipelines</h1>
-        <p class="text-muted-foreground">Manage all pipelines for your CRM.</p>
+        <h1 class="text-2xl font-bold tracking-tight">
+          Pipelines
+        </h1>
+        <p class="text-muted-foreground">
+          Gerencie todos os pipelines do seu CRM.
+        </p>
       </div>
       <Button variant="outline" @click="goBack">
         <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-        Back to List
+        Voltar à lista
       </Button>
     </div>
     <Card class="p-6">
-      <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
-        <div class="flex gap-4 items-center">
-          <div class="flex flex-col gap-1 w-64">
-            <Label for="pipeline-name">Name *</Label>
-            <Input id="pipeline-name" v-model="form.name" placeholder="Name" required />
+      <form class="flex flex-col gap-4" @submit.prevent="handleSubmit">
+        <div class="flex items-center gap-4">
+          <div class="w-64 flex flex-col gap-1">
+            <Label for="pipeline-name">Nome *</Label>
+            <Input id="pipeline-name" v-model="form.name" placeholder="Nome" required />
           </div>
-          <div class="flex flex-col gap-1 w-96">
-            <Label for="pipeline-description">Description</Label>
-            <Input id="pipeline-description" v-model="form.description" placeholder="Description (optional)" />
+          <div class="w-96 flex flex-col gap-1">
+            <Label for="pipeline-description">Descrição</Label>
+            <Input id="pipeline-description" v-model="form.description" placeholder="Descrição (opcional)" />
           </div>
-          <Button type="submit" class="ml-auto">Save Pipeline</Button>
+          <Button type="submit" class="ml-auto">
+            Salvar pipeline
+          </Button>
         </div>
-        <CardContent class="flex gap-4 mt-6 overflow-x-auto pb-2">
+        <div class="flex items-center gap-4">
+          <div class="w-64 flex flex-col gap-1">
+            <Label for="pipeline-priority">Prioridade</Label>
+            <Input id="pipeline-priority" v-model="form.priority" type="number" placeholder="0" />
+            <p class="mt-1 text-xs text-muted-foreground">
+              Número maior = maior prioridade
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input
+              id="pipeline-active"
+              v-model="form.is_active"
+              type="checkbox"
+              class="h-4 w-4 border-gray-300 rounded text-primary focus:ring-primary"
+            >
+            <Label for="pipeline-active" class="text-sm font-medium">
+              Pipeline ativo
+            </Label>
+          </div>
+        </div>
+        <CardContent class="mt-6 flex gap-4 overflow-x-auto pb-2">
           <template v-for="(stage, idx) in [defaultStages[0], ...customStages, ...defaultStages.slice(1)]" :key="stage.key || idx">
-            <div class="bg-card rounded-lg border p-6 flex-1 min-w-[260px] flex flex-col gap-3">
-              <h3 class="font-semibold text-base mb-2">{{ 'label' in stage ? stage.label : 'Custom Stage' }}</h3>
+            <div class="min-w-[260px] flex flex-1 flex-col gap-3 border rounded-lg bg-card p-6">
+              <h3 class="mb-2 text-base font-semibold">
+                {{ 'label' in stage ? stage.label : 'Estágio personalizado' }}
+              </h3>
               <div class="flex flex-col gap-2">
-                <Label>Name *</Label>
-                <Input v-if="!('label' in stage)" v-model="stage.name" placeholder="Stage name" required />
+                <Label>Nome *</Label>
+                <Input v-if="!('label' in stage)" v-model="stage.name" placeholder="Nome do estágio" required />
                 <Input v-else :value="stage.name" disabled />
               </div>
-              <Button v-if="!('label' in stage)" type="button" variant="destructive" class="mt-2 w-fit self-end" @click="removeStage(idx - 1)">Remove</Button>
+              <Button v-if="!('label' in stage)" type="button" variant="destructive" class="mt-2 w-fit self-end" @click="removeStage(idx - 1)">
+                Remover
+              </Button>
             </div>
           </template>
-          <div class="bg-card rounded-lg border p-6 flex-1 min-w-[260px] flex flex-col items-center justify-center text-center">
-            <h3 class="font-semibold text-base mb-2">Add New Stages</h3>
-            <p class="text-sm text-muted-foreground mb-3">Add new stage for your Pipeline</p>
-            <Button type="button" variant="outline" @click="addStage">Add Stage</Button>
+          <div class="min-w-[260px] flex flex-1 flex-col items-center justify-center border rounded-lg bg-card p-6 text-center">
+            <h3 class="mb-2 text-base font-semibold">
+              Adicionar estágios
+            </h3>
+            <p class="mb-3 text-sm text-muted-foreground">
+              Adicione novos estágios ao seu pipeline
+            </p>
+            <Button type="button" variant="outline" @click="addStage">
+              Adicionar estágio
+            </Button>
           </div>
         </CardContent>
       </form>
@@ -164,4 +198,4 @@ function goBack() {
 .btn-outline {
   @apply border border-blue-600 text-blue-600 px-4 py-2 rounded hover:bg-blue-50 transition;
 }
-</style> 
+</style>

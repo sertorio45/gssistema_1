@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import type { RadioGroupItemProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
-import {
-  RadioGroupIndicator,
-  RadioGroupItem,
-
-  useForwardProps,
-} from 'radix-vue'
+import { RadioGroupIndicator, RadioGroupItem, useForwardProps } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<RadioGroupItemProps & { class?: HTMLAttributes['class'] }>()

@@ -1,4 +1,5 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
+
 import { createError, defineEventHandler, getQuery } from 'h3'
 
 export default defineEventHandler(async (event) => {
@@ -21,4 +22,4 @@ export default defineEventHandler(async (event) => {
   catch (err: any) {
     throw createError({ statusCode: err.statusCode || 500, message: err.message || 'Erro interno do servidor' })
   }
-}) 
+})

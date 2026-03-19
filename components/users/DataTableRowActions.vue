@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Row } from '@tanstack/vue-table'
 import type { User } from './columns'
+
 import { Icon } from '#components'
+
 import { computed, ref } from 'vue'
 import {
   AlertDialog,
@@ -13,7 +15,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+
 import { Button } from '@/components/ui/button'
+
+const props = defineProps<DataTableRowActionsProps>()
 
 const emit = defineEmits(['edit', 'delete'])
 
@@ -23,7 +28,6 @@ interface DataTableRowActionsProps {
   onDelete?: (row: User) => void
 }
 
-const props = defineProps<DataTableRowActionsProps>()
 const user = computed(() => props.row.original)
 const showDeleteDialog = ref(false)
 
@@ -48,12 +52,7 @@ function confirmDelete() {
 
 <template>
   <div class="flex justify-end gap-2">
-    <Button
-      variant="ghost"
-      size="icon"
-      class="h-8 w-8 text-muted-foreground hover:text-primary"
-      @click="handleEdit"
-    >
+    <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-primary" @click="handleEdit">
       <Icon name="lucide:pencil" class="h-4 w-4" />
       <span class="sr-only">Edit</span>
     </Button>

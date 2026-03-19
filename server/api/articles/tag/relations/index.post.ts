@@ -1,9 +1,11 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 import { defineEventHandler, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
-  if (!user) return { status: 401, message: 'Unauthorized' }
+  if (!user)
+    return { status: 401, message: 'Unauthorized' }
 
   const client = await serverSupabaseServiceRole(event)
   const body = await readBody(event)
@@ -19,15 +21,15 @@ export default defineEventHandler(async (event) => {
     .delete()
     .eq('article_id', article_id)
     .eq('tenant_id', tenant_id)
-  if (delError) return { status: 400, message: delError.message }
+  if (delError)
+    return { status: 400, message: delError.message }
 
   // Insere as novas relações
   if (tag_ids.length > 0) {
     const inserts = tag_ids.map((tag_id: number) => ({ article_id, tenant_id, tag_id }))
-    const { error: insError } = await client
-      .from('articles_tag_relations')
-      .insert(inserts)
-    if (insError) return { status: 400, message: insError.message }
+    const { error: insError } = await client.from('articles_tag_relations').insert(inserts)
+    if (insError)
+      return { status: 400, message: insError.message }
   }
 
   return { status: 200, message: 'Tag relations updated' }

@@ -3,12 +3,15 @@ import type { SidebarMenuButtonVariants } from '~/components/ui/sidebar'
 import type { NavLink } from '~/types/nav'
 import { useSidebar } from '~/components/ui/sidebar'
 
-withDefaults(defineProps<{
-  item: NavLink
-  size?: SidebarMenuButtonVariants['size']
-}>(), {
-  size: 'default',
-})
+withDefaults(
+  defineProps<{
+    item: NavLink
+    size?: SidebarMenuButtonVariants['size']
+  }>(),
+  {
+    size: 'default',
+  },
+)
 
 const { setOpenMobile } = useSidebar()
 </script>
@@ -20,7 +23,10 @@ const { setOpenMobile } = useSidebar()
         <NuxtLink :to="item.link" @click="setOpenMobile(false)">
           <Icon :name="item.icon || ''" mode="svg" />
           <span>{{ item.title }}</span>
-          <span v-if="item.new" class="rounded-md bg-#adfa1d px-1.5 py-0.5 text-xs text-black leading-none no-underline group-hover:no-underline">
+          <span
+            v-if="item.new"
+            class="rounded-md bg-#adfa1d px-1.5 py-0.5 text-xs text-black leading-none no-underline group-hover:no-underline"
+          >
             New
           </span>
         </NuxtLink>
@@ -29,6 +35,4 @@ const { setOpenMobile } = useSidebar()
   </SidebarMenu>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

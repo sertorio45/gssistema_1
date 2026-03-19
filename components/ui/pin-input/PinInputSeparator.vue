@@ -11,5 +11,5 @@ const forwardedProps = useForwardProps(props)
     <slot>
       <Icon name="i-radix-icons-dash" />
     </slot>
-  </primitive>
+  </Primitive>
 </template>

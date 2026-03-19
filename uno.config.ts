@@ -58,10 +58,7 @@ export default defineConfig({
     presetAnimations(),
     presetShadcn(builtinColors.map(c => ({ color: c }))),
   ],
-  transformers: [
-    transformerDirectives(),
-    transformerVariantGroup({ separators: [':'] }),
-  ],
+  transformers: [transformerDirectives(), transformerVariantGroup({ separators: [':'] })],
   content: {
     pipeline: {
       include: [

@@ -20,6 +20,14 @@ import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
 import { useTenant } from '~/composables/useTenant'
 
+const props = withDefaults(
+  defineProps<{
+    defaultPipelineId?: string | null
+    defaultSalesStageId?: string | null
+  }>(),
+  { defaultPipelineId: null, defaultSalesStageId: null },
+)
+
 // Define emits
 const emit = defineEmits<{
   'lead-created': [lead: any]
@@ -211,15 +219,24 @@ function getSourceEnumValue(sourceId: string | null): 'website' | 'referral' | '
   return 'other'
 }
 
-// Função para buscar o pipeline ativo
+// Função para buscar o pipeline ativo (fallback quando não vem por prop)
 function getActivePipelineId(): string | null {
-  if (!activePipelines.value || activePipelines.value.length === 0) {
+  if (props.defaultPipelineId)
+    return props.defaultPipelineId
+  if (!activePipelines.value || activePipelines.value.length === 0)
     return null
-  }
-
-  // Buscar pipeline ativo
   const activePipeline = activePipelines.value.find(p => p.is_active === true)
   return activePipeline ? activePipeline.id : null
+}
+
+// Estágio "Novo" = primeiro estágio do pipeline (menor order). Usado quando defaultSalesStageId não é passado.
+function getFirstStageIdForPipeline(pipelineId: string | null): string | null {
+  if (!pipelineId || !salesStages.value?.length)
+    return null
+  const pipelineStages = salesStages.value
+    .filter((s: any) => s.pipeline_id === pipelineId)
+    .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
+  return pipelineStages[0]?.id ?? null
 }
 
 async function submitLead() {
@@ -235,15 +252,15 @@ async function submitLead() {
       throw new Error('Please fill in all required fields')
     }
 
-    // Buscar pipeline ativo para adicionar ao lead
     const pipelineId = getActivePipelineId()
+    const salesStageId = props.defaultSalesStageId ?? getFirstStageIdForPipeline(pipelineId)
 
-    // 1. Cria o Lead
+    // 1. Cria o Lead (sales_stage_id = estágio "Novo" ou o estágio clicado no Kanban)
     const leadData = {
       name: leadForm.value.name,
       source: getSourceEnumValue(leadForm.value.source),
-      sales_stage_id: leadForm.value.status || null,
-      pipeline_id: pipelineId, // Adicionar pipeline ativo
+      sales_stage_id: salesStageId,
+      pipeline_id: pipelineId,
       status: 'new' as any,
       priority: (leadForm.value.priority as any) || 'medium',
       value: leadForm.value.value ? Number(leadForm.value.value) : 0,
@@ -498,14 +515,14 @@ async function submitLead() {
             <!-- Lead Information Form -->
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div class="space-y-2">
-                <Label for="lead-name">Lead Name <span class="text-destructive">*</span></Label>
-                <Input id="lead-name" v-model="leadForm.name" placeholder="Enter lead name" required />
+                <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
+                <Input id="lead-name" v-model="leadForm.name" placeholder="Nome do lead" required />
               </div>
               <div class="space-y-2">
-                <Label for="lead-priority">Priority</Label>
+                <Label for="lead-priority">Prioridade</Label>
                 <Select v-model="leadForm.priority">
                   <SelectTrigger id="lead-priority" class="w-full">
-                    <SelectValue placeholder="Select priority" />
+                    <SelectValue placeholder="Selecione a prioridade" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem v-for="priority in priorityOptions" :key="priority.value" :value="priority.value">
@@ -515,10 +532,10 @@ async function submitLead() {
                 </Select>
               </div>
               <div class="space-y-2">
-                <Label for="lead-source">Source</Label>
+                <Label for="lead-source">Origem</Label>
                 <Select v-model="leadForm.source">
                   <SelectTrigger id="lead-source" class="w-full">
-                    <SelectValue placeholder="Select source" />
+                    <SelectValue placeholder="Selecione a origem" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem v-for="source in leadSources" :key="source.id" :value="source.id">
@@ -531,7 +548,7 @@ async function submitLead() {
                 <Label for="lead-status">Status</Label>
                 <Select v-model="leadForm.status">
                   <SelectTrigger id="lead-status">
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem v-for="stage in salesStages" :key="stage.id" :value="stage.id">
@@ -541,12 +558,12 @@ async function submitLead() {
                 </Select>
               </div>
               <div class="space-y-2">
-                <Label for="lead-value">Estimated Value</Label>
+                <Label for="lead-value">Valor estimado</Label>
                 <Input id="lead-value" v-model="leadForm.value" placeholder="$0.00" type="text" />
               </div>
               <div class="md:col-span-2 space-y-2">
-                <Label for="lead-notes">Notes</Label>
-                <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Add notes about the lead" rows="3" />
+                <Label for="lead-notes">Observações</Label>
+                <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Observações sobre o lead" rows="3" />
               </div>
             </div>
           </template>
@@ -554,24 +571,24 @@ async function submitLead() {
             <!-- Contact Details Form -->
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div class="space-y-2">
-                <Label for="contact-name">Contact Name <span class="text-destructive">*</span></Label>
-                <Input id="contact-name" v-model="contactForm.name" placeholder="Enter contact name" required />
+                <Label for="contact-name">Nome do contato <span class="text-destructive">*</span></Label>
+                <Input id="contact-name" v-model="contactForm.name" placeholder="Nome do contato" required />
               </div>
               <div class="space-y-2">
                 <Label for="contact-email">Email <span class="text-destructive">*</span></Label>
                 <Input id="contact-email" v-model="contactForm.email" placeholder="email@example.com" type="email" required />
               </div>
               <div class="space-y-2">
-                <Label for="contact-phone">Phone</Label>
+                <Label for="contact-phone">Telefone</Label>
                 <Input id="contact-phone" v-model="contactForm.phone" placeholder="(00) 00000-0000" />
               </div>
               <div class="space-y-2">
-                <Label for="contact-position">Position</Label>
-                <Input id="contact-position" v-model="contactForm.position" placeholder="Contact position" />
+                <Label for="contact-position">Cargo</Label>
+                <Input id="contact-position" v-model="contactForm.position" placeholder="Cargo do contato" />
               </div>
               <div class="md:col-span-2 space-y-2">
-                <Label for="contact-notes">Notes</Label>
-                <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Add notes about the contact" rows="3" />
+                <Label for="contact-notes">Observações</Label>
+                <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Observações sobre o contato" rows="3" />
               </div>
             </div>
           </template>
@@ -579,14 +596,14 @@ async function submitLead() {
             <!-- Company Info Form -->
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div class="space-y-2">
-                <Label for="company-name">Company Name</Label>
-                <Input id="company-name" v-model="companyForm.name" placeholder="Enter company name" />
+                <Label for="company-name">Nome da empresa</Label>
+                <Input id="company-name" v-model="companyForm.name" placeholder="Nome da empresa" />
               </div>
               <div class="space-y-2">
-                <Label for="company-segment">Segment</Label>
+                <Label for="company-segment">Segmento</Label>
                 <Select v-model="companyForm.segment">
                   <SelectTrigger id="company-segment">
-                    <SelectValue placeholder="Select segment" />
+                    <SelectValue placeholder="Selecione o segmento" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="technology">
@@ -608,10 +625,10 @@ async function submitLead() {
                 </Select>
               </div>
               <div class="space-y-2">
-                <Label for="company-size">Company Size</Label>
+                <Label for="company-size">Porte da empresa</Label>
                 <Select v-model="companyForm.size">
                   <SelectTrigger id="company-size">
-                    <SelectValue placeholder="Select size" />
+                    <SelectValue placeholder="Selecione o porte" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1-10">
@@ -633,12 +650,12 @@ async function submitLead() {
                 </Select>
               </div>
               <div class="space-y-2">
-                <Label for="company-website">Website</Label>
+                <Label for="company-website">Site</Label>
                 <Input id="company-website" v-model="companyForm.website" placeholder="www.example.com" />
               </div>
               <div class="md:col-span-2 space-y-2">
-                <Label for="company-address">Address</Label>
-                <Input id="company-address" v-model="companyForm.address" placeholder="Company address" />
+                <Label for="company-address">Endereço</Label>
+                <Input id="company-address" v-model="companyForm.address" placeholder="Endereço da empresa" />
               </div>
             </div>
           </template>
@@ -646,18 +663,18 @@ async function submitLead() {
             <!-- Meeting Details Form -->
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div class="space-y-2">
-                <Label for="meeting-date">Date</Label>
+                <Label for="meeting-date">Data</Label>
                 <Input id="meeting-date" v-model="meetingForm.date" type="date" />
               </div>
               <div class="space-y-2">
-                <Label for="meeting-time">Time</Label>
+                <Label for="meeting-time">Horário</Label>
                 <Input id="meeting-time" v-model="meetingForm.time" type="time" />
               </div>
               <div class="space-y-2">
-                <Label for="meeting-type">Meeting Type</Label>
+                <Label for="meeting-type">Tipo de reunião</Label>
                 <Select v-model="meetingForm.type">
                   <SelectTrigger id="meeting-type">
-                    <SelectValue placeholder="Select type" />
+                    <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="presential">
@@ -673,12 +690,12 @@ async function submitLead() {
                 </Select>
               </div>
               <div class="space-y-2">
-                <Label for="meeting-duration">Duration (minutes)</Label>
+                <Label for="meeting-duration">Duração (minutos)</Label>
                 <Input id="meeting-duration" v-model="meetingForm.duration" type="number" placeholder="30" />
               </div>
               <div class="md:col-span-2 space-y-2">
-                <Label for="meeting-agenda">Agenda</Label>
-                <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Describe the meeting agenda" rows="3" />
+                <Label for="meeting-agenda">Pauta</Label>
+                <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Descreva a pauta da reunião" rows="3" />
               </div>
             </div>
           </template>
@@ -691,7 +708,7 @@ async function submitLead() {
             Next
           </Button>
           <Button v-else :loading="loading" :disabled="!validateStep()" @click="submitLead">
-            Save Lead
+            Salvar lead
           </Button>
         </div>
       </Card>

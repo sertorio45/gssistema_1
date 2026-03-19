@@ -30,7 +30,12 @@ const showModalTheme = ref(false)
             <Avatar class="h-8 w-8 rounded-lg">
               <AvatarImage :src="user.avatar" :alt="user.name" />
               <AvatarFallback class="rounded-lg">
-                {{ user.name.split(' ').map((n) => n[0]).join('') }}
+                {{
+                  user.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                }}
               </AvatarFallback>
             </Avatar>
             <div class="grid flex-1 text-left text-sm leading-tight">
@@ -50,7 +55,12 @@ const showModalTheme = ref(false)
               <Avatar class="h-8 w-8 rounded-lg">
                 <AvatarImage :src="user.avatar" :alt="user.name" />
                 <AvatarFallback class="rounded-lg">
-                  {{ user.name.split(' ').map((n) => n[0]).join('') }}
+                  {{
+                    user.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                  }}
                 </AvatarFallback>
               </Avatar>
               <div class="grid flex-1 text-left text-sm leading-tight">
@@ -117,6 +127,4 @@ const showModalTheme = ref(false)
   </Dialog>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

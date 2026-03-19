@@ -3,7 +3,7 @@
 
 const goal = ref(350)
 
-type Data = typeof data[number]
+type Data = (typeof data)[number]
 const data = [
   { goal: 400 },
   { goal: 300 },
@@ -29,26 +29,19 @@ const data = [
           Dialog
         </h2>
         <p class="text-muted-foreground">
-          A window overlaid on either the primary window or another dialog window, rendering the content underneath inert.
+          A window overlaid on either the primary window or another dialog window, rendering the content underneath
+          inert.
         </p>
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/drawer"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/drawer" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://github.com/radix-vue/vaul-vue"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://github.com/radix-vue/vaul-vue" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -114,7 +107,7 @@ const data = [
                         }"
                       >
                         <VisStackedBar
-                          :x="(d: Data, i :number) => i"
+                          :x="(d: Data, i: number) => i"
                           :y="(d: Data) => d.goal"
                           color="var(--theme-primary)"
                           :bar-padding="0.1"
@@ -141,6 +134,4 @@ const data = [
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

@@ -2,7 +2,9 @@
 import type { ToastRootEmits } from 'radix-vue'
 import type { ToastProps } from '.'
 import { ToastRoot, useForwardPropsEmits } from 'radix-vue'
+
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 import { toastVariants } from '.'
 
@@ -20,11 +22,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
 </script>
 
 <template>
-  <ToastRoot
-    v-bind="forwarded"
-    :class="cn(toastVariants({ variant }), props.class)"
-    @update:open="onOpenChange"
-  >
+  <ToastRoot v-bind="forwarded" :class="cn(toastVariants({ variant }), props.class)" @update:open="onOpenChange">
     <slot />
   </ToastRoot>
 </template>

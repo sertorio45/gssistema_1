@@ -166,11 +166,13 @@ Se precisar de exemplos de uso, fluxos visuais ou detalhes de integração com o
 
 ```ts
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
+
 const { data: articlesRaw } = useFetch<any[]>('/api/articles')
 const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id')
 ```
 
 No template:
+
 ```vue
 <DataTable :data="articles" ... />
 ```

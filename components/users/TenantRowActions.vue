@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { Row } from '@tanstack/vue-table'
 import type { Tenant } from './tenant-columns'
+
 import { Icon } from '#components'
+
 import { computed } from 'vue'
+
 import { Button } from '@/components/ui/button'
 
 interface DataTableRowActionsProps {
@@ -25,12 +28,7 @@ function handleDelete() {
 
 <template>
   <div class="flex justify-end gap-2">
-    <Button
-      variant="ghost"
-      size="icon"
-      class="h-8 w-8 text-muted-foreground hover:text-primary"
-      @click="handleEdit"
-    >
+    <Button variant="ghost" size="icon" class="h-8 w-8 text-muted-foreground hover:text-primary" @click="handleEdit">
       <Icon name="lucide:pencil" class="h-4 w-4" />
       <span class="sr-only">Edit</span>
     </Button>

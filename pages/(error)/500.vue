@@ -14,7 +14,8 @@ const router = useRouter()
       </h1>
       <span class="font-medium">Oops! Something went wrong :')</span>
       <p class="text-center text-muted-foreground">
-        We apologize for the inconvenience. <br> Please try again later.
+        We apologize for the inconvenience. <br>
+        Please try again later.
       </p>
       <div class="mt-6 flex gap-4">
         <Button variant="outline" @click="router.back()">
@@ -28,6 +29,4 @@ const router = useRouter()
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

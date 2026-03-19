@@ -1,5 +1,4 @@
-<script setup lang="ts">
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <div class="flex flex-col gap-4">
@@ -14,21 +13,13 @@
       </div>
       <div class="flex gap-2">
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.shadcn-vue.com/docs/components/hover-card"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.shadcn-vue.com/docs/components/hover-card" external target="_blank">
             <span class="i-radix-icons-code mr-2" />
             Component Source
           </NuxtLink>
         </Button>
         <Button size="xs" variant="outline" class="text-xs" as-child>
-          <NuxtLink
-            to="https://www.radix-vue.com/components/hover-card"
-            external
-            target="_blank"
-          >
+          <NuxtLink to="https://www.radix-vue.com/components/hover-card" external target="_blank">
             Primitive API Reference
           </NuxtLink>
         </Button>
@@ -62,9 +53,7 @@
                     </p>
                     <div class="flex items-center pt-2">
                       <Icon name="radix-icons:calendar" class="mr-2 h-4 w-4 opacity-70" />
-                      <span class="text-xs text-muted-foreground">
-                        Joined January 2014
-                      </span>
+                      <span class="text-xs text-muted-foreground"> Joined January 2014 </span>
                     </div>
                   </div>
                 </div>
@@ -77,6 +66,4 @@
   </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

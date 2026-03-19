@@ -12,7 +12,9 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
 
   try {
     // Obter o token da sessão
-    const { data: { session } } = await client.auth.getSession()
+    const {
+      data: { session },
+    } = await client.auth.getSession()
 
     if (!session?.access_token) {
       if (!publicPages.includes(to.path)) {
@@ -47,9 +49,7 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     // eslint-disable-next-line no-console
     console.log('[middleware/role] tenantId:', tenantId, 'userRole:', userRole)
 
-    const requiredRoles = Array.isArray(to.meta.requiredRoles)
-      ? to.meta.requiredRoles
-      : [to.meta.requiredRoles]
+    const requiredRoles = Array.isArray(to.meta.requiredRoles) ? to.meta.requiredRoles : [to.meta.requiredRoles]
 
     // Se não encontrou role, só bloqueia se não for rota pública
     if (!userRole) {
@@ -86,9 +86,12 @@ function decodeJWT(token: string) {
 
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const jsonPayload = decodeURIComponent(
-      atob(base64).split('').map((c) => {
-        return `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`
-      }).join(''),
+      atob(base64)
+        .split('')
+        .map((c) => {
+          return `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+        })
+        .join(''),
     )
     return JSON.parse(jsonPayload)
   }

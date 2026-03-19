@@ -12,14 +12,14 @@ defineProps<{
   <Transition name="fade">
     <div
       v-if="show"
-      class="fixed bottom-3 left-1/2 z-50 max-w-[calc(100%-2rem)] flex transform -translate-x-1/2 items-center gap-4 rounded-full bg-primary px-6 py-3 shadow-2xl sm:max-w-md dark:bg-primary"
+      class="fixed bottom-3 left-1/2 z-50 max-w-[calc(100%-2rem)] flex transform items-center gap-4 rounded-full bg-primary px-6 py-3 shadow-2xl sm:max-w-md -translate-x-1/2 dark:bg-primary"
     >
       <Button
         variant="ghost"
         :disabled="isLoading"
         class="flex items-center gap-2 bg-transparent text-secondary shadow-none"
-        @click="onCancel"
         aria-label="Cancel"
+        @click="onCancel"
       >
         <Icon name="lucide:x" class="h-4 w-4" />
         {{ cancelLabel || 'Cancel' }}
@@ -28,8 +28,8 @@ defineProps<{
         variant="default"
         :disabled="isLoading"
         class="flex items-center gap-2 bg-secondary text-primary hover:bg-secondary/90"
-        @click="onSave"
         aria-label="Save"
+        @click="onSave"
       >
         <Icon v-if="isLoading" name="lucide:loader-2" class="h-4 w-4 animate-spin" />
         <Icon v-else name="lucide:save" class="h-4 w-4" />

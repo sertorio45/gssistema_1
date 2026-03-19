@@ -2,15 +2,9 @@
 import type { DialogContentEmits, DialogContentProps } from 'radix-vue'
 import type { HTMLAttributes } from 'vue'
 import { X } from 'lucide-vue-next'
-import {
-  DialogClose,
-  DialogContent,
-
-  DialogOverlay,
-  DialogPortal,
-  useForwardPropsEmits,
-} from 'radix-vue'
+import { DialogClose, DialogContent, DialogOverlay, DialogPortal, useForwardPropsEmits } from 'radix-vue'
 import { computed } from 'vue'
+
 import { cn } from '@/lib/utils'
 
 const props = defineProps<DialogContentProps & { class?: HTMLAttributes['class'] }>()
@@ -38,19 +32,19 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
           )
         "
         v-bind="forwarded"
-        @pointer-down-outside="(event) => {
-          const originalEvent = event.detail.originalEvent;
-          const target = originalEvent.target as HTMLElement;
-          if (originalEvent.offsetX > target.clientWidth || originalEvent.offsetY > target.clientHeight) {
-            event.preventDefault();
+        @pointer-down-outside="
+          event => {
+            const originalEvent = event.detail.originalEvent
+            const target = originalEvent.target as HTMLElement
+            if (originalEvent.offsetX > target.clientWidth || originalEvent.offsetY > target.clientHeight) {
+              event.preventDefault()
+            }
           }
-        }"
+        "
       >
         <slot />
 
-        <DialogClose
-          class="absolute right-3 top-3 rounded-md p-0.5 transition-colors hover:bg-secondary"
-        >
+        <DialogClose class="absolute right-3 top-3 rounded-md p-0.5 transition-colors hover:bg-secondary">
           <X class="h-4 w-4" />
           <span class="sr-only">Close</span>
         </DialogClose>

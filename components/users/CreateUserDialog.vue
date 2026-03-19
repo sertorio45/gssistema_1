@@ -88,27 +88,17 @@ defineExpose({
     <DialogContent class="sm:max-w-[800px]">
       <DialogHeader>
         <DialogTitle>Adicionar Novo Usuário</DialogTitle>
-        <DialogDescription>
-          Preencha os campos abaixo para criar um novo usuário.
-        </DialogDescription>
+        <DialogDescription> Preencha os campos abaixo para criar um novo usuário. </DialogDescription>
       </DialogHeader>
 
-      <UserForm
-        ref="formRef"
-        @submit="handleSubmit"
-        @cancel="isOpen = false"
-      />
+      <UserForm ref="formRef" @submit="handleSubmit" @cancel="isOpen = false" />
 
       <DialogFooter class="mt-6">
         <div class="flex gap-2">
           <Button variant="outline" @click="isOpen = false">
             Cancelar
           </Button>
-          <Button
-            :disabled="isLoading"
-            class="min-w-24"
-            @click="handleSubmit()"
-          >
+          <Button :disabled="isLoading" class="min-w-24" @click="handleSubmit()">
             <Icon v-if="isLoading" name="lucide:loader-2" class="mr-2 h-4 w-4 animate-spin" />
             {{ isLoading ? 'Salvando...' : 'Salvar' }}
           </Button>

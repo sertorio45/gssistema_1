@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { Company } from '~/types/crm'
 import { Loader2 } from 'lucide-vue-next'
+
 import { toast } from 'vue-sonner'
-import { useTenant } from '~/composables/useTenant'
 import { useCEP } from '~/composables/useCEP'
+import { useTenant } from '~/composables/useTenant'
 
 interface Props {
   initialData?: Partial<Company>
@@ -39,23 +40,21 @@ const formData = reactive({
 // Size options
 const sizeOptions = [
   { value: 'startup', label: 'Startup' },
-  { value: 'small', label: 'Small' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'large', label: 'Large' },
-  { value: 'enterprise', label: 'Enterprise' },
+  { value: 'small', label: 'Pequena' },
+  { value: 'medium', label: 'Média' },
+  { value: 'large', label: 'Grande' },
+  { value: 'enterprise', label: 'Empresarial' },
 ]
 
 // Handle form submission
 async function handleSubmit() {
   if (!formData.name.trim()) {
-    toast.error('Company name is required')
+    toast.error('Nome da empresa é obrigatório')
     return
   }
 
-
-
   if (!tenantId.value) {
-    toast.error('No tenant ID available')
+    toast.error('Nenhum tenant disponível')
     return
   }
 
@@ -73,7 +72,7 @@ async function handleSubmit() {
         method: 'PUT',
         body: payload,
       })
-      toast.success('Company updated successfully')
+      toast.success('Empresa atualizada com sucesso')
     }
     else {
       // Create new company
@@ -81,13 +80,13 @@ async function handleSubmit() {
         method: 'POST',
         body: payload,
       })
-      toast.success('Company created successfully')
+      toast.success('Empresa criada com sucesso')
     }
 
     emit('success')
   }
   catch (error: any) {
-    toast.error(error?.data?.message || 'Failed to save company')
+    toast.error(error?.data?.message || 'Erro ao salvar empresa')
   }
   finally {
     isSubmitting.value = false
@@ -106,59 +105,41 @@ async function handleCEPLookup(cep: string) {
     formData.city = cepData.localidade || ''
     formData.country = 'Brasil'
     formData.cep = formatCEP(cep)
-    toast.success('CEP data loaded successfully')
+    toast.success('Dados do CEP carregados')
   }
 }
 </script>
 
 <template>
-  <form id="company-form" @submit.prevent="handleSubmit" class="space-y-6">
+  <form id="company-form" class="space-y-6" @submit.prevent="handleSubmit">
     <!-- Company Name -->
     <div class="space-y-2">
-      <Label for="name">Company Name <span class="text-destructive">*</span></Label>
-      <Input
-        id="name"
-        v-model="formData.name"
-        placeholder="Enter company name"
-        required
-      />
+      <Label for="name">Nome da empresa <span class="text-destructive">*</span></Label>
+      <Input id="name" v-model="formData.name" placeholder="Nome da empresa" required />
     </div>
 
     <!-- Website and Industry -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div class="space-y-2">
-        <Label for="website">Website</Label>
-        <Input
-          id="website"
-          v-model="formData.website"
-          placeholder="https://example.com"
-          type="url"
-        />
+        <Label for="website">Site</Label>
+        <Input id="website" v-model="formData.website" placeholder="https://exemplo.com" type="url" />
       </div>
 
       <div class="space-y-2">
-        <Label for="industry">Industry</Label>
-        <Input
-          id="industry"
-          v-model="formData.industry"
-          placeholder="e.g., Technology, Healthcare"
-        />
+        <Label for="industry">Indústria</Label>
+        <Input id="industry" v-model="formData.industry" placeholder="ex.: Tecnologia, Saúde" />
       </div>
     </div>
 
     <!-- Size -->
     <div class="space-y-2">
-      <Label for="size">Company Size</Label>
+      <Label for="size">Porte da empresa</Label>
       <Select v-model="formData.size">
         <SelectTrigger>
-          <SelectValue placeholder="Select company size" />
+          <SelectValue placeholder="Selecione o porte" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem
-            v-for="option in sizeOptions"
-            :key="option.value"
-            :value="option.value"
-          >
+          <SelectItem v-for="option in sizeOptions" :key="option.value" :value="option.value">
             {{ option.label }}
           </SelectItem>
         </SelectContent>
@@ -168,11 +149,11 @@ async function handleCEPLookup(cep: string) {
     <!-- Address Section -->
     <div class="space-y-4">
       <h3 class="text-lg font-medium">
-        Address Information
+        Endereço
       </h3>
 
       <!-- CEP, City, Country -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div class="space-y-2">
           <Label for="cep">CEP</Label>
           <div class="relative">
@@ -180,57 +161,38 @@ async function handleCEPLookup(cep: string) {
               id="cep"
               v-model="formData.cep"
               placeholder="00000-000"
-              @blur="handleCEPLookup($event.target.value)"
               :disabled="cepLoading"
+              @blur="handleCEPLookup($event.target.value)"
             />
-            <Loader2 v-if="cepLoading" class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+            <Loader2
+              v-if="cepLoading"
+              class="absolute right-3 top-1/2 h-4 w-4 animate-spin text-muted-foreground -translate-y-1/2"
+            />
           </div>
         </div>
 
         <div class="space-y-2">
-          <Label for="city">City</Label>
-          <Input
-            id="city"
-            v-model="formData.city"
-            placeholder="Enter city"
-          />
+          <Label for="city">Cidade</Label>
+          <Input id="city" v-model="formData.city" placeholder="Cidade" />
         </div>
 
         <div class="space-y-2">
-          <Label for="country">Country</Label>
-          <Input
-            id="country"
-            v-model="formData.country"
-            placeholder="Enter country"
-          />
+          <Label for="country">País</Label>
+          <Input id="country" v-model="formData.country" placeholder="País" />
         </div>
       </div>
 
       <!-- Address -->
       <div class="space-y-2">
-        <Label for="address">Address</Label>
-        <Textarea
-          id="address"
-          v-model="formData.address"
-          placeholder="Enter full address"
-          :rows="2"
-        />
+        <Label for="address">Endereço</Label>
+        <Textarea id="address" v-model="formData.address" placeholder="Endereço completo" :rows="2" />
       </div>
     </div>
 
-
-
     <!-- Notes -->
     <div class="space-y-2">
-      <Label for="notes">Notes</Label>
-      <Textarea
-        id="notes"
-        v-model="formData.notes"
-        placeholder="Additional notes about the company"
-        :rows="3"
-      />
+      <Label for="notes">Observações</Label>
+      <Textarea id="notes" v-model="formData.notes" placeholder="Observações sobre a empresa" :rows="3" />
     </div>
-
-
   </form>
-</template> 
+</template>

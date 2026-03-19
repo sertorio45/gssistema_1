@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import type {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-} from '@tanstack/vue-table'
+import type { ColumnDef, ColumnFiltersState, SortingState, VisibilityState } from '@tanstack/vue-table'
 import type { User } from './columns'
 import {
   FlexRender,
@@ -16,6 +11,7 @@ import {
   getSortedRowModel,
   useVueTable,
 } from '@tanstack/vue-table'
+
 import { computed, ref, watch } from 'vue'
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -35,10 +31,14 @@ const columnVisibility = ref<VisibilityState>({})
 const rowSelection = ref<Record<string, boolean>>({})
 
 // Watch for row selection changes and emit event
-watch(rowSelection, () => {
-  const selectedIndices = Object.keys(rowSelection.value).map(Number)
-  emit('selectionChange', selectedIndices)
-}, { deep: true })
+watch(
+  rowSelection,
+  () => {
+    const selectedIndices = Object.keys(rowSelection.value).map(Number)
+    emit('selectionChange', selectedIndices)
+  },
+  { deep: true },
+)
 
 const table = useVueTable({
   get data() {
@@ -143,14 +143,17 @@ const _isSomeSelected = computed(() => {
 })
 
 // Clear selection when data changes
-watch(() => props.data, () => {
-  if (rowSelection.value) {
-    Object.keys(rowSelection.value).forEach((key) => {
-      delete rowSelection.value[key]
-    })
-  }
-  emit('selectionChange', [])
-})
+watch(
+  () => props.data,
+  () => {
+    if (rowSelection.value) {
+      Object.keys(rowSelection.value).forEach((key) => {
+        delete rowSelection.value[key]
+      })
+    }
+    emit('selectionChange', [])
+  },
+)
 </script>
 
 <template>
@@ -161,7 +164,11 @@ watch(() => props.data, () => {
         <TableHeader>
           <TableRow v-for="headerGroup in table.getHeaderGroups()" :key="headerGroup.id">
             <TableHead v-for="header in headerGroup.headers" :key="header.id">
-              <FlexRender v-if="!header.isPlaceholder" :render="header.column.columnDef.header" :props="header.getContext()" />
+              <FlexRender
+                v-if="!header.isPlaceholder"
+                :render="header.column.columnDef.header"
+                :props="header.getContext()"
+              />
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -179,10 +186,7 @@ watch(() => props.data, () => {
           </template>
 
           <TableRow v-else>
-            <TableCell
-              :colspan="props.columns.length"
-              class="h-24 text-center"
-            >
+            <TableCell :colspan="props.columns.length" class="h-24 text-center">
               No items found.
             </TableCell>
           </TableRow>
