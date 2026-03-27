@@ -9,14 +9,21 @@ import { useTenantStore } from '~/stores/tenant'
 const tenantId = ref<string | null>(null)
 const tenants = ref<any[]>([])
 
+function isUuid(value: string | null | undefined) {
+  if (!value)
+    return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 // Unifica a persistência do tenant usando apenas 'current-tenant-id'
 function setTenantId(newTenantId: string | null) {
-  tenantId.value = newTenantId
+  const normalizedTenantId = isUuid(newTenantId) ? newTenantId : null
+  tenantId.value = normalizedTenantId
   const tenantStore = useTenantStore()
-  tenantStore.setTenant(newTenantId ?? '')
+  tenantStore.setTenant(normalizedTenantId ?? '')
   if (import.meta.client) {
-    if (newTenantId) {
-      localStorage.setItem('current-tenant-id', newTenantId)
+    if (normalizedTenantId) {
+      localStorage.setItem('current-tenant-id', normalizedTenantId)
     }
     else {
       localStorage.removeItem('current-tenant-id')
@@ -28,8 +35,11 @@ function setTenantId(newTenantId: string | null) {
 function restoreLastTenant() {
   if (import.meta.client) {
     const lastTenantId = localStorage.getItem('current-tenant-id')
-    if (lastTenantId) {
+    if (lastTenantId && isUuid(lastTenantId)) {
       setTenantId(lastTenantId)
+    }
+    else if (lastTenantId) {
+      localStorage.removeItem('current-tenant-id')
     }
   }
 }

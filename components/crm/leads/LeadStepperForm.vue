@@ -157,6 +157,31 @@ const meetingForm = ref({
 
 const loading = ref(false)
 
+function formatLeadValueInput(value: string | number): string {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  const cents = Number(digits || '0') / 100
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents)
+}
+
+function parseLeadValueInput(value: string): number {
+  const normalized = value
+    .replace(/[R$\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function handleLeadValueInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  leadForm.value.value = formatLeadValueInput(input.value)
+}
+
 // Função para recarregar dados
 function refreshData() {
   dataError.value = null
@@ -264,7 +289,7 @@ async function submitLead() {
       pipeline_id: pipelineId,
       status: 'new' as any,
       priority: (leadForm.value.priority as any) || 'medium',
-      value: leadForm.value.value ? Number(leadForm.value.value) : 0,
+      value: parseLeadValueInput(leadForm.value.value),
       notes: leadForm.value.notes || null,
       tenant_id: tenantId.value,
       tags: [] as string[],
@@ -560,7 +585,14 @@ async function submitLead() {
               </div>
               <div class="space-y-2">
                 <Label for="lead-value">Valor estimado</Label>
-                <Input id="lead-value" v-model="leadForm.value" placeholder="$0.00" type="text" />
+                <Input
+                  id="lead-value"
+                  v-model="leadForm.value"
+                  placeholder="R$ 0,00"
+                  type="text"
+                  inputmode="numeric"
+                  @input="handleLeadValueInput"
+                />
               </div>
               <div class="md:col-span-2 space-y-2">
                 <Label for="lead-notes">Observações</Label>

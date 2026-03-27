@@ -170,6 +170,11 @@ function handleLeadClick(lead: Lead) {
   isDialogOpen.value = true
 }
 
+function handleQuickEditLead(lead: Lead) {
+  selectedLead.value = lead
+  isEditLeadDialogOpen.value = true
+}
+
 function closeDialog() {
   isDialogOpen.value = false
   selectedLead.value = null
@@ -179,7 +184,8 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value)
 }
 
@@ -933,19 +939,33 @@ async function saveStagesOrder() {
                 @dragstart="handleDragStart($event, lead.id, lead.sales_stage_id)"
               >
                 <!-- Lead Card Content -->
-                <div class="space-y-1">
-                  <div class="flex items-start justify-between">
-                    <div>
-                      <h4 class="text-xs font-medium">
+                <div class="space-y-2">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      <h4 class="truncate text-sm font-semibold leading-tight">
                         {{ lead.name }}
                       </h4>
-                      <p class="text-xs text-muted-foreground">
+                      <p class="truncate text-xs text-muted-foreground">
                         {{ lead.company || 'Sem empresa' }}
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground"
+                      @click.stop="handleQuickEditLead(lead)"
+                    >
+                      <Icon name="lucide:pencil" class="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm font-semibold text-primary">
+                      {{ formatCurrency(lead.value) }}
+                    </p>
                     <Badge
                       variant="outline"
-                      class="h-4 py-0 text-xs"
+                      class="h-5 py-0 text-xs"
                       :class="{
                         'bg-red-50 text-red-700 border-red-200': lead.priority === 'high',
                         'bg-yellow-50 text-yellow-700 border-yellow-200': lead.priority === 'medium',
@@ -956,25 +976,16 @@ async function saveStagesOrder() {
                     </Badge>
                   </div>
 
-                  <!-- <div class="flex items-center justify-between">
-                    <span class="text-xs font-medium">{{ formatCurrency(lead.value) }}</span>
-                    <div class="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Icon name="lucide:calendar" class="h-3 w-3" />
-                      {{ new Date(lead.createdAt).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }) }}
-                    </div>
-                  </div> -->
-
-                  <div class="flex items-center justify-between text-xs">
-                    <div class="flex items-center gap-1 text-muted-foreground">
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-muted-foreground">
                       <Icon name="lucide:user" class="h-3 w-3" />
-                      {{ lead.assignedTo || 'Não atribuído' }}
+                      <span class="truncate">{{ lead.assignedTo || 'Não atribuído' }}</span>
                     </div>
-                    <div class="flex items-center gap-1 text-muted-foreground">
+                    <div class="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-muted-foreground">
                       <Icon name="lucide:tag" class="h-3 w-3" />
-                      {{ getSourceLabel(lead.source, lead.source_id) }}
+                      <span class="truncate">{{ getSourceLabel(lead.source, lead.source_id) }}</span>
                     </div>
                   </div>
-
                 </div>
               </div>
 

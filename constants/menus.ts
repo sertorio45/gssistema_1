@@ -20,13 +20,23 @@ export const navMenu: NavMenu[] = [
             title: 'Configurações',
             icon: 'i-lucide-bar-chart-3',
             link: '/crm/config',
-            children: [
-              { title: 'Origens', icon: 'i-lucide-circle', link: '/crm/config/sources' },
-              { title: 'Estágios de Vendas', icon: 'i-lucide-list-checks', link: '/crm/config/sales-stages' },
-              { title: 'Pipelines', icon: 'i-lucide-layers', link: '/crm/config/pipelines' },
-              { title: 'Produtos', icon: 'i-lucide-package', link: '/crm/config/products' },
-            ],
           },
+        ],
+      },
+    ],
+  },
+  {
+    heading: '',
+    items: [
+      {
+        title: 'Painel',
+        icon: 'i-lucide-layout-dashboard',
+        roles: ['admin', 'funcionario', 'cliente'],
+        children: [
+          { title: 'Visão geral', icon: 'i-lucide-chart-line', link: '/dashboard' },
+          { title: 'Integrações', icon: 'i-lucide-plug', link: '/dashboard/integrations' },
+          { title: 'Relatórios', icon: 'i-lucide-file-text', link: '/dashboard/reports' },
+          { title: 'Relatórios WhatsApp', icon: 'i-lucide-message-circle', link: '/dashboard/reports/whatsapp' },
         ],
       },
     ],

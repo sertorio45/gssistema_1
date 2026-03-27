@@ -7,6 +7,7 @@ export interface NavLink extends NavBase {
   link: string
   icon?: string
   new?: boolean
+  children?: NavLink[]
 }
 
 export interface NavSectionTitle {

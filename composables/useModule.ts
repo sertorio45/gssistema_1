@@ -18,6 +18,12 @@ const currentModuleSlug = ref<string>(DEFAULT_MODULE_SLUG)
 const tenantModules = ref<Array<{ id: string; module_name: string; is_active: boolean }>>([])
 const isLoadingModules = ref(false)
 
+function isUuid(value: string | null | undefined) {
+  if (!value)
+    return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 function persistModuleSlug(slug: string) {
   if (import.meta.client) {
     localStorage.setItem(STORAGE_KEY, slug)
@@ -35,7 +41,7 @@ function restoreModuleSlug(): string {
 }
 
 async function fetchTenantModules(tenantId: string | null) {
-  if (!tenantId) {
+  if (!tenantId || !isUuid(tenantId)) {
     tenantModules.value = []
     return []
   }

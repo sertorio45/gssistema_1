@@ -498,3 +498,37 @@ npx supabase migration list
 ## Licença
 
 MIT
+
+---
+
+## 9. Dashboard Module (Google + Meta)
+
+Módulo novo de analytics de mídia paga com integração backend-first para Google Ads e Meta Ads.
+
+### 9.1 Rotas
+
+- `/dashboard` — visão principal com KPIs e gráficos padrão (Shadcn/Unovis)
+- `/dashboard/integrations` — cadastro de integrações (Google + Meta)
+- `/dashboard/reports` — central de relatórios
+- `/dashboard/reports/whatsapp` — envio de relatório via WhatsApp
+
+### 9.2 Banco (prefixo `dashboard_`)
+
+Tabelas criadas:
+
+- `dashboard_integrations` — credenciais e parâmetros de integração por tenant
+- `dashboard_campaign_cache` — cache dos resultados agregados de campanhas
+- `dashboard_report_logs` — fila/log de relatórios enviados para WhatsApp
+
+### 9.3 Segurança de chaves
+
+- Chaves/tokens são processadas apenas no backend (`server/api/dashboard/*`)
+- Valores sensíveis são armazenados criptografados no banco
+- API de listagem retorna apenas status/máscara das chaves
+
+### 9.4 Regras de módulo e menu
+
+- Módulo registrado em `constants/modules.ts` como `dashboard`
+- Menu do módulo registrado em `constants/menus.ts`
+- Controle de acesso para clientes no middleware `server/middleware/module-access.ts` com prefixo `/api/dashboard`
+- Ativação para tenants via `tenant_modules.module_name = 'dashboard'`

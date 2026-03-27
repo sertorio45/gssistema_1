@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   devtools: { enabled: false },
+  ssr: true,
 
   modules: [
     '@unocss/nuxt',
@@ -31,7 +32,10 @@ export default defineNuxtConfig({
     },
   },
 
-  routeRules: {},
+  routeRules: {
+    '/dashboard': { ssr: true },
+    '/dashboard/**': { ssr: true },
+  },
 
   imports: {
     dirs: ['./lib'],

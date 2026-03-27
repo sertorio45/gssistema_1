@@ -31,6 +31,14 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     icon: 'lucide:bar-chart-3',
     basePath: '/analytics',
   },
+  dashboard: {
+    slug: 'dashboard',
+    /** Must match the nav group `title` in `constants/menus.ts` (AppSidebar filters by this string). */
+    title: 'Painel',
+    icon: 'lucide:layout-dashboard',
+    basePath: '/dashboard',
+    defaultPath: '/dashboard',
+  },
 }
 
 export const DEFAULT_MODULE_SLUG = 'crm'

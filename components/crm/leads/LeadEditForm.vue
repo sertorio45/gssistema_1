@@ -156,6 +156,31 @@ const meetingForm = ref({
   agenda: '',
 })
 
+function formatLeadValueInput(value: string | number): string {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  const cents = Number(digits || '0') / 100
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(cents)
+}
+
+function parseLeadValueInput(value: string): number {
+  const normalized = value
+    .replace(/[R$\s]/g, '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function handleLeadValueInput(event: Event) {
+  const input = event.target as HTMLInputElement
+  leadForm.value.value = formatLeadValueInput(input.value)
+}
+
 // Watch para pré-preencher todos os formulários quando os dados carregarem
 watch([() => props.lead, leadSources], () => {
   if (props.lead) {
@@ -166,7 +191,7 @@ watch([() => props.lead, leadSources], () => {
       sales_stage_id: props.lead.sales_stage_id || '',
       status: props.lead.status || 'new',
       priority: props.lead.priority || 'medium',
-      value: props.lead.value?.toString() || '',
+      value: props.lead.value ? formatLeadValueInput(props.lead.value) : '',
       notes: props.lead.notes || '',
     }
 
@@ -275,7 +300,7 @@ async function updateLead() {
       sales_stage_id: leadForm.value.sales_stage_id || null,
       status: leadForm.value.status,
       priority: leadForm.value.priority,
-      value: leadForm.value.value ? Number(leadForm.value.value) : 0,
+      value: parseLeadValueInput(leadForm.value.value),
       notes: leadForm.value.notes || null,
       tenant_id: tenantId.value,
     }
@@ -471,7 +496,14 @@ function cancel() {
 
             <div class="space-y-2">
               <Label for="lead-value">Valor estimado</Label>
-              <Input id="lead-value" v-model="leadForm.value" placeholder="$0.00" type="number" />
+              <Input
+                id="lead-value"
+                v-model="leadForm.value"
+                placeholder="R$ 0,00"
+                type="text"
+                inputmode="numeric"
+                @input="handleLeadValueInput"
+              />
             </div>
           </div>
 

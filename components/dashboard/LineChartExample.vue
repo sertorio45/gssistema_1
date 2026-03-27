@@ -2,21 +2,21 @@
 import { LineChart } from '@/components/ui/chart-line'
 
 const data = [
-  { month: 'Jan', revenue: 2200, profit: 1400 },
-  { month: 'Feb', revenue: 2800, profit: 1600 },
-  { month: 'Mar', revenue: 3100, profit: 1900 },
-  { month: 'Apr', revenue: 3600, profit: 2100 },
-  { month: 'May', revenue: 4200, profit: 2400 },
-  { month: 'Jun', revenue: 4800, profit: 2800 },
-  { month: 'Jul', revenue: 5100, profit: 3000 },
-  { month: 'Aug', revenue: 4900, profit: 2700 },
-  { month: 'Sep', revenue: 5400, profit: 3200 },
-  { month: 'Oct', revenue: 5800, profit: 3500 },
-  { month: 'Nov', revenue: 6100, profit: 3700 },
-  { month: 'Dec', revenue: 6500, profit: 4000 },
+  { month: 'Jan', receita: 2200, lucro: 1400 },
+  { month: 'Fev', receita: 2800, lucro: 1600 },
+  { month: 'Mar', receita: 3100, lucro: 1900 },
+  { month: 'Abr', receita: 3600, lucro: 2100 },
+  { month: 'Mai', receita: 4200, lucro: 2400 },
+  { month: 'Jun', receita: 4800, lucro: 2800 },
+  { month: 'Jul', receita: 5100, lucro: 3000 },
+  { month: 'Ago', receita: 4900, lucro: 2700 },
+  { month: 'Set', receita: 5400, lucro: 3200 },
+  { month: 'Out', receita: 5800, lucro: 3500 },
+  { month: 'Nov', receita: 6100, lucro: 3700 },
+  { month: 'Dez', receita: 6500, lucro: 4000 },
 ]
 </script>
 
 <template>
-  <LineChart :data="data" :categories="['revenue', 'profit']" index="month" />
+  <LineChart :data="data" :categories="['receita', 'lucro']" index="month" />
 </template>
