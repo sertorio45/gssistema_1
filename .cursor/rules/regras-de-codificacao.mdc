@@ -4,11 +4,12 @@ globs:
 alwaysApply: true
 ---
 Regras Gerais de Codificação
-Frontend: Sempre desenvolva o frontend com textos, variáveis e informações em inglês.
+Frontend: Sempre desenvolva o frontend com textos, variáveis e informações em portugues.
+Backend: Sempre desenvolva o backend com textos, variáveis e informações em ingles.
 Organização: Mantenha o código organizado, criando itens reutilizáveis globalmente utilizando os recursos do Nuxt 3.
 Estrutura de Módulos: Para cada novo módulo (ex: articles), crie e organize as pastas relacionadas, nomeando-as conforme o domínio do módulo.
 Menus: Toda lógica de menus deve ser centralizada no arquivo constants/menus.ts.
-Bibliotecas: Mantenha as bibliotecas de UI, tema e utilitários intactas, sem modificações diretas.
+Bibliotecas: Mantenha as bibliotecas de UI Shadcn, tema e utilitários intactas, sem modificações diretas.
 Listagens: Todas as páginas de listagem devem utilizar datatables padronizados, seguindo o exemplo da página de Tasks.
 Cache: Implemente cache em todos os módulos criados (exemplo: articles) para otimizar a performance e evitar requisições desnecessárias.
 Sempre usar SSR nos projetos NUXT 3.

@@ -17,10 +17,11 @@ function isUuid(value?: string | null) {
 
 function getEncryptionKey() {
   const secret
-    = process.env.DASHBOARD_ENCRYPTION_SECRET
+    = process.env.MARKETING_ENCRYPTION_SECRET
+      || process.env.DASHBOARD_ENCRYPTION_SECRET
       || process.env.SUPABASE_SERVICE_KEY
       || process.env.SUPABASE_KEY
-      || 'dashboard-fallback-secret'
+      || 'marketing-fallback-secret'
   return createHash('sha256').update(secret).digest()
 }
 
@@ -51,7 +52,7 @@ export function decryptSecret(value?: string | null) {
   return decrypted.toString('utf8')
 }
 
-export async function resolveDashboardTenantContext(event: any, requestedTenantId?: string) {
+export async function resolveMarketingTenantContext(event: any, requestedTenantId?: string) {
   const user = await serverSupabaseUser(event)
   if (!user) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
@@ -78,7 +79,6 @@ export async function resolveDashboardTenantContext(event: any, requestedTenantI
   }
   let normalizedRequestedTenantId = effectiveRequested || null
 
-  // Backward compatibility: some clients may still send tenant slug/name instead of UUID.
   if (normalizedRequestedTenantId && !isUuid(normalizedRequestedTenantId)) {
     const client = await serverSupabaseServiceRole(event)
     const { data: tenantBySlug } = await client
@@ -98,7 +98,6 @@ export async function resolveDashboardTenantContext(event: any, requestedTenantI
     throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
   }
 
-  // JWT may store tenant_roles keyed by UUID or by tenant slug — resolve role for this tenantId (UUID).
   let role: TenantRole = (tenantRoles[tenantId] as TenantRole) || null
   if (!role) {
     const client = await serverSupabaseServiceRole(event)
@@ -115,7 +114,6 @@ export async function resolveDashboardTenantContext(event: any, requestedTenantI
     role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
   }
 
-  // Admin/funcionario: JWT may only list some tenants; switching workspace still must work.
   if (!role && isStaffUser(user)) {
     role = resolveStaffRole(user)
   }
@@ -159,14 +157,14 @@ export function maskSensitiveValue(value?: string | null) {
   return `${value.slice(0, 2)}******${value.slice(-2)}`
 }
 
-export async function getCachedDashboardData(
+export async function getCachedMarketingData(
   client: any,
   tenantId: string,
   provider: 'google' | 'meta' | 'all',
   cacheKey: string,
 ) {
   const { data } = await client
-    .from('dashboard_campaign_cache')
+    .from('marketing_campaign_cache')
     .select('payload, expires_at')
     .eq('tenant_id', tenantId)
     .eq('provider', provider)
@@ -177,7 +175,7 @@ export async function getCachedDashboardData(
   return data?.payload ?? null
 }
 
-export async function setCachedDashboardData(
+export async function setCachedMarketingData(
   client: any,
   tenantId: string,
   provider: 'google' | 'meta' | 'all',
@@ -187,7 +185,7 @@ export async function setCachedDashboardData(
 ) {
   const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000).toISOString()
   await client
-    .from('dashboard_campaign_cache')
+    .from('marketing_campaign_cache')
     .upsert(
       {
         tenant_id: tenantId,
@@ -200,17 +198,13 @@ export async function setCachedDashboardData(
     )
 }
 
-/** Hash of encrypted token + account ids so cache invalidates when OAuth or ad account changes. */
 function fingerprintToken(enc?: string | null) {
   if (!enc)
     return '0'
   return createHash('sha256').update(enc).digest('hex').slice(0, 16)
 }
 
-/**
- * Builds a cache key scoped to tenant + connected accounts (Meta / Google) so switching accounts never serves stale metrics.
- */
-export function buildDashboardOverviewCacheKey(
+export function buildMarketingOverviewCacheKey(
   source: string,
   googleTemplate: string,
   periodKey: string,
@@ -231,7 +225,6 @@ export function buildDashboardOverviewCacheKey(
   return `${source}:${googleTemplate}:${periodKey}:${ads}:${metaPart}:${googlePart}`
 }
 
-/** Clears all campaign cache rows for a tenant (e.g. disconnect or integration update). */
-export async function clearDashboardCampaignCacheForTenant(client: any, tenantId: string) {
-  await client.from('dashboard_campaign_cache').delete().eq('tenant_id', tenantId)
+export async function clearMarketingCampaignCacheForTenant(client: any, tenantId: string) {
+  await client.from('marketing_campaign_cache').delete().eq('tenant_id', tenantId)
 }

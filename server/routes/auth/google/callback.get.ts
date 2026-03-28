@@ -6,5 +6,5 @@ export default defineEventHandler(async (event) => {
   const providerFromState = state.split(':')[1]
   const provider = providerFromState === 'google_ads' ? 'google_ads' : 'google_analytics'
   const query = requestUrl.search || ''
-  return sendRedirect(event, `/api/dashboard/oauth/${provider}/callback${query}`, 302)
+  return sendRedirect(event, `/api/marketing/oauth/${provider}/callback${query}`, 302)
 })

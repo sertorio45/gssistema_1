@@ -1,15 +1,15 @@
-export type DashboardProvider = 'google_ads' | 'google_analytics' | 'meta'
+export type MarketingProvider = 'google_ads' | 'google_analytics' | 'meta'
 
 export type GoogleTemplateType = 'local_business' | 'website_visits' | 'standard'
 
-export interface DashboardIntegrationPayload {
-  provider: DashboardProvider
+export interface MarketingIntegrationPayload {
+  provider: MarketingProvider
   tenant_id?: string
   is_active?: boolean
   config: Record<string, any>
 }
 
-export type DashboardDatePreset =
+export type MarketingDatePreset =
   | 'today'
   | 'yesterday'
   | 'last_7d'
@@ -18,12 +18,12 @@ export type DashboardDatePreset =
   | 'last_90d'
   | 'custom'
 
-export interface DashboardOverviewQuery {
+export interface MarketingOverviewQuery {
   tenant_id?: string
-  source?: 'all' | 'google_ads' | 'meta'
+  source?: 'all' | 'google_ads' | 'google_analytics' | 'meta'
   google_template?: GoogleTemplateType
   force_refresh?: boolean
-  date_preset?: DashboardDatePreset | string
+  date_preset?: MarketingDatePreset | string
   date_start?: string
   date_end?: string
   meta_ads_active_only?: string | boolean
@@ -75,7 +75,7 @@ export interface MetaSeriesPoint {
   roas: number | null
 }
 
-export interface DashboardOverviewPeriod {
+export interface MarketingOverviewPeriod {
   preset: string
   date_start: string | null
   date_end: string | null

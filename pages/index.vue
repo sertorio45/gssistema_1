@@ -161,7 +161,7 @@ onMounted(() => {
             <CardTitle>Overview</CardTitle>
           </CardHeader>
           <CardContent class="pl-2">
-            <DashboardOverview />
+            <MarketingOverview />
           </CardContent>
         </Card>
         <Card>

@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
 
-import { resolveDashboardTenantContext } from '~/server/utils/dashboard'
+import { resolveMarketingTenantContext } from '~/server/utils/marketing'
 
 function toProvider(value: string) {
   if (value === 'google_ads' || value === 'google_analytics' || value === 'meta')
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event)
-  const { tenantId } = await resolveDashboardTenantContext(event, query.tenant_id as string | undefined)
+  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
 
   const requestUrl = getRequestURL(event)
   const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`

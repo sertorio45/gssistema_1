@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import type { DashboardOverviewPeriod, MetaOverviewBlock, MetaSeriesPoint } from '~/types/dashboard'
+import type { MarketingOverviewPeriod, MetaAdCreative, MetaOverviewBlock, MetaSeriesPoint } from '~/types/marketing'
+import type { MetaAdCreativePayload } from '~/types/meta-creatives'
 
 import MetaBrandIcon from '@/components/brand/MetaBrandIcon.vue'
-import MiniSparkline from '@/components/dashboard/MiniSparkline.vue'
+import MetaCreativeMediaViewer from '@/components/marketing/MetaCreativeMediaViewer.vue'
+import MiniSparkline from '@/components/marketing/MiniSparkline.vue'
+import { Switch } from '@/components/ui/switch'
 
 const props = defineProps<{
   meta?: MetaOverviewBlock | null
-  period?: DashboardOverviewPeriod | null
+  period?: MarketingOverviewPeriod | null
 }>()
 
-const adsActiveOnly = defineModel<boolean>('adsActiveOnly', { default: false })
+const { tenantId } = useTenant()
+
+const adsActiveOnly = defineModel<boolean>('adsActiveOnly', { default: true })
 
 const selectedCampaignId = ref<string | 'all'>('all')
-const activeCampaignsOnly = ref(false)
+const activeCampaignsOnly = ref(true)
 
 const periodLabel = computed(() => {
   const p = props.period
@@ -201,11 +206,53 @@ function formatMetricValue(key: string) {
   }
 }
 
-const filteredAds = computed(() => {
-  const ads = props.meta?.ads ?? []
-  if (selectedCampaignId.value === 'all')
-    return ads
-  return ads.filter(a => a.campaign_id && String(a.campaign_id) === String(selectedCampaignId.value))
+const { data: creativesRes, pending: creativesPending, refresh: refreshCreatives } = await useAsyncData(
+  () => `meta-creatives-${tenantId.value}-${adsActiveOnly.value}`,
+  () =>
+    $fetch<{ data: MetaAdCreativePayload[], api_version: string }>('/api/marketing/creatives', {
+      query: {
+        tenant_id: tenantId.value || undefined,
+        ads_active_only: adsActiveOnly.value ? 'true' : 'false',
+      },
+    }),
+  { watch: [tenantId, adsActiveOnly] },
+)
+
+const metricsByAdId = computed(() => {
+  const m = new Map<string, MetaAdCreative>()
+  for (const a of props.meta?.ads ?? [])
+    m.set(String(a.id), a)
+  return m
+})
+
+const viewerOpen = ref(false)
+const viewerCreative = ref<MetaAdCreativePayload | null>(null)
+
+function openViewer(c: MetaAdCreativePayload) {
+  viewerCreative.value = c
+  viewerOpen.value = true
+}
+
+watch(viewerOpen, (v) => {
+  if (!v)
+    viewerCreative.value = null
+})
+
+/** Criativos em alta resolução + métricas do overview (mesmo período) */
+const creativeRows = computed(() => {
+  const list = creativesRes.value?.data ?? []
+  return list
+    .map((c) => {
+      const metrics = metricsByAdId.value.get(String(c.ad_id))
+      return { creative: c, metrics }
+    })
+    .filter((row) => {
+      if (selectedCampaignId.value === 'all')
+        return true
+      const cid = row.metrics?.campaign_id
+      return cid != null && String(cid) === String(selectedCampaignId.value)
+    })
+    .slice(0, 12)
 })
 
 function fmtCurrency(n: number) {
@@ -238,6 +285,10 @@ watch(activeCampaignsOnly, () => {
   if (!campaignSelectOptions.value.some(c => String(c.id) === String(selectedCampaignId.value)))
     selectedCampaignId.value = 'all'
 })
+
+defineExpose({
+  refreshCreatives,
+})
 </script>
 
 <template>
@@ -263,22 +314,18 @@ watch(activeCampaignsOnly, () => {
           </p>
         </div>
 
-        <div class="flex w-full flex-col gap-3 sm:max-w-md">
-          <div class="flex flex-wrap items-center gap-2">
-            <Checkbox id="meta-ads-active" v-model:checked="adsActiveOnly" />
-            <Label for="meta-ads-active" class="cursor-pointer text-sm font-normal">
-              Somente anúncios ativos
+        <div class="flex w-full flex-col gap-4 lg:max-w-lg lg:shrink-0">
+          <div class="flex flex-col gap-2">
+            <Label for="meta-campaign" class="text-xs font-medium text-muted-foreground">
+              Campanha
             </Label>
-          </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <Label class="shrink-0 text-xs text-muted-foreground">Campanha</Label>
             <Select v-model="selectedCampaignId">
-              <SelectTrigger class="min-w-[220px] flex-1">
-                <SelectValue placeholder="Todas as campanhas" />
+              <SelectTrigger id="meta-campaign" class="w-full min-w-0">
+                <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">
-                  Todas as campanhas
+                  Todas
                 </SelectItem>
                 <SelectItem
                   v-for="c in campaignSelectOptions"
@@ -291,11 +338,30 @@ watch(activeCampaignsOnly, () => {
               </SelectContent>
             </Select>
           </div>
-          <div class="flex items-center gap-2">
-            <Checkbox id="meta-active-only" v-model:checked="activeCampaignsOnly" />
-            <Label for="meta-active-only" class="cursor-pointer text-sm font-normal">
-              Somente campanhas ativas
-            </Label>
+
+          <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+            <div
+              class="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 shadow-sm"
+            >
+              <Label
+                for="meta-ads-active"
+                class="cursor-pointer text-sm font-medium leading-tight text-foreground"
+              >
+                Anúncios ativos
+              </Label>
+              <Switch id="meta-ads-active" v-model:checked="adsActiveOnly" />
+            </div>
+            <div
+              class="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 shadow-sm"
+            >
+              <Label
+                for="meta-campaigns-active"
+                class="cursor-pointer text-sm font-medium leading-tight text-foreground"
+              >
+                Campanhas ativas
+              </Label>
+              <Switch id="meta-campaigns-active" v-model:checked="activeCampaignsOnly" />
+            </div>
           </div>
         </div>
       </div>
@@ -408,25 +474,34 @@ watch(activeCampaignsOnly, () => {
 
       <!-- Criativos -->
       <div class="bg-muted/10 px-4 py-5 sm:px-6">
+        <MetaCreativeMediaViewer v-model="viewerOpen" :creative="viewerCreative" />
+
         <div class="mb-4">
           <h3 class="text-sm font-semibold">
             Criativos dos anúncios
           </h3>
           <p class="text-xs text-muted-foreground">
-            As miniaturas respeitam o filtro de campanha acima. As métricas referem-se ao período selecionado.
+            Mídias em alta resolução (Graph API {{ creativesRes?.api_version || 'v23.0' }}). Métricas no período selecionado.
           </p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+        <div v-if="creativesPending" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div v-for="n in 4" :key="n" class="h-48 animate-pulse rounded-lg border bg-muted/40" />
+        </div>
+
+        <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <div
-            v-for="ad in filteredAds.slice(0, 12)"
-            :key="ad.id"
+            v-for="row in creativeRows"
+            :key="row.creative.ad_id"
             class="group overflow-hidden rounded-lg border bg-card shadow-sm transition hover:bg-muted/20"
           >
             <div class="relative aspect-video w-full overflow-hidden bg-muted">
               <img
-                v-if="ad.image_url"
-                :src="ad.image_url"
-                :alt="ad.name || 'Anúncio'"
+                v-if="row.creative.preview_thumbnail || row.metrics?.image_url"
+                :src="row.creative.preview_thumbnail || row.metrics?.image_url || ''"
+                :alt="row.creative.ad_name || 'Anúncio'"
+                loading="lazy"
+                decoding="async"
                 class="h-full w-full object-cover transition group-hover:scale-[1.02]"
               >
               <div
@@ -435,31 +510,42 @@ watch(activeCampaignsOnly, () => {
               >
                 <Icon name="lucide:image-off" class="h-8 w-8 opacity-40" />
               </div>
+              <button
+                type="button"
+                class="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-md bg-black/45 text-white shadow-md backdrop-blur-[2px] transition hover:bg-black/55"
+                :aria-label="'Ver mídia em tamanho ampliado'"
+                @click.stop="openViewer(row.creative)"
+              >
+                <Icon name="lucide:eye" class="h-4 w-4" />
+              </button>
             </div>
             <div class="space-y-2 p-3">
               <div class="mb-1 flex flex-wrap gap-1">
-                <Badge v-if="ad.effective_status" variant="secondary" class="text-[10px]">
-                  {{ metaStatusPt(ad.effective_status) }}
+                <Badge v-if="row.metrics?.effective_status" variant="secondary" class="text-[10px]">
+                  {{ metaStatusPt(row.metrics.effective_status) }}
+                </Badge>
+                <Badge variant="outline" class="text-[10px] capitalize">
+                  {{ row.creative.creative_type }}
                 </Badge>
               </div>
               <p class="line-clamp-2 text-sm font-medium leading-snug">
-                {{ ad.name || 'Anúncio' }}
+                {{ row.creative.ad_name || row.metrics?.name || 'Anúncio' }}
               </p>
-              <p v-if="ad.campaign_name" class="line-clamp-1 text-xs text-muted-foreground">
-                {{ ad.campaign_name }}
+              <p v-if="row.metrics?.campaign_name" class="line-clamp-1 text-xs text-muted-foreground">
+                {{ row.metrics.campaign_name }}
               </p>
               <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs tabular-nums">
-                <span class="text-muted-foreground">CTR <span class="font-medium text-foreground">{{ ad.ctr != null ? `${fmtDec(ad.ctr, 2)}%` : '—' }}</span></span>
-                <span class="text-muted-foreground">Cliques <span class="font-medium text-foreground">{{ ad.clicks != null ? fmtInt(ad.clicks) : '—' }}</span></span>
+                <span class="text-muted-foreground">CTR <span class="font-medium text-foreground">{{ row.metrics?.ctr != null ? `${fmtDec(row.metrics.ctr, 2)}%` : '—' }}</span></span>
+                <span class="text-muted-foreground">Cliques <span class="font-medium text-foreground">{{ row.metrics?.clicks != null ? fmtInt(row.metrics.clicks) : '—' }}</span></span>
               </div>
               <div class="flex items-center justify-between text-xs">
                 <span class="text-muted-foreground">Investimento</span>
-                <span class="font-medium tabular-nums">{{ ad.spend != null ? fmtCurrency(ad.spend) : '—' }}</span>
+                <span class="font-medium tabular-nums">{{ row.metrics?.spend != null ? fmtCurrency(row.metrics.spend) : '—' }}</span>
               </div>
             </div>
           </div>
         </div>
-        <p v-if="!filteredAds.length" class="py-8 text-center text-sm text-muted-foreground">
+        <p v-if="!creativesPending && !creativeRows.length" class="py-8 text-center text-sm text-muted-foreground">
           Nenhum anúncio com criativos para este filtro.
         </p>
       </div>

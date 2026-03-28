@@ -33,8 +33,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/dashboard': { ssr: true },
-    '/dashboard/**': { ssr: true },
+    '/crm/marketing': { ssr: true },
+    '/crm/marketing/**': { ssr: true },
   },
 
   imports: {

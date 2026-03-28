@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
     moduleName = 'crm'
   if (path.startsWith('/api/articles'))
     moduleName = 'article'
-  if (path.startsWith('/api/dashboard'))
-    moduleName = 'dashboard'
+  if (path.startsWith('/api/marketing'))
+    moduleName = 'marketing'
 
   if (!moduleName)
     return

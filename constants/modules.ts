@@ -7,7 +7,7 @@ export interface ModuleMeta {
   title: string
   icon: string
   basePath: string
-  /** Initial page when entering the module (e.g. dashboard). Falls back to basePath if not set. */
+  /** Initial page when entering the module. Falls back to basePath if not set. */
   defaultPath?: string
 }
 
@@ -30,14 +30,6 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     title: 'Analytics',
     icon: 'lucide:bar-chart-3',
     basePath: '/analytics',
-  },
-  dashboard: {
-    slug: 'dashboard',
-    /** Must match the nav group `title` in `constants/menus.ts` (AppSidebar filters by this string). */
-    title: 'Painel',
-    icon: 'lucide:layout-dashboard',
-    basePath: '/dashboard',
-    defaultPath: '/dashboard',
   },
 }
 

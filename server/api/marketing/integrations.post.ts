@@ -2,7 +2,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { clearDashboardCampaignCacheForTenant, encryptSecret, resolveDashboardTenantContext } from '~/server/utils/dashboard'
+import { clearMarketingCampaignCacheForTenant, encryptSecret, resolveMarketingTenantContext } from '~/server/utils/marketing'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -10,14 +10,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'provider and config are required' })
   }
 
-  const { tenantId } = await resolveDashboardTenantContext(event, body.tenant_id)
+  const { tenantId } = await resolveMarketingTenantContext(event, body.tenant_id)
   const client = await serverSupabaseServiceRole(event)
 
   const provider = body.provider as 'google_ads' | 'google_analytics' | 'meta'
   const incomingConfig = body.config || {}
 
   const { data: existingIntegration } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .select('config')
     .eq('tenant_id', tenantId)
     .eq('provider', provider)
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data, error } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .upsert(payload, { onConflict: 'tenant_id,provider' })
     .select('id, provider, is_active, updated_at')
     .single()
@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
-  await clearDashboardCampaignCacheForTenant(client, tenantId)
+  await clearMarketingCampaignCacheForTenant(client, tenantId)
 
   return { data }
 })

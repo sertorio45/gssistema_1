@@ -3,12 +3,12 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, defineEventHandler, getQuery } from 'h3'
 
 import {
-  buildDashboardOverviewCacheKey,
+  buildMarketingOverviewCacheKey,
   decryptSecret,
-  getCachedDashboardData,
-  resolveDashboardTenantContext,
-  setCachedDashboardData,
-} from '~/server/utils/dashboard'
+  getCachedMarketingData,
+  resolveMarketingTenantContext,
+  setCachedMarketingData,
+} from '~/server/utils/marketing'
 
 async function getGoogleAccessToken(config: Record<string, any>) {
   const accessToken = decryptSecret(config.access_token_enc)
@@ -247,6 +247,119 @@ function buildMetaDateQuery(
   return { date_preset: preset }
 }
 
+/** Graph API sometimes returns nested objects as JSON strings */
+function parseMaybeObject(v: unknown): Record<string, unknown> | null {
+  if (v == null)
+    return null
+  if (typeof v === 'string') {
+    try {
+      const o = JSON.parse(v) as unknown
+      return typeof o === 'object' && o != null ? (o as Record<string, unknown>) : null
+    }
+    catch {
+      return null
+    }
+  }
+  if (typeof v === 'object')
+    return v as Record<string, unknown>
+  return null
+}
+
+/** Prefer large preview URLs from object_story_spec (ex.: link ads picture) */
+function bestUrlFromObjectStorySpec(oss: Record<string, unknown> | null): string | null {
+  if (!oss)
+    return null
+  const ld = oss.link_data as Record<string, unknown> | undefined
+  if (ld) {
+    const pic = ld.picture
+    if (typeof pic === 'string' && pic.startsWith('http'))
+      return pic
+    const children = ld.child_attachments
+    if (Array.isArray(children)) {
+      for (const ch of children) {
+        const p = (ch as Record<string, unknown>)?.picture
+        if (typeof p === 'string' && p.startsWith('http'))
+          return p
+      }
+    }
+  }
+  const vd = oss.video_data as Record<string, unknown> | undefined
+  if (vd) {
+    const iu = vd.image_url
+    if (typeof iu === 'string' && iu.startsWith('http'))
+      return iu
+  }
+  const pd = oss.photo_data as Record<string, unknown> | undefined
+  if (pd) {
+    const u = pd.url
+    if (typeof u === 'string' && u.startsWith('http'))
+      return u
+  }
+  return null
+}
+
+/**
+ * Resolve best display URL for a creative: ad library (hash) → object_story_spec → image_url → thumbnail.
+ */
+function resolveCreativePreviewImageUrl(
+  creative: Record<string, unknown> | null | undefined,
+  hashToUrl: Map<string, string>,
+): string | null {
+  if (!creative || typeof creative !== 'object')
+    return null
+  const hash = creative.image_hash != null ? String(creative.image_hash) : ''
+  if (hash && hashToUrl.has(hash))
+    return hashToUrl.get(hash) || null
+  const oss = parseMaybeObject(creative.object_story_spec)
+  const fromOss = bestUrlFromObjectStorySpec(oss)
+  if (fromOss)
+    return fromOss
+  const iu = creative.image_url
+  if (typeof iu === 'string' && iu.startsWith('http'))
+    return iu
+  const tu = creative.thumbnail_url
+  if (typeof tu === 'string' && tu.startsWith('http'))
+    return tu
+  return null
+}
+
+/** Batch-fetch full-size / permalink URLs from Ad Library via image hashes */
+async function fetchAdImageUrlsByHashes(
+  accessToken: string,
+  adAccountId: string,
+  apiVersion: string,
+  hashes: string[],
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  const unique = [...new Set(hashes.filter(Boolean))]
+  if (!unique.length)
+    return map
+  const base = `https://graph.facebook.com/${apiVersion}/act_${adAccountId}/adimages`
+  const chunkSize = 50
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize)
+    try {
+      const res = await $fetch<any>(base, {
+        query: {
+          hashes: JSON.stringify(chunk),
+          fields: 'hash,url,permalink_url,original_width,original_height,width,height',
+          access_token: accessToken,
+        },
+      })
+      for (const row of res?.data || []) {
+        const h = row?.hash != null ? String(row.hash) : ''
+        const best = row?.permalink_url || row?.url
+        if (h && typeof best === 'string' && best.startsWith('http'))
+          map.set(h, best)
+      }
+    }
+    catch {
+      // Chunk may fail if hashes invalid; continue with fallbacks per ad
+    }
+  }
+  return map
+}
+
 async function fetchMetaData(
   config: Record<string, any>,
   opts: {
@@ -278,7 +391,8 @@ async function fetchMetaData(
   const dateQ = buildMetaDateQuery(opts.datePreset, opts.dateStart, opts.dateEnd)
 
   const adsQuery: Record<string, string> = {
-    fields: 'id,name,campaign{id,name},effective_status,creative{image_url,thumbnail_url}',
+    fields:
+      'id,name,campaign{id,name},effective_status,creative{image_url,thumbnail_url,image_hash,object_story_spec}',
     limit: '100',
     access_token: accessToken,
   }
@@ -395,15 +509,24 @@ async function fetchMetaData(
     })
   }
 
-  const ads = (adsResponse?.data || []).map((ad: any) => {
+  const rawAds = adsResponse?.data || []
+  const creativeHashes = rawAds
+    .map((ad: any) => ad.creative?.image_hash)
+    .filter((h: unknown) => h != null && String(h).length > 0)
+    .map((h: unknown) => String(h))
+  const hashToUrl = await fetchAdImageUrlsByHashes(accessToken, adAccountId, apiVersion, creativeHashes)
+
+  const ads = rawAds.map((ad: any) => {
     const m = adMetricsById.get(String(ad.id))
+    const creative = ad.creative as Record<string, unknown> | undefined
+    const image_url = resolveCreativePreviewImageUrl(creative, hashToUrl)
     return {
       id: ad.id,
       name: ad.name,
       campaign_id: ad.campaign?.id ? String(ad.campaign.id) : null,
       campaign_name: ad.campaign?.name || null,
       effective_status: ad.effective_status ? String(ad.effective_status) : null,
-      image_url: ad.creative?.image_url || ad.creative?.thumbnail_url || null,
+      image_url,
       impressions: m?.impressions ?? null,
       clicks: m?.clicks ?? null,
       spend: m?.spend ?? null,
@@ -488,11 +611,11 @@ export default defineEventHandler(async (event) => {
     periodKey,
   } = parseDatePresetQuery(query as Record<string, unknown>)
 
-  const { tenantId } = await resolveDashboardTenantContext(event, query.tenant_id as string | undefined)
+  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
   const client = await serverSupabaseServiceRole(event)
 
   const { data: integrations, error } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .select('provider, config, is_active, updated_at')
     .eq('tenant_id', tenantId)
     .eq('is_active', true)
@@ -501,7 +624,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: error.message })
   }
 
-  const cacheKey = buildDashboardOverviewCacheKey(
+  const cacheKey = buildMarketingOverviewCacheKey(
     source,
     googleTemplate,
     periodKey,
@@ -510,7 +633,7 @@ export default defineEventHandler(async (event) => {
   )
 
   if (!forceRefresh) {
-    const cached = await getCachedDashboardData(client, tenantId, source as any, cacheKey)
+    const cached = await getCachedMarketingData(client, tenantId, source as any, cacheKey)
     if (cached) {
       return { data: cached, cached: true }
     }
@@ -570,7 +693,7 @@ export default defineEventHandler(async (event) => {
     },
   }
 
-  await setCachedDashboardData(client, tenantId, source as any, cacheKey, payload, 30)
+  await setCachedMarketingData(client, tenantId, source as any, cacheKey, payload, 30)
 
   return { data: payload, cached: false }
 })

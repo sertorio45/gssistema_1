@@ -16,27 +16,12 @@ export const navMenu: NavMenu[] = [
           { title: 'Reuniões', icon: 'i-lucide-calendar', link: '/crm/meetings' },
           { title: 'Produtos & Serviços', icon: 'i-lucide-package', link: '/crm/products' },
           { title: 'WhatsApp', icon: 'i-lucide-message-circle', link: '/crm/whatsapp', new: true },
+          { title: 'Marketing', icon: 'i-lucide-megaphone', link: '/crm/marketing' },
           {
             title: 'Configurações',
             icon: 'i-lucide-bar-chart-3',
             link: '/crm/config',
           },
-        ],
-      },
-    ],
-  },
-  {
-    heading: '',
-    items: [
-      {
-        title: 'Painel',
-        icon: 'i-lucide-layout-dashboard',
-        roles: ['admin', 'funcionario', 'cliente'],
-        children: [
-          { title: 'Visão geral', icon: 'i-lucide-chart-line', link: '/dashboard' },
-          { title: 'Integrações', icon: 'i-lucide-plug', link: '/dashboard/integrations' },
-          { title: 'Relatórios', icon: 'i-lucide-file-text', link: '/dashboard/reports' },
-          { title: 'Relatórios WhatsApp', icon: 'i-lucide-message-circle', link: '/dashboard/reports/whatsapp' },
         ],
       },
     ],

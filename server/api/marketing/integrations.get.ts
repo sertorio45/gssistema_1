@@ -2,15 +2,15 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { defineEventHandler, getQuery } from 'h3'
 
-import { decryptSecret, maskSensitiveValue, resolveDashboardTenantContext } from '~/server/utils/dashboard'
+import { decryptSecret, maskSensitiveValue, resolveMarketingTenantContext } from '~/server/utils/marketing'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const { tenantId } = await resolveDashboardTenantContext(event, query.tenant_id as string | undefined)
+  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
   const client = await serverSupabaseServiceRole(event)
 
   const { data, error } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .select('*')
     .eq('tenant_id', tenantId)
     .order('provider')

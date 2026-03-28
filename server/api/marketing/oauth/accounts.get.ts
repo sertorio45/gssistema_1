@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, defineEventHandler, getQuery } from 'h3'
 
-import { decryptSecret, resolveDashboardTenantContext } from '~/server/utils/dashboard'
+import { decryptSecret, resolveMarketingTenantContext } from '~/server/utils/marketing'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -10,11 +10,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Provider inválido' })
   }
 
-  const { tenantId } = await resolveDashboardTenantContext(event, query.tenant_id as string | undefined)
+  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
   const client = await serverSupabaseServiceRole(event)
 
   const { data: integration } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .select('config')
     .eq('tenant_id', tenantId)
     .eq('provider', provider)

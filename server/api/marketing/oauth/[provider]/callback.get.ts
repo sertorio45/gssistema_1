@@ -2,7 +2,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { createError, defineEventHandler, getQuery, getRequestURL, sendRedirect } from 'h3'
 
-import { clearDashboardCampaignCacheForTenant, encryptSecret } from '~/server/utils/dashboard'
+import { clearMarketingCampaignCacheForTenant, encryptSecret } from '~/server/utils/marketing'
 
 function toProvider(value: string) {
   if (value === 'google_ads' || value === 'google_analytics' || value === 'meta')
@@ -11,7 +11,7 @@ function toProvider(value: string) {
 }
 
 export default defineEventHandler(async (event) => {
-  const failRedirect = (message: string) => sendRedirect(event, `/dashboard/integrations?oauth=error&message=${encodeURIComponent(message)}`, 302)
+  const failRedirect = (message: string) => sendRedirect(event, `/crm/marketing/integrations?oauth=error&message=${encodeURIComponent(message)}`, 302)
   const providerParam = event.context.params?.provider || ''
   const provider = toProvider(providerParam)
   if (!provider)
@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const { data: existing } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .select('config')
     .eq('tenant_id', tenantId)
     .eq('provider', provider)
@@ -126,7 +126,7 @@ export default defineEventHandler(async (event) => {
   const mergedConfig = { ...(existing?.config || {}), ...config }
 
   const { error } = await client
-    .from('dashboard_integrations')
+    .from('marketing_integrations')
     .upsert(
       {
         tenant_id: tenantId,
@@ -140,7 +140,7 @@ export default defineEventHandler(async (event) => {
   if (error)
     throw createError({ statusCode: 500, statusMessage: error.message })
 
-  await clearDashboardCampaignCacheForTenant(client, tenantId)
+  await clearMarketingCampaignCacheForTenant(client, tenantId)
 
-  return sendRedirect(event, '/dashboard/integrations?oauth=success&provider=' + provider, 302)
+  return sendRedirect(event, '/crm/marketing/integrations?oauth=success&provider=' + provider, 302)
 })
