@@ -36,7 +36,16 @@ export default defineEventHandler(async (event) => {
     if (!clientId) {
       throw createError({ statusCode: 500, statusMessage: 'META_APP_ID não configurado' })
     }
-    const scopes = ['ads_read', 'ads_management', 'business_management', 'read_insights'].join(',')
+    const scopes = [
+      'ads_read',
+      'ads_management',
+      'business_management',
+      'read_insights',
+      'pages_show_list',
+      'pages_read_engagement',
+      'instagram_basic',
+      'instagram_manage_insights',
+    ].join(',')
     const url = new URL('https://www.facebook.com/v20.0/dialog/oauth')
     url.searchParams.set('client_id', clientId)
     url.searchParams.set('redirect_uri', callbackUrl)

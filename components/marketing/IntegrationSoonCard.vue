@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Card visual alinhado aos de Google Ads / Analytics / Meta Ads; integração ainda sem backend.
+ * Card visual alinhado aos de Google Ads / Analytics / Meta; integração ainda sem backend.
  */
 withDefaults(
   defineProps<{

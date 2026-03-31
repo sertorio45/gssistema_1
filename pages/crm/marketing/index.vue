@@ -13,10 +13,10 @@ const { tenantId } = useTenant()
 const source = ref<MarketingReportSource>('google_ads')
 const googleTemplate = ref<GoogleTemplateType>('standard')
 
-const datePreset = ref<MarketingDatePreset | string>('last_30d')
+const datePreset = ref<MarketingDatePreset | string>('today')
 const dateStart = ref('')
 const dateEnd = ref('')
-const metaAdsActiveOnly = ref(true)
+const metaActiveOnly = ref(true)
 
 watch(datePreset, (v) => {
   if (v === 'custom' && !dateStart.value) {
@@ -39,7 +39,8 @@ function overviewQuery() {
     google_template: googleTemplate.value,
     tenant_id: tenantId.value || undefined,
     date_preset: datePreset.value,
-    meta_ads_active_only: metaAdsActiveOnly.value ? 'true' : 'false',
+    meta_active_only: metaActiveOnly.value ? 'true' : 'false',
+    insights_only: 'true',
   }
   if (datePreset.value === 'custom') {
     q.date_start = dateStart.value
@@ -50,7 +51,7 @@ function overviewQuery() {
 
 const { data, pending, refresh } = await useAsyncData(
   () =>
-    `marketing-overview-${tenantId.value}-${source.value}-${googleTemplate.value}-${datePreset.value}-${dateStart.value}-${dateEnd.value}-${metaAdsActiveOnly.value}`,
+    `marketing-overview-${tenantId.value}-${source.value}-${googleTemplate.value}-${datePreset.value}-${dateStart.value}-${dateEnd.value}-${metaActiveOnly.value}`,
   async () => {
     const response = await $fetch<{ data: any }>('/api/marketing/overview', {
       query: overviewQuery(),
@@ -58,7 +59,7 @@ const { data, pending, refresh } = await useAsyncData(
     return response.data
   },
   {
-    watch: [tenantId, source, googleTemplate, datePreset, dateStart, dateEnd, metaAdsActiveOnly],
+    watch: [tenantId, source, googleTemplate, datePreset, dateStart, dateEnd, metaActiveOnly],
   },
 )
 
@@ -74,11 +75,14 @@ const showGoogleAdsBlock = computed(() => source.value === 'google_ads')
 const showAnalyticsBlock = computed(() => source.value === 'google_analytics')
 const showMetaBlock = computed(() => source.value === 'meta')
 
-const metaBoardRef = ref<{ refreshCreatives: () => Promise<void> } | null>(null)
+const lastRefreshAt = ref(0)
 
 async function refreshMarketing() {
+  const now = Date.now()
+  if (now - lastRefreshAt.value < 1200)
+    return
+  lastRefreshAt.value = now
   await refresh()
-  await metaBoardRef.value?.refreshCreatives?.()
 }
 </script>
 
@@ -89,7 +93,7 @@ async function refreshMarketing() {
         Dashboard de Marketing
       </h1>
       <p class="text-muted-foreground">
-        Visão geral das campanhas de Google Ads e Meta Ads.
+        Visão geral das campanhas de Google Ads e Meta.
       </p>
     </div>
 
@@ -206,8 +210,8 @@ async function refreshMarketing() {
 
         <MetaAdsBoard
           v-if="showMetaBlock"
-          ref="metaBoardRef"
-          v-model:ads-active-only="metaAdsActiveOnly"
+          v-model:ads-active-only="metaActiveOnly"
+          :loading="pending"
           :meta="data?.meta"
           :period="data?.period"
         />

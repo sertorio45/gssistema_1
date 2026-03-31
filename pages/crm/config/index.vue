@@ -32,7 +32,7 @@ const configCards = [
   },
   {
     title: 'Integrações',
-    description: 'Google Ads, Analytics e Meta Ads.',
+    description: 'Google Ads, Analytics e Meta.',
     icon: Plug,
     to: '/crm/marketing/integrations',
   },

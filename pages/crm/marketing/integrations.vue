@@ -20,10 +20,16 @@ const developerToken = ref('')
 const loginCustomerId = ref('')
 const selectedGoogleAds = ref('')
 const selectedGoogleAnalytics = ref('')
-const selectedMetaAds = ref('')
+const selectedMetaAdAccount = ref('')
+const selectedMetaPage = ref('')
+const selectedMetaPixel = ref('')
+const selectedMetaInstagram = ref('')
 const googleAdsAccounts = ref<Array<{ id: string, name: string }>>([])
 const googleAnalyticsAccounts = ref<Array<{ id: string, name: string, account_id?: string }>>([])
 const metaAccounts = ref<Array<{ id: string, name: string }>>([])
+const metaPages = ref<Array<{ id: string, name: string }>>([])
+const metaPixels = ref<Array<{ id: string, name: string }>>([])
+const metaInstagramAccounts = ref<Array<{ id: string, name: string }>>([])
 
 const editDialogOpen = ref(false)
 const editProvider = ref<Provider | null>(null)
@@ -71,11 +77,22 @@ function displayAccountLabel(provider: Provider): string {
     return acc?.name || id
   }
   if (provider === 'meta') {
-    const id = c.ad_account_id ? String(c.ad_account_id) : ''
-    if (!id)
-      return 'Selecione a conta em editar'
-    const acc = metaAccounts.value.find(a => String(a.id) === id)
-    return acc?.name || id
+    if (!c.ad_account_id)
+      return 'Selecione em editar'
+    const adId = String(c.ad_account_id)
+    const adName = metaAccounts.value.find(a => String(a.id) === adId)?.name || adId
+    const parts: string[] = [adName]
+    if (c.page_id) {
+      const pn = metaPages.value.find(p => String(p.id) === String(c.page_id))?.name
+      parts.push(pn || `Página ${c.page_id}`)
+    }
+    if (c.pixel_id)
+      parts.push(metaPixels.value.find(p => String(p.id) === String(c.pixel_id))?.name || `Pixel ${c.pixel_id}`)
+    if (c.instagram_business_account_id) {
+      const ig = metaInstagramAccounts.value.find(i => String(i.id) === String(c.instagram_business_account_id))
+      parts.push(ig?.name || `IG ${c.instagram_business_account_id}`)
+    }
+    return parts.join(' · ')
   }
   return '—'
 }
@@ -94,8 +111,16 @@ watch(
         if (pid)
           selectedGoogleAnalytics.value = String(pid)
       }
-      if (row.provider === 'meta' && c.ad_account_id)
-        selectedMetaAds.value = String(c.ad_account_id)
+      if (row.provider === 'meta') {
+        if (c.ad_account_id)
+          selectedMetaAdAccount.value = String(c.ad_account_id)
+        if (c.page_id)
+          selectedMetaPage.value = String(c.page_id)
+        if (c.pixel_id)
+          selectedMetaPixel.value = String(c.pixel_id)
+        if (c.instagram_business_account_id)
+          selectedMetaInstagram.value = String(c.instagram_business_account_id)
+      }
     }
   },
   { immediate: true, deep: true },
@@ -110,12 +135,67 @@ watch(
       if (!r.has_key)
         continue
       const p = r.provider as Provider
-      if (p === 'google_ads' || p === 'google_analytics' || p === 'meta')
+      if (p === 'google_ads' || p === 'google_analytics')
         await loadAccounts(p)
+      if (p === 'meta') {
+        await loadAccounts('meta')
+        await loadMetaAuxiliaryListsForCard()
+      }
     }
   },
   { immediate: true },
 )
+
+async function refreshMetaInstagramList() {
+  const tid = tenantId.value || undefined
+  if (!selectedMetaAdAccount.value && !selectedMetaPage.value) {
+    metaInstagramAccounts.value = []
+    return
+  }
+  const q: Record<string, string | undefined> = {
+    provider: 'meta',
+    resource: 'instagram',
+    tenant_id: tid,
+  }
+  if (selectedMetaAdAccount.value)
+    q.ad_account_id = selectedMetaAdAccount.value
+  if (selectedMetaPage.value)
+    q.page_id = selectedMetaPage.value
+  const ig = await $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+    query: q,
+  })
+  metaInstagramAccounts.value = ig.data || []
+}
+
+/** Load pages / pixels / IG names for summary line when integration already configured */
+async function loadMetaAuxiliaryListsForCard() {
+  if (!isConnected('meta'))
+    return
+  const tid = tenantId.value || undefined
+  try {
+    const [pages, pixels] = await Promise.all([
+      $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+        query: { provider: 'meta', resource: 'pages', tenant_id: tid },
+      }),
+      selectedMetaAdAccount.value
+        ? $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+            query: {
+              provider: 'meta',
+              resource: 'pixels',
+              ad_account_id: selectedMetaAdAccount.value,
+              tenant_id: tid,
+            },
+          })
+        : Promise.resolve({ data: [] }),
+    ])
+    metaPages.value = pages.data || []
+    metaPixels.value = pixels.data || []
+    await refreshMetaInstagramList()
+  }
+  catch {
+    /* non-blocking for card label */
+  }
+}
 
 async function connectProvider(provider: Provider) {
   oauthLoading.value = provider
@@ -158,6 +238,110 @@ async function loadAccounts(provider: Provider) {
   }
   catch (error: any) {
     lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar contas'
+  }
+  finally {
+    accountsLoading.value = null
+  }
+}
+
+async function loadMetaIntegrationLists() {
+  accountsLoading.value = 'meta'
+  lastError.value = ''
+  const tid = tenantId.value || undefined
+  try {
+    const [ads, pages] = await Promise.all([
+      $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+        query: { provider: 'meta', resource: 'ad_accounts', tenant_id: tid },
+      }),
+      $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+        query: { provider: 'meta', resource: 'pages', tenant_id: tid },
+      }),
+    ])
+    metaAccounts.value = ads.data || []
+    metaPages.value = pages.data || []
+
+    if (selectedMetaAdAccount.value) {
+      const px = await $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+        query: {
+          provider: 'meta',
+          resource: 'pixels',
+          ad_account_id: selectedMetaAdAccount.value,
+          tenant_id: tid,
+        },
+      })
+      metaPixels.value = px.data || []
+      if (selectedMetaPixel.value && !metaPixels.value.some(p => p.id === selectedMetaPixel.value))
+        selectedMetaPixel.value = ''
+      if (!selectedMetaPixel.value && metaPixels.value.length === 1)
+        selectedMetaPixel.value = metaPixels.value[0].id
+    }
+    else {
+      metaPixels.value = []
+      selectedMetaPixel.value = ''
+    }
+
+    await refreshMetaInstagramList()
+    if (selectedMetaInstagram.value && !metaInstagramAccounts.value.some(i => i.id === selectedMetaInstagram.value))
+      selectedMetaInstagram.value = ''
+    if (!selectedMetaInstagram.value && metaInstagramAccounts.value.length === 1)
+      selectedMetaInstagram.value = metaInstagramAccounts.value[0].id
+  }
+  catch (error: any) {
+    lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar dados Meta'
+  }
+  finally {
+    accountsLoading.value = null
+  }
+}
+
+async function onMetaAdAccountPicked(value: string) {
+  selectedMetaAdAccount.value = value
+  selectedMetaPixel.value = ''
+  metaPixels.value = []
+  accountsLoading.value = 'meta'
+  const tid = tenantId.value || undefined
+  try {
+    if (!value) {
+      await refreshMetaInstagramList()
+      return
+    }
+    const px = await $fetch<{ data: Array<{ id: string, name: string }> }>('/api/marketing/oauth/accounts', {
+      query: {
+        provider: 'meta',
+        resource: 'pixels',
+        ad_account_id: value,
+        tenant_id: tid,
+      },
+    })
+    metaPixels.value = px.data || []
+    if (metaPixels.value.length === 1)
+      selectedMetaPixel.value = metaPixels.value[0].id
+    await refreshMetaInstagramList()
+    if (selectedMetaInstagram.value && !metaInstagramAccounts.value.some(i => i.id === selectedMetaInstagram.value))
+      selectedMetaInstagram.value = ''
+    if (!selectedMetaInstagram.value && metaInstagramAccounts.value.length === 1)
+      selectedMetaInstagram.value = metaInstagramAccounts.value[0].id
+  }
+  catch (error: any) {
+    lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar pixels'
+  }
+  finally {
+    accountsLoading.value = null
+  }
+}
+
+async function onMetaPagePicked(value: string) {
+  selectedMetaPage.value = value
+  selectedMetaInstagram.value = ''
+  metaInstagramAccounts.value = []
+  accountsLoading.value = 'meta'
+  try {
+    await refreshMetaInstagramList()
+    if (metaInstagramAccounts.value.length === 1)
+      selectedMetaInstagram.value = metaInstagramAccounts.value[0].id
+  }
+  catch (error: any) {
+    lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar Instagram'
   }
   finally {
     accountsLoading.value = null
@@ -209,12 +393,16 @@ async function saveMetaAccount() {
       tenant_id: tenantId.value || undefined,
       provider: 'meta',
       config: {
-        ad_account_id: selectedMetaAds.value,
+        ad_account_id: selectedMetaAdAccount.value,
+        page_id: selectedMetaPage.value,
+        pixel_id: selectedMetaPixel.value,
+        instagram_business_account_id: selectedMetaInstagram.value,
       },
       is_active: true,
     },
   })
   await refresh()
+  await loadMetaAuxiliaryListsForCard()
   actionLoading.value = null
 }
 
@@ -238,8 +426,24 @@ async function disconnectProvider(provider: Provider) {
 function openEdit(provider: Provider) {
   editProvider.value = provider
   editDialogOpen.value = true
-  loadAccounts(provider)
+  if (provider === 'meta')
+    loadMetaIntegrationLists()
+  else
+    loadAccounts(provider)
 }
+
+const dialogSaveDisabled = computed(() => {
+  if (pending.value || actionLoading.value === editProvider.value)
+    return true
+  const p = editProvider.value
+  if (!p)
+    return true
+  if (p === 'google_ads')
+    return !selectedGoogleAds.value
+  if (p === 'google_analytics')
+    return !selectedGoogleAnalytics.value
+  return false
+})
 
 async function saveFromDialog() {
   const p = editProvider.value
@@ -299,7 +503,7 @@ watch(
         Integrações
       </h1>
       <p class="mt-1 max-w-3xl text-muted-foreground">
-        Conecte anúncios, redes sociais e canais de mensagem. As credenciais ficam apenas no servidor.
+        Conecte Google Ads, Google Analytics e Meta (Facebook e Instagram) com um único OAuth por provedor. As credenciais ficam apenas no servidor.
       </p>
     </div>
 
@@ -309,24 +513,14 @@ watch(
       <AlertDescription>{{ lastError }}</AlertDescription>
     </Alert>
 
-    <!-- Anúncios e analytics -->
-    <section class="space-y-4">
-      <div class="border-b border-border/60 pb-1">
-        <h2 class="text-lg font-semibold tracking-tight text-foreground">
-          Anúncios e analytics
-        </h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Google Ads, Google Analytics e conta de anúncios Meta.
-        </p>
-      </div>
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       <!-- Google Ads -->
       <Card class="relative overflow-hidden rounded-2xl border bg-card shadow-md">
         <Button
           variant="ghost"
           size="icon"
           class="absolute right-2 top-2 z-10 h-9 w-9 text-muted-foreground hover:text-foreground"
-          aria-label="Editar integração Google Ads"
+          aria-label="Edit Google Ads integration"
           @click="openEdit('google_ads')"
         >
           <Icon name="lucide:square-pen" class="h-4 w-4" />
@@ -364,7 +558,7 @@ watch(
           variant="ghost"
           size="icon"
           class="absolute right-2 top-2 z-10 h-9 w-9 text-muted-foreground hover:text-foreground"
-          aria-label="Editar integração Google Analytics"
+          aria-label="Edit Google Analytics integration"
           @click="openEdit('google_analytics')"
         >
           <Icon name="lucide:square-pen" class="h-4 w-4" />
@@ -396,13 +590,13 @@ watch(
         </CardContent>
       </Card>
 
-      <!-- Meta Ads -->
+      <!-- Meta -->
       <Card class="relative overflow-hidden rounded-2xl border bg-card shadow-md">
         <Button
           variant="ghost"
           size="icon"
           class="absolute right-2 top-2 z-10 h-9 w-9 text-muted-foreground hover:text-foreground"
-          aria-label="Editar integração Meta Ads"
+          aria-label="Edit Meta integration"
           @click="openEdit('meta')"
         >
           <Icon name="lucide:square-pen" class="h-4 w-4" />
@@ -412,8 +606,11 @@ watch(
             <MetaBrandIcon size="lg" />
           </div>
           <h2 class="mt-4 text-lg font-semibold text-foreground">
-            Meta Ads
+            Meta
           </h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Facebook &amp; Instagram
+          </p>
           <Button
             class="mt-6 w-full max-w-[240px] rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
             :disabled="primaryDisabled('meta')"
@@ -421,7 +618,7 @@ watch(
           >
             {{ primaryButtonLabel('meta') }}
           </Button>
-          <p class="mt-4 max-w-[240px] truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p class="mt-4 line-clamp-2 max-w-[260px] text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {{ displayAccountLabel('meta') }}
           </p>
           <div
@@ -433,65 +630,10 @@ watch(
           </div>
         </CardContent>
       </Card>
-      </div>
-    </section>
+    </div>
 
-    <!-- Social media -->
-    <section class="space-y-4">
-      <div class="border-b border-border/60 pb-1">
-        <h2 class="text-lg font-semibold tracking-tight text-foreground">
-          Social media
-        </h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          LinkedIn, Facebook e perfil comercial no Instagram.
-        </p>
-      </div>
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <IntegrationSoonCard
-          title="LinkedIn"
-          icon="lucide:linkedin"
-          icon-class="text-[#0A66C2]"
-        />
-        <IntegrationSoonCard
-          title="Facebook"
-          icon="lucide:facebook"
-          icon-class="text-[#1877F2]"
-        />
-        <IntegrationSoonCard
-          title="Instagram Business"
-          icon="lucide:instagram"
-          icon-class="text-pink-600 dark:text-pink-400"
-        />
-      </div>
-    </section>
-
-    <!-- Mensagens -->
-    <section class="space-y-4">
-      <div class="border-b border-border/60 pb-1">
-        <h2 class="text-lg font-semibold tracking-tight text-foreground">
-          Mensagens
-        </h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          WhatsApp Cloud API / Business e integrações por sessão (não oficial).
-        </p>
-      </div>
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <IntegrationSoonCard
-          title="WhatsApp oficial"
-          icon="lucide:badge-check"
-          icon-class="text-emerald-600 dark:text-emerald-400"
-        />
-        <IntegrationSoonCard
-          title="WhatsApp não oficial"
-          icon="lucide:smartphone"
-          icon-class="text-emerald-600 dark:text-emerald-400"
-        />
-      </div>
-    </section>
-
-    <!-- Dialog: campos extras (conta, tokens, etc.) -->
     <Dialog v-model:open="editDialogOpen">
-      <DialogContent class="sm:max-w-md">
+      <DialogContent class="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle v-if="editProvider === 'google_ads'">
             Google Ads — detalhes
@@ -500,7 +642,7 @@ watch(
             Google Analytics — detalhes
           </DialogTitle>
           <DialogTitle v-else-if="editProvider === 'meta'">
-            Meta Ads — detalhes
+            Meta — detalhes
           </DialogTitle>
           <DialogDescription>
             Carregue as contas, selecione a desejada e salve. Campos sensíveis não são exibidos após salvar.
@@ -565,21 +707,24 @@ watch(
           </div>
         </div>
 
-        <div v-else-if="editProvider === 'meta'" class="space-y-3 py-2">
+        <div v-else-if="editProvider === 'meta'" class="max-h-[70vh] space-y-3 overflow-y-auto py-2">
           <Button
             variant="outline"
             class="w-full"
             :disabled="accountsLoading === 'meta'"
-            @click="loadAccounts('meta')"
+            @click="loadMetaIntegrationLists"
           >
             <Icon name="lucide:refresh-cw" class="mr-2 h-4 w-4" />
-            {{ accountsLoading === 'meta' ? 'Carregando...' : 'Carregar contas' }}
+            {{ accountsLoading === 'meta' ? 'Carregando...' : 'Recarregar listas' }}
           </Button>
           <div class="space-y-2">
             <Label>Conta de anúncios</Label>
-            <Select v-model="selectedMetaAds">
+            <Select
+              :model-value="selectedMetaAdAccount"
+              @update:model-value="onMetaAdAccountPicked($event)"
+            >
               <SelectTrigger class="w-full">
-                <SelectValue placeholder="Selecione a conta" />
+                <SelectValue placeholder="Selecione a conta de anúncios" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="account in metaAccounts" :key="account.id" :value="account.id">
@@ -588,6 +733,63 @@ watch(
               </SelectContent>
             </Select>
           </div>
+          <div class="space-y-2">
+            <Label>Página (Facebook)</Label>
+            <Select
+              :model-value="selectedMetaPage"
+              @update:model-value="onMetaPagePicked($event)"
+            >
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Selecione a página" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="page in metaPages" :key="page.id" :value="page.id">
+                  {{ page.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="space-y-2">
+            <Label>Pixel</Label>
+            <Select v-model="selectedMetaPixel" :disabled="!selectedMetaAdAccount">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Opcional — selecione o pixel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="px in metaPixels" :key="px.id" :value="px.id">
+                  {{ px.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p v-if="selectedMetaAdAccount && !metaPixels.length" class="text-xs text-muted-foreground">
+              Nenhum pixel nesta conta de anúncios (pode guardar na mesma).
+            </p>
+          </div>
+          <div class="space-y-2">
+            <Label>Instagram</Label>
+            <Select
+              v-model="selectedMetaInstagram"
+              :disabled="!selectedMetaAdAccount && !selectedMetaPage"
+            >
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Opcional — conta Business" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="ig in metaInstagramAccounts" :key="ig.id" :value="ig.id">
+                  {{ ig.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p class="text-xs text-muted-foreground">
+              Lista junta contas ligadas à <span class="font-medium">conta de anúncios</span> e à <span class="font-medium">página</span> (quando aplicável).
+            </p>
+            <p
+              v-if="(selectedMetaAdAccount || selectedMetaPage) && !metaInstagramAccounts.length && accountsLoading !== 'meta'"
+              class="text-xs text-muted-foreground"
+            >
+              Nenhuma conta Instagram encontrada por estes critérios (pode guardar na mesma).
+            </p>
+          </div>
         </div>
 
         <DialogFooter class="gap-2 sm:gap-0">
@@ -595,7 +797,7 @@ watch(
             Fechar
           </Button>
           <Button
-            :disabled="pending || actionLoading === editProvider || (editProvider === 'google_ads' && !selectedGoogleAds) || (editProvider === 'google_analytics' && !selectedGoogleAnalytics) || (editProvider === 'meta' && !selectedMetaAds)"
+            :disabled="dialogSaveDisabled"
             @click="saveFromDialog"
           >
             <Icon name="lucide:save" class="mr-2 h-4 w-4" />

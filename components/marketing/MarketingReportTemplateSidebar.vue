@@ -11,7 +11,7 @@ const items: Array<{
 }> = [
   { value: 'google_analytics', label: 'Google Analytics' },
   { value: 'google_ads', label: 'Google Ads' },
-  { value: 'meta', label: 'Meta Ads' },
+  { value: 'meta', label: 'Meta' },
 ]
 
 const model = defineModel<MarketingReportSource>({ required: true })

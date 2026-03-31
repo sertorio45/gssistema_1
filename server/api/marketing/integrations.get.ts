@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
         developer_token_enc: undefined,
         client_id_enc: undefined,
         client_secret_enc: undefined,
+        page_access_token_enc: undefined,
       },
       has_key: Boolean(token),
       masked_key: maskSensitiveValue(token),

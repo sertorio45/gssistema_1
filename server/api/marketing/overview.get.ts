@@ -10,6 +10,8 @@ import {
   setCachedMarketingData,
 } from '~/server/utils/marketing'
 
+const MARKETING_OVERVIEW_CALC_VERSION = 'calc_v3'
+
 async function getGoogleAccessToken(config: Record<string, any>) {
   const accessToken = decryptSecret(config.access_token_enc)
   if (accessToken)
@@ -130,35 +132,197 @@ async function fetchGoogleData(
   return { campaigns, metrics }
 }
 
-function parseMetaActionsResults(actions: any[] | undefined) {
+const RESULT_ACTION_PRIORITY = [
+  // Messaging / WhatsApp first for message campaigns
+  'onsite_conversion.messaging_conversation_started_7d',
+  'onsite_conversion.messaging_conversation_started_1d',
+  'onsite_conversion.messaging_first_reply',
+  'onsite_conversion.messaging_user_depth_7d',
+  'onsite_conversion.whatsapp_conversation_started_7d',
+  'onsite_conversion.whatsapp_first_message',
+  'messaging_conversation_started_7d',
+  'messaging_conversation_started',
+  'messaging_first_reply',
+  'whatsapp_conversation_started_7d',
+  'whatsapp_first_message',
+  'lead',
+  'onsite_conversion.lead',
+  'offsite_conversion.fb_pixel_lead',
+  'purchase',
+  'onsite_conversion.purchase',
+  'offsite_conversion.fb_pixel_purchase',
+  'complete_registration',
+  'submit_application',
+]
+
+function collectActionTotals(actions: any[] | undefined) {
+  const totals = new Map<string, number>()
   if (!Array.isArray(actions))
-    return 0
-  let sum = 0
+    return totals
   for (const a of actions) {
     const type = String(a?.action_type || '').toLowerCase()
     const val = Number(a?.value || 0)
-    if (!val)
+    if (!type || !val)
       continue
-    if (
-      type.includes('offsite_conversion')
-      || type.includes('onsite_conversion')
-      || type.includes('lead')
-      || type.includes('purchase')
-      || type.includes('complete_registration')
-      || type.includes('submit_application')
-    ) {
-      sum += val
+    totals.set(type, (totals.get(type) || 0) + val)
+  }
+  return totals
+}
+
+function mergeActionTotals(target: Map<string, number>, source: Map<string, number>) {
+  for (const [k, v] of source)
+    target.set(k, (target.get(k) || 0) + v)
+}
+
+function pickPrimaryResultActionType(actions: any[] | undefined): string | null {
+  const totals = collectActionTotals(actions)
+  if (!totals.size)
+    return null
+
+  // 1) exact priority
+  for (const key of RESULT_ACTION_PRIORITY) {
+    if ((totals.get(key) || 0) > 0)
+      return key
+  }
+
+  // 2) fuzzy families (messaging/WhatsApp before lead/purchase — per-campaign rows)
+  const fuzzyGroups = [
+    'messaging',
+    'whatsapp',
+    'lead',
+    'purchase',
+    'complete_registration',
+    'submit_application',
+  ]
+  for (const group of fuzzyGroups) {
+    let best: { type: string, value: number } | null = null
+    for (const [type, value] of totals) {
+      if (type.includes(group) && value > 0 && (!best || value > best.value))
+        best = { type, value }
+    }
+    if (best)
+      return best.type
+  }
+
+  return null
+}
+
+function pickPrimaryResultActionTypeFromRows(rows: any[]): string | null {
+  const totals = new Map<string, number>()
+  for (const row of rows)
+    mergeActionTotals(totals, collectActionTotals(row?.actions))
+  if (!totals.size)
+    return null
+  for (const key of RESULT_ACTION_PRIORITY) {
+    if ((totals.get(key) || 0) > 0)
+      return key
+  }
+  const fuzzyGroups = [
+    'messaging',
+    'whatsapp',
+    'lead',
+    'purchase',
+    'complete_registration',
+    'submit_application',
+  ]
+  for (const group of fuzzyGroups) {
+    let best: { type: string, value: number } | null = null
+    for (const [type, value] of totals) {
+      if (type.includes(group) && value > 0 && (!best || value > best.value))
+        best = { type, value }
+    }
+    if (best)
+      return best.type
+  }
+  return null
+}
+
+function parseMetaActionsResults(actions: any[] | undefined, forcedActionType?: string | null) {
+  const totals = collectActionTotals(actions)
+  if (!totals.size)
+    return 0
+
+  const selected = forcedActionType || pickPrimaryResultActionType(actions)
+  if (selected && (totals.get(selected) || 0) > 0)
+    return totals.get(selected) || 0
+
+  if (selected) {
+    for (const [type, value] of totals) {
+      if (value > 0 && (type === selected || type.includes(selected) || selected.includes(type)))
+        return value
+    }
+    const sel = selected.replace(/^onsite_conversion\./, '').replace(/^offsite_conversion\./, '')
+    for (const [type, value] of totals) {
+      if (value > 0 && (type === sel || type.endsWith(sel)))
+        return value
     }
   }
-  if (sum > 0)
-    return sum
-  for (const a of actions) {
-    const type = String(a?.action_type || '').toLowerCase()
-    if (type === 'link_click' || type === 'post_engagement' || type === 'page_engagement')
+
+  // last fallback: any non-engagement action (single best type, not sum)
+  let best = 0
+  for (const [type, value] of totals) {
+    if ([
+      'link_click',
+      'click',
+      'post_engagement',
+      'page_engagement',
+      'video_view',
+      'landing_page_view',
+    ].includes(type)) {
       continue
-    sum += Number(a?.value || 0)
+    }
+    if (value > best)
+      best = value
   }
-  return sum
+  return best
+}
+
+function parseCostPerActionType(
+  costPerActionType: any[] | undefined,
+  forcedActionType?: string | null,
+) {
+  if (!Array.isArray(costPerActionType))
+    return null
+  const map = new Map<string, number>()
+  for (const row of costPerActionType) {
+    const type = String(row?.action_type || '').toLowerCase()
+    const val = Number(row?.value || 0)
+    if (!type || !val)
+      continue
+    map.set(type, (map.get(type) || 0) + val)
+  }
+  if (!map.size)
+    return null
+
+  const selected = forcedActionType ? forcedActionType.toLowerCase() : ''
+  if (selected && (map.get(selected) || 0) > 0)
+    return map.get(selected) || null
+
+  // Fuzzy match: Meta sometimes uses slightly different keys in cost_per_action_type vs actions
+  if (selected) {
+    for (const [type, value] of map) {
+      if (value > 0 && (type === selected || type.includes(selected) || selected.includes(type)))
+        return value
+    }
+    const sel = selected.replace(/^onsite_conversion\./, '').replace(/^offsite_conversion\./, '')
+    for (const [type, value] of map) {
+      if (value > 0 && (type === sel || type.endsWith(sel)))
+        return value
+    }
+  }
+
+  for (const key of RESULT_ACTION_PRIORITY) {
+    if ((map.get(key) || 0) > 0)
+      return map.get(key) || null
+  }
+
+  for (const group of ['messaging', 'whatsapp', 'lead', 'purchase']) {
+    for (const [type, value] of map) {
+      if (type.includes(group) && value > 0)
+        return value
+    }
+  }
+  return null
 }
 
 function parsePurchaseRoas(roas: any): number | null {
@@ -175,7 +339,7 @@ function parsePurchaseRoas(roas: any): number | null {
   return null
 }
 
-function mapCampaignInsightRow(item: any) {
+function mapCampaignInsightRow(item: any, forcedActionType?: string | null) {
   const impressions = Number(item.impressions || 0)
   const clicks = Number(item.clicks || 0)
   const spend = Number(item.spend || 0)
@@ -183,9 +347,11 @@ function mapCampaignInsightRow(item: any) {
   const ctrRaw = Number(item.ctr ?? (impressions > 0 ? (clicks / impressions) * 100 : 0))
   const cpc = Number(item.cpc || 0) || (clicks > 0 ? spend / clicks : 0)
   const cpm = Number(item.cpm || 0) || (impressions > 0 ? (spend / impressions) * 1000 : 0)
-  const results = parseMetaActionsResults(item.actions)
+  const results = parseMetaActionsResults(item.actions, forcedActionType)
   const roas = parsePurchaseRoas(item.purchase_roas)
-  const costPerResult = results > 0 ? spend / results : 0
+  const costPerResult
+    = parseCostPerActionType(item.cost_per_action_type, forcedActionType)
+      || (results > 0 ? spend / results : 0)
 
   return {
     id: item.campaign_id,
@@ -203,7 +369,7 @@ function mapCampaignInsightRow(item: any) {
   }
 }
 
-function mapDailyInsightRow(item: any) {
+function mapDailyInsightRow(item: any, forcedActionType?: string | null) {
   const impressions = Number(item.impressions || 0)
   const clicks = Number(item.clicks || 0)
   const spend = Number(item.spend || 0)
@@ -211,9 +377,11 @@ function mapDailyInsightRow(item: any) {
   const ctrRaw = Number(item.ctr ?? (impressions > 0 ? (clicks / impressions) * 100 : 0))
   const cpc = Number(item.cpc || 0) || (clicks > 0 ? spend / clicks : 0)
   const cpm = Number(item.cpm || 0) || (impressions > 0 ? (spend / impressions) * 1000 : 0)
-  const results = parseMetaActionsResults(item.actions)
+  const results = parseMetaActionsResults(item.actions, forcedActionType)
   const roas = parsePurchaseRoas(item.purchase_roas)
-  const costPerResult = results > 0 ? spend / results : 0
+  const costPerResult
+    = parseCostPerActionType(item.cost_per_action_type, forcedActionType)
+      || (results > 0 ? spend / results : 0)
   return {
     date: String(item.date_start || item.date_stop || ''),
     impressions,
@@ -367,6 +535,7 @@ async function fetchMetaData(
     dateStart: string
     dateEnd: string
     adsActiveOnly: boolean
+    insightsOnly: boolean
   },
 ) {
   const accessToken = decryptSecret(config.access_token_enc)
@@ -384,9 +553,9 @@ async function fetchMetaData(
   const apiVersion = config.api_version || 'v20.0'
   const base = `https://graph.facebook.com/${apiVersion}/act_${adAccountId}`
   const insightFields
-    = 'campaign_id,campaign_name,impressions,clicks,spend,cpc,reach,ctr,cpm,actions,action_values,purchase_roas'
+    = 'campaign_id,campaign_name,impressions,clicks,spend,cpc,reach,ctr,cpm,actions,cost_per_action_type,action_values,purchase_roas'
   const accountFields
-    = 'impressions,clicks,spend,cpc,reach,ctr,cpm,actions,action_values,purchase_roas'
+    = 'impressions,clicks,spend,cpc,reach,ctr,cpm,actions,cost_per_action_type,action_values,purchase_roas'
 
   const dateQ = buildMetaDateQuery(opts.datePreset, opts.dateStart, opts.dateEnd)
 
@@ -403,9 +572,9 @@ async function fetchMetaData(
   }
 
   const dailyInsightFields
-    = 'impressions,clicks,spend,reach,cpc,ctr,cpm,actions,purchase_roas'
+    = 'impressions,clicks,spend,reach,cpc,ctr,cpm,actions,cost_per_action_type,purchase_roas'
 
-  const [accountRes, campaignRes, adsResponse, campMetaRes, dailyRes, adLevelInsights] = await Promise.all([
+  const [accountRes, campaignRes, dailyRes] = await Promise.all([
     $fetch<any>(`${base}/insights`, {
       query: {
         fields: accountFields,
@@ -421,16 +590,6 @@ async function fetchMetaData(
         ...dateQ,
       },
     }).catch(() => ({ data: [] })),
-    $fetch<any>(`${base}/ads`, {
-      query: adsQuery,
-    }).catch(() => ({ data: [] })),
-    $fetch<any>(`${base}/campaigns`, {
-      query: {
-        fields: 'id,name,status',
-        limit: 200,
-        access_token: accessToken,
-      },
-    }).catch(() => ({ data: [] })),
     $fetch<any>(`${base}/insights`, {
       query: {
         fields: dailyInsightFields,
@@ -440,26 +599,21 @@ async function fetchMetaData(
         limit: '90',
       },
     }).catch(() => ({ data: [] })),
-    $fetch<any>(`${base}/insights`, {
-      query: {
-        level: 'ad',
-        fields: 'ad_id,impressions,clicks,spend,ctr,cpc,cpm',
-        access_token: accessToken,
-        ...dateQ,
-        limit: '200',
-      },
-    }).catch(() => ({ data: [] })),
   ])
 
-  const statusById = new Map<string, string>()
-  for (const c of (campMetaRes?.data || [])) {
-    statusById.set(String(c.id), String(c.status || ''))
-  }
-
   const accountRow = (accountRes?.data || [])[0] || {}
+  /** Account + daily series: best-effort blend when multiple objectives exist */
+  const primaryResultActionTypeForAccount
+    = pickPrimaryResultActionTypeFromRows(campaignRes?.data || [])
+      || pickPrimaryResultActionType(accountRow.actions)
+      || null
+  /** Each campaign row uses its own actions (critical for WhatsApp vs lead, etc.) */
   const campaigns = (campaignRes?.data || []).map((item: any) => {
-    const row = mapCampaignInsightRow(item) as Record<string, any>
-    row.status = statusById.get(String(row.id)) || null
+    const perCampaignAction
+      = pickPrimaryResultActionType(item.actions)
+        || pickPrimaryResultActionTypeFromRows([item])
+    const row = mapCampaignInsightRow(item, perCampaignAction) as Record<string, any>
+    row.status = null
     return row
   })
 
@@ -470,9 +624,11 @@ async function fetchMetaData(
   const ctr = Number(accountRow.ctr ?? (impressions > 0 ? (clicks / impressions) * 100 : 0))
   const cpc = Number(accountRow.cpc || 0) || (clicks > 0 ? spend / clicks : 0)
   const cpm = Number(accountRow.cpm || 0) || (impressions > 0 ? (spend / impressions) * 1000 : 0)
-  const results = parseMetaActionsResults(accountRow.actions)
+  const results = parseMetaActionsResults(accountRow.actions, primaryResultActionTypeForAccount)
   const roas = parsePurchaseRoas(accountRow.purchase_roas)
-  const costPerResult = results > 0 ? spend / results : 0
+  const costPerResult
+    = parseCostPerActionType(accountRow.cost_per_action_type, primaryResultActionTypeForAccount)
+      || (results > 0 ? spend / results : 0)
 
   const metrics = {
     impressions,
@@ -487,56 +643,89 @@ async function fetchMetaData(
     cost_per_result: costPerResult,
   }
 
-  const adMetricsById = new Map<string, {
-    impressions: number
-    clicks: number
-    spend: number
-    ctr: number
-    cpc: number
-    cpm: number
-  }>()
-  for (const row of adLevelInsights?.data || []) {
-    const aid = row?.ad_id != null ? String(row.ad_id) : ''
-    if (!aid)
-      continue
-    adMetricsById.set(aid, {
-      impressions: Number(row.impressions || 0),
-      clicks: Number(row.clicks || 0),
-      spend: Number(row.spend || 0),
-      ctr: Number(row.ctr ?? 0),
-      cpc: Number(row.cpc || 0),
-      cpm: Number(row.cpm || 0),
+  let ads: any[] = []
+  if (!opts.insightsOnly) {
+    const [adsResponse, campMetaRes, adLevelInsights] = await Promise.all([
+      $fetch<any>(`${base}/ads`, {
+        query: adsQuery,
+      }).catch(() => ({ data: [] })),
+      $fetch<any>(`${base}/campaigns`, {
+        query: {
+          fields: 'id,name,status',
+          limit: 200,
+          access_token: accessToken,
+        },
+      }).catch(() => ({ data: [] })),
+      $fetch<any>(`${base}/insights`, {
+        query: {
+          level: 'ad',
+          fields: 'ad_id,impressions,clicks,spend,ctr,cpc,cpm',
+          access_token: accessToken,
+          ...dateQ,
+          limit: '200',
+        },
+      }).catch(() => ({ data: [] })),
+    ])
+
+    const statusById = new Map<string, string>()
+    for (const c of (campMetaRes?.data || []))
+      statusById.set(String(c.id), String(c.status || ''))
+    for (const row of campaigns)
+      row.status = statusById.get(String(row.id)) || null
+
+    const adMetricsById = new Map<string, {
+      impressions: number
+      clicks: number
+      spend: number
+      ctr: number
+      cpc: number
+      cpm: number
+    }>()
+    for (const row of adLevelInsights?.data || []) {
+      const aid = row?.ad_id != null ? String(row.ad_id) : ''
+      if (!aid)
+        continue
+      adMetricsById.set(aid, {
+        impressions: Number(row.impressions || 0),
+        clicks: Number(row.clicks || 0),
+        spend: Number(row.spend || 0),
+        ctr: Number(row.ctr ?? 0),
+        cpc: Number(row.cpc || 0),
+        cpm: Number(row.cpm || 0),
+      })
+    }
+
+    const rawAds = adsResponse?.data || []
+    const creativeHashes = rawAds
+      .map((ad: any) => ad.creative?.image_hash)
+      .filter((h: unknown) => h != null && String(h).length > 0)
+      .map((h: unknown) => String(h))
+    const hashToUrl = await fetchAdImageUrlsByHashes(accessToken, adAccountId, apiVersion, creativeHashes)
+
+    ads = rawAds.map((ad: any) => {
+      const m = adMetricsById.get(String(ad.id))
+      const creative = ad.creative as Record<string, unknown> | undefined
+      const image_url = resolveCreativePreviewImageUrl(creative, hashToUrl)
+      return {
+        id: ad.id,
+        name: ad.name,
+        campaign_id: ad.campaign?.id ? String(ad.campaign.id) : null,
+        campaign_name: ad.campaign?.name || null,
+        effective_status: ad.effective_status ? String(ad.effective_status) : null,
+        image_url,
+        impressions: m?.impressions ?? null,
+        clicks: m?.clicks ?? null,
+        spend: m?.spend ?? null,
+        ctr: m?.ctr ?? null,
+        cpc: m?.cpc ?? null,
+        cpm: m?.cpm ?? null,
+      }
     })
   }
 
-  const rawAds = adsResponse?.data || []
-  const creativeHashes = rawAds
-    .map((ad: any) => ad.creative?.image_hash)
-    .filter((h: unknown) => h != null && String(h).length > 0)
-    .map((h: unknown) => String(h))
-  const hashToUrl = await fetchAdImageUrlsByHashes(accessToken, adAccountId, apiVersion, creativeHashes)
-
-  const ads = rawAds.map((ad: any) => {
-    const m = adMetricsById.get(String(ad.id))
-    const creative = ad.creative as Record<string, unknown> | undefined
-    const image_url = resolveCreativePreviewImageUrl(creative, hashToUrl)
-    return {
-      id: ad.id,
-      name: ad.name,
-      campaign_id: ad.campaign?.id ? String(ad.campaign.id) : null,
-      campaign_name: ad.campaign?.name || null,
-      effective_status: ad.effective_status ? String(ad.effective_status) : null,
-      image_url,
-      impressions: m?.impressions ?? null,
-      clicks: m?.clicks ?? null,
-      spend: m?.spend ?? null,
-      ctr: m?.ctr ?? null,
-      cpc: m?.cpc ?? null,
-      cpm: m?.cpm ?? null,
-    }
-  })
-
-  const series = (dailyRes?.data || []).map((row: any) => mapDailyInsightRow(row))
+  const series = (dailyRes?.data || []).map((row: any) =>
+    mapDailyInsightRow(row, primaryResultActionTypeForAccount),
+  )
 
   return { campaigns, metrics, ads, series }
 }
@@ -557,14 +746,14 @@ function emptyMetaMetrics() {
 }
 
 function parseDatePresetQuery(query: Record<string, unknown>) {
-  let datePreset = String(query.date_preset || 'last_30d')
+  let datePreset = String(query.date_preset || 'today')
   const dateStart = String(query.date_start || '').trim()
   const dateEnd = String(query.date_end || '').trim()
   const iso = /^\d{4}-\d{2}-\d{2}$/
 
   if (datePreset === 'custom') {
     if (!iso.test(dateStart) || !iso.test(dateEnd) || dateStart > dateEnd)
-      datePreset = 'last_30d'
+      datePreset = 'today'
   }
   else if (
     ![
@@ -577,11 +766,12 @@ function parseDatePresetQuery(query: Record<string, unknown>) {
       'yesterday',
     ].includes(datePreset)
   ) {
-    datePreset = 'last_30d'
+    datePreset = 'today'
   }
 
+  const metaActiveOnlyRaw = query.meta_active_only ?? query.meta_ads_active_only
   const metaAdsActiveOnly
-    = query.meta_ads_active_only === 'true' || query.meta_ads_active_only === '1'
+    = metaActiveOnlyRaw === 'true' || metaActiveOnlyRaw === '1'
 
   const periodKey
     = datePreset === 'custom' && dateStart && dateEnd
@@ -602,6 +792,7 @@ export default defineEventHandler(async (event) => {
   const source = (query.source as string) || 'all'
   const googleTemplate = (query.google_template as string) || 'standard'
   const forceRefresh = query.force_refresh === 'true'
+  const insightsOnly = query.insights_only !== 'false'
 
   const {
     datePreset,
@@ -627,7 +818,7 @@ export default defineEventHandler(async (event) => {
   const cacheKey = buildMarketingOverviewCacheKey(
     source,
     googleTemplate,
-    periodKey,
+    `${periodKey}:${insightsOnly ? 'ins1' : 'ins0'}:${MARKETING_OVERVIEW_CALC_VERSION}`,
     metaAdsActiveOnly,
     integrations || [],
   )
@@ -653,7 +844,7 @@ export default defineEventHandler(async (event) => {
   const [googleData, metaData] = await Promise.all([
     shouldLoadGoogle && googleConfig ? fetchGoogleData(googleConfig, dateOpts) : Promise.resolve(null),
     shouldLoadMeta && metaConfig
-      ? fetchMetaData(metaConfig, { ...dateOpts, adsActiveOnly: metaAdsActiveOnly })
+      ? fetchMetaData(metaConfig, { ...dateOpts, adsActiveOnly: metaAdsActiveOnly, insightsOnly })
       : Promise.resolve(null),
   ])
 
@@ -674,7 +865,7 @@ export default defineEventHandler(async (event) => {
       preset: datePreset,
       date_start: datePreset === 'custom' ? dateStart : null,
       date_end: datePreset === 'custom' ? dateEnd : null,
-      meta_ads_active_only: metaAdsActiveOnly,
+      meta_active_only: metaAdsActiveOnly,
     },
     google: {
       metrics: googleData?.metrics || { impressions: 0, clicks: 0, cost: 0, conversions: 0 },

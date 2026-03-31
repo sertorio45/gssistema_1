@@ -23,9 +23,12 @@ export interface MarketingOverviewQuery {
   source?: 'all' | 'google_ads' | 'google_analytics' | 'meta'
   google_template?: GoogleTemplateType
   force_refresh?: boolean
+  insights_only?: string | boolean
   date_preset?: MarketingDatePreset | string
   date_start?: string
   date_end?: string
+  /** Prefer `meta_active_only`; `meta_ads_active_only` is accepted for compatibility */
+  meta_active_only?: string | boolean
   meta_ads_active_only?: string | boolean
 }
 
@@ -79,7 +82,7 @@ export interface MarketingOverviewPeriod {
   preset: string
   date_start: string | null
   date_end: string | null
-  meta_ads_active_only: boolean
+  meta_active_only: boolean
 }
 
 export interface MetaOverviewBlock {

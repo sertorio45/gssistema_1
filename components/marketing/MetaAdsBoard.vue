@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import type { MarketingOverviewPeriod, MetaAdCreative, MetaOverviewBlock, MetaSeriesPoint } from '~/types/marketing'
-import type { MetaAdCreativePayload } from '~/types/meta-creatives'
+import type { MarketingOverviewPeriod, MetaOverviewBlock, MetaSeriesPoint } from '~/types/marketing'
 
 import MetaBrandIcon from '@/components/brand/MetaBrandIcon.vue'
-import MetaCreativeMediaViewer from '@/components/marketing/MetaCreativeMediaViewer.vue'
 import MiniSparkline from '@/components/marketing/MiniSparkline.vue'
 import { Switch } from '@/components/ui/switch'
 
 const props = defineProps<{
   meta?: MetaOverviewBlock | null
   period?: MarketingOverviewPeriod | null
+  loading?: boolean
 }>()
 
-const { tenantId } = useTenant()
-
-const adsActiveOnly = defineModel<boolean>('adsActiveOnly', { default: true })
+const adsActiveOnly = defineModel<boolean>('adsActiveOnly', { default: false })
 
 const selectedCampaignId = ref<string | 'all'>('all')
 const activeCampaignsOnly = ref(true)
@@ -61,8 +58,15 @@ const campaigns = computed(() => props.meta?.campaigns ?? [])
 
 const campaignSelectOptions = computed(() => {
   let list = [...campaigns.value]
-  if (activeCampaignsOnly.value)
-    list = list.filter(c => String(c.status || '').toUpperCase() === 'ACTIVE')
+  if (activeCampaignsOnly.value) {
+    list = list.filter((c) => {
+      const status = String(c.status || '').toUpperCase()
+      // In insights-only mode status may be null; don't hide valid campaigns.
+      if (!status)
+        return true
+      return status === 'ACTIVE'
+    })
+  }
   return list
 })
 
@@ -206,55 +210,6 @@ function formatMetricValue(key: string) {
   }
 }
 
-const { data: creativesRes, pending: creativesPending, refresh: refreshCreatives } = await useAsyncData(
-  () => `meta-creatives-${tenantId.value}-${adsActiveOnly.value}`,
-  () =>
-    $fetch<{ data: MetaAdCreativePayload[], api_version: string }>('/api/marketing/creatives', {
-      query: {
-        tenant_id: tenantId.value || undefined,
-        ads_active_only: adsActiveOnly.value ? 'true' : 'false',
-      },
-    }),
-  { watch: [tenantId, adsActiveOnly] },
-)
-
-const metricsByAdId = computed(() => {
-  const m = new Map<string, MetaAdCreative>()
-  for (const a of props.meta?.ads ?? [])
-    m.set(String(a.id), a)
-  return m
-})
-
-const viewerOpen = ref(false)
-const viewerCreative = ref<MetaAdCreativePayload | null>(null)
-
-function openViewer(c: MetaAdCreativePayload) {
-  viewerCreative.value = c
-  viewerOpen.value = true
-}
-
-watch(viewerOpen, (v) => {
-  if (!v)
-    viewerCreative.value = null
-})
-
-/** Criativos em alta resolução + métricas do overview (mesmo período) */
-const creativeRows = computed(() => {
-  const list = creativesRes.value?.data ?? []
-  return list
-    .map((c) => {
-      const metrics = metricsByAdId.value.get(String(c.ad_id))
-      return { creative: c, metrics }
-    })
-    .filter((row) => {
-      if (selectedCampaignId.value === 'all')
-        return true
-      const cid = row.metrics?.campaign_id
-      return cid != null && String(cid) === String(selectedCampaignId.value)
-    })
-    .slice(0, 12)
-})
-
 function fmtCurrency(n: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n || 0)
 }
@@ -284,10 +239,6 @@ watch(activeCampaignsOnly, () => {
     return
   if (!campaignSelectOptions.value.some(c => String(c.id) === String(selectedCampaignId.value)))
     selectedCampaignId.value = 'all'
-})
-
-defineExpose({
-  refreshCreatives,
 })
 </script>
 
@@ -368,6 +319,42 @@ defineExpose({
     </CardHeader>
 
     <CardContent class="p-0">
+      <div v-if="loading" class="space-y-4 p-4 sm:p-6">
+        <div class="grid gap-4 lg:grid-cols-3">
+          <div class="space-y-3 rounded-lg border p-4">
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-8 w-32" />
+            <Skeleton class="h-10 w-full" />
+          </div>
+          <div class="space-y-3 rounded-lg border p-4">
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-8 w-28" />
+            <Skeleton class="h-10 w-full" />
+          </div>
+          <div class="space-y-3 rounded-lg border p-4">
+            <Skeleton class="h-3 w-28" />
+            <Skeleton class="h-8 w-28" />
+            <Skeleton class="h-10 w-full" />
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div v-for="n in 8" :key="`meta-skeleton-metric-${n}`" class="space-y-2 rounded-lg border p-3">
+            <Skeleton class="h-3 w-20" />
+            <Skeleton class="h-6 w-24" />
+            <Skeleton class="h-8 w-full" />
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div v-for="n in 4" :key="`meta-skeleton-creative-${n}`" class="rounded-lg border p-3">
+            <Skeleton class="mb-3 aspect-video w-full rounded-md" />
+            <Skeleton class="mb-2 h-3 w-3/4" />
+            <Skeleton class="mb-2 h-3 w-1/2" />
+            <Skeleton class="h-3 w-2/3" />
+          </div>
+        </div>
+      </div>
+
+      <template v-else>
       <!-- Métricas principais -->
       <div class="border-b px-4 py-4 sm:px-6">
         <div class="grid gap-4 lg:grid-cols-3">
@@ -472,83 +459,7 @@ defineExpose({
         </div>
       </div>
 
-      <!-- Criativos -->
-      <div class="bg-muted/10 px-4 py-5 sm:px-6">
-        <MetaCreativeMediaViewer v-model="viewerOpen" :creative="viewerCreative" />
-
-        <div class="mb-4">
-          <h3 class="text-sm font-semibold">
-            Criativos dos anúncios
-          </h3>
-          <p class="text-xs text-muted-foreground">
-            Mídias em alta resolução (Graph API {{ creativesRes?.api_version || 'v23.0' }}). Métricas no período selecionado.
-          </p>
-        </div>
-
-        <div v-if="creativesPending" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div v-for="n in 4" :key="n" class="h-48 animate-pulse rounded-lg border bg-muted/40" />
-        </div>
-
-        <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div
-            v-for="row in creativeRows"
-            :key="row.creative.ad_id"
-            class="group overflow-hidden rounded-lg border bg-card shadow-sm transition hover:bg-muted/20"
-          >
-            <div class="relative aspect-video w-full overflow-hidden bg-muted">
-              <img
-                v-if="row.creative.preview_thumbnail || row.metrics?.image_url"
-                :src="row.creative.preview_thumbnail || row.metrics?.image_url || ''"
-                :alt="row.creative.ad_name || 'Anúncio'"
-                loading="lazy"
-                decoding="async"
-                class="h-full w-full object-cover transition group-hover:scale-[1.02]"
-              >
-              <div
-                v-else
-                class="flex h-full w-full items-center justify-center text-muted-foreground"
-              >
-                <Icon name="lucide:image-off" class="h-8 w-8 opacity-40" />
-              </div>
-              <button
-                type="button"
-                class="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-md bg-black/45 text-white shadow-md backdrop-blur-[2px] transition hover:bg-black/55"
-                :aria-label="'Ver mídia em tamanho ampliado'"
-                @click.stop="openViewer(row.creative)"
-              >
-                <Icon name="lucide:eye" class="h-4 w-4" />
-              </button>
-            </div>
-            <div class="space-y-2 p-3">
-              <div class="mb-1 flex flex-wrap gap-1">
-                <Badge v-if="row.metrics?.effective_status" variant="secondary" class="text-[10px]">
-                  {{ metaStatusPt(row.metrics.effective_status) }}
-                </Badge>
-                <Badge variant="outline" class="text-[10px] capitalize">
-                  {{ row.creative.creative_type }}
-                </Badge>
-              </div>
-              <p class="line-clamp-2 text-sm font-medium leading-snug">
-                {{ row.creative.ad_name || row.metrics?.name || 'Anúncio' }}
-              </p>
-              <p v-if="row.metrics?.campaign_name" class="line-clamp-1 text-xs text-muted-foreground">
-                {{ row.metrics.campaign_name }}
-              </p>
-              <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs tabular-nums">
-                <span class="text-muted-foreground">CTR <span class="font-medium text-foreground">{{ row.metrics?.ctr != null ? `${fmtDec(row.metrics.ctr, 2)}%` : '—' }}</span></span>
-                <span class="text-muted-foreground">Cliques <span class="font-medium text-foreground">{{ row.metrics?.clicks != null ? fmtInt(row.metrics.clicks) : '—' }}</span></span>
-              </div>
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-muted-foreground">Investimento</span>
-                <span class="font-medium tabular-nums">{{ row.metrics?.spend != null ? fmtCurrency(row.metrics.spend) : '—' }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p v-if="!creativesPending && !creativeRows.length" class="py-8 text-center text-sm text-muted-foreground">
-          Nenhum anúncio com criativos para este filtro.
-        </p>
-      </div>
+      </template>
     </CardContent>
   </Card>
 </template>
