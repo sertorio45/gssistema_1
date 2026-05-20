@@ -10,13 +10,13 @@ const props = defineProps<DataTablePaginationProps<any>>()
 <template>
   <div class="flex items-center justify-between px-2">
     <div class="flex-1 text-sm text-muted-foreground">
-      {{ props.table.getFilteredSelectedRowModel().rows.length }} of
-      {{ props.table.getFilteredRowModel().rows.length }} row(s) selected.
+      {{ props.table.getFilteredSelectedRowModel().rows.length }} de
+      {{ props.table.getFilteredRowModel().rows.length }} linha(s) selecionada(s).
     </div>
     <div class="flex items-center space-x-6 lg:space-x-8">
       <div class="flex items-center space-x-2">
         <p class="text-sm font-medium">
-          Rows per page
+          Linhas por página
         </p>
         <Select
           :model-value="String(props.table.getState().pagination.pageSize)"
@@ -33,7 +33,7 @@ const props = defineProps<DataTablePaginationProps<any>>()
         </Select>
       </div>
       <div class="w-[100px] flex items-center justify-center text-sm font-medium">
-        Page {{ props.table.getState().pagination.pageIndex + 1 }} of
+        Página {{ props.table.getState().pagination.pageIndex + 1 }} de
         {{ props.table.getPageCount() }}
       </div>
       <div class="flex items-center space-x-2">
@@ -43,7 +43,7 @@ const props = defineProps<DataTablePaginationProps<any>>()
           :disabled="!props.table.getCanPreviousPage()"
           @click="props.table.setPageIndex(0)"
         >
-          <span class="sr-only">Go to first page</span>
+          <span class="sr-only">Ir para primeira página</span>
           <Icon name="lucide:chevrons-left" class="h-4 w-4" />
         </Button>
         <Button
@@ -52,7 +52,7 @@ const props = defineProps<DataTablePaginationProps<any>>()
           :disabled="!props.table.getCanPreviousPage()"
           @click="props.table.previousPage"
         >
-          <span class="sr-only">Go to previous page</span>
+          <span class="sr-only">Ir para página anterior</span>
           <Icon name="lucide:chevron-left" class="h-4 w-4" />
         </Button>
         <Button
@@ -61,7 +61,7 @@ const props = defineProps<DataTablePaginationProps<any>>()
           :disabled="!props.table.getCanNextPage()"
           @click="props.table.nextPage"
         >
-          <span class="sr-only">Go to next page</span>
+          <span class="sr-only">Ir para próxima página</span>
           <Icon name="lucide:chevron-right" class="h-4 w-4" />
         </Button>
         <Button
@@ -70,7 +70,7 @@ const props = defineProps<DataTablePaginationProps<any>>()
           :disabled="!props.table.getCanNextPage()"
           @click="props.table.setPageIndex(props.table.getPageCount() - 1)"
         >
-          <span class="sr-only">Go to last page</span>
+          <span class="sr-only">Ir para última página</span>
           <Icon name="lucide:chevrons-right" class="h-4 w-4" />
         </Button>
       </div>

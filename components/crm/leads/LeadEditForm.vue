@@ -81,41 +81,41 @@ const priorityOptions = [
 
 // Opções de status
 const statusOptions = [
-  { value: 'new', label: 'New' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'qualified', label: 'Qualified' },
-  { value: 'proposal', label: 'Proposal' },
-  { value: 'negotiation', label: 'Negotiation' },
-  { value: 'won', label: 'Won' },
-  { value: 'lost', label: 'Lost' },
+  { value: 'new', label: 'Novo' },
+  { value: 'contacted', label: 'Contatado' },
+  { value: 'qualified', label: 'Qualificado' },
+  { value: 'proposal', label: 'Proposta' },
+  { value: 'negotiation', label: 'Negociação' },
+  { value: 'won', label: 'Ganho' },
+  { value: 'lost', label: 'Perdido' },
 ]
 
 // Opções de segmentos de empresa
 const companySegmentOptions = [
-  { value: 'technology', label: 'Technology' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'healthcare', label: 'Healthcare' },
-  { value: 'education', label: 'Education' },
-  { value: 'retail', label: 'Retail' },
-  { value: 'manufacturing', label: 'Manufacturing' },
-  { value: 'services', label: 'Services' },
-  { value: 'other', label: 'Other' },
+  { value: 'technology', label: 'Tecnologia' },
+  { value: 'finance', label: 'Finanças' },
+  { value: 'healthcare', label: 'Saúde' },
+  { value: 'education', label: 'Educação' },
+  { value: 'retail', label: 'Varejo' },
+  { value: 'manufacturing', label: 'Indústria' },
+  { value: 'services', label: 'Serviços' },
+  { value: 'other', label: 'Outros' },
 ]
 
 // Opções de tamanho de empresa
 const companySizeOptions = [
-  { value: '1-10', label: '1-10 employees' },
-  { value: '11-50', label: '11-50 employees' },
-  { value: '51-200', label: '51-200 employees' },
-  { value: '201-500', label: '201-500 employees' },
-  { value: '501+', label: '501+ employees' },
+  { value: '1-10', label: '1-10 colaboradores' },
+  { value: '11-50', label: '11-50 colaboradores' },
+  { value: '51-200', label: '51-200 colaboradores' },
+  { value: '201-500', label: '201-500 colaboradores' },
+  { value: '501+', label: '501+ colaboradores' },
 ]
 
 // Opções de tipo de meeting
 const meetingTypeOptions = [
-  { value: 'presential', label: 'Presential' },
+  { value: 'presential', label: 'Presencial' },
   { value: 'virtual', label: 'Virtual' },
-  { value: 'phone', label: 'Phone' },
+  { value: 'phone', label: 'Telefone' },
 ]
 
 // Form data - pré-preenchido com dados do lead
@@ -288,7 +288,7 @@ async function updateLead() {
   try {
     // Validar campos obrigatórios
     if (!leadForm.value.name) {
-      throw new Error('Please fill in all required fields')
+      throw new Error('Preencha todos os campos obrigatórios')
     }
 
     // 1. Atualizar Lead
@@ -331,7 +331,7 @@ async function updateLead() {
         })
       }
       catch (contactErr) {
-        console.warn('Failed to create/update contact:', contactErr)
+        console.warn('Falha ao criar/atualizar contato:', contactErr)
       }
     }
 
@@ -352,7 +352,7 @@ async function updateLead() {
         })
       }
       catch (companyErr) {
-        console.warn('Failed to create/update company:', companyErr)
+        console.warn('Falha ao criar/atualizar empresa:', companyErr)
       }
     }
 
@@ -374,7 +374,7 @@ async function updateLead() {
         })
       }
       catch (meetingErr) {
-        console.warn('Failed to create/update meeting:', meetingErr)
+        console.warn('Falha ao criar/atualizar reunião:', meetingErr)
       }
     }
 
@@ -382,7 +382,7 @@ async function updateLead() {
     emit('lead-updated', updatedLead)
   }
   catch (err: any) {
-    console.error('Error updating lead:', err)
+    console.error('Erro ao atualizar lead:', err)
   }
   finally {
     loading.value = false
@@ -426,7 +426,7 @@ function cancel() {
               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
           ]"
         >
-          {{ tab.charAt(0).toUpperCase() + tab.slice(1) }}
+          {{ ({ lead: 'Lead', contact: 'Contato', company: 'Empresa', meeting: 'Reunião' } as Record<string, string>)[tab] }}
         </button>
       </div>
 
@@ -633,10 +633,10 @@ function cancel() {
       <!-- Action Buttons -->
       <div class="flex justify-end gap-2 pt-4">
         <Button variant="outline" @click="cancel">
-          Cancel
+          Cancelar
         </Button>
         <Button :loading="loading" :disabled="!validateForm()" @click="updateLead">
-          Update Lead
+          Atualizar lead
         </Button>
       </div>
     </div>

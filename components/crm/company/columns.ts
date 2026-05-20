@@ -14,14 +14,14 @@ export const columns: ColumnDef<Company>[] = [
       h(Checkbox, {
         'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
         'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
-        'ariaLabel': 'Select all',
+        'ariaLabel': 'Selecionar todos',
         'class': 'translate-y-0.5',
       }),
     cell: ({ row }) =>
       h(Checkbox, {
         'checked': row.getIsSelected(),
         'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
-        'ariaLabel': 'Select row',
+        'ariaLabel': 'Selecionar linha',
         'class': 'translate-y-0.5',
       }),
     enableSorting: false,
@@ -29,21 +29,21 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Company Name' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome da empresa' }),
     cell: ({ row }) => h('span', { class: 'font-medium' }, row.getValue('name')),
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'industry',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Industry' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Setor' }),
     cell: ({ row }) => row.getValue('industry') || '-',
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'size',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Size' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Porte' }),
     cell: ({ row }) => {
       const size = row.getValue('size') as string | undefined
       return size ? size.charAt(0).toUpperCase() + size.slice(1) : '-'
@@ -53,7 +53,7 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: 'contactsCount',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Contacts' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Contatos' }),
     cell: ({ row }) => row.getValue('contactsCount'),
     enableSorting: true,
     enableHiding: true,
@@ -67,7 +67,7 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: 'totalValue',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Total Value' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Valor total' }),
     cell: ({ row }) => {
       const value = row.getValue('totalValue') as number
       return new Intl.NumberFormat('pt-BR', {

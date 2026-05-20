@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { toast } from 'vue-sonner'
 
-import DataTableViewOptions from '@/components/tasks/components/DataTableViewOptions.vue'
+import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import { columns } from '~/components/crm/company/columns'
 import CompanyForm from '~/components/crm/company/CompanyForm.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'

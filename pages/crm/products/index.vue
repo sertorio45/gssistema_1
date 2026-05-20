@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
-import DataTableViewOptions from '~/components/tasks/components/DataTableViewOptions.vue'
+import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'

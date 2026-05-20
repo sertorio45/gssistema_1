@@ -9,13 +9,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 
 const statusOptions = [
-  { value: 'new', label: 'New', color: 'bg-blue-100 text-blue-800' },
-  { value: 'contacted', label: 'Contacted', color: 'bg-purple-100 text-purple-800' },
-  { value: 'qualified', label: 'Qualified', color: 'bg-cyan-100 text-cyan-800' },
-  { value: 'proposal', label: 'Proposal', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'negotiation', label: 'Negotiation', color: 'bg-orange-100 text-orange-800' },
-  { value: 'won', label: 'Won', color: 'bg-green-100 text-green-800' },
-  { value: 'lost', label: 'Lost', color: 'bg-gray-100 text-gray-800' },
+  { value: 'new', label: 'Novo', color: 'bg-blue-100 text-blue-800' },
+  { value: 'contacted', label: 'Contatado', color: 'bg-purple-100 text-purple-800' },
+  { value: 'qualified', label: 'Qualificado', color: 'bg-cyan-100 text-cyan-800' },
+  { value: 'proposal', label: 'Proposta', color: 'bg-yellow-100 text-yellow-800' },
+  { value: 'negotiation', label: 'Negociação', color: 'bg-orange-100 text-orange-800' },
+  { value: 'won', label: 'Ganho', color: 'bg-green-100 text-green-800' },
+  { value: 'lost', label: 'Perdido', color: 'bg-gray-100 text-gray-800' },
 ]
 
 const priorityOptions = [
@@ -26,11 +26,11 @@ const priorityOptions = [
 
 const sourceOptions = [
   { value: 'website', label: 'Website' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'social', label: 'Social Media' },
-  { value: 'email', label: 'Email' },
-  { value: 'phone', label: 'Phone' },
-  { value: 'other', label: 'Other' },
+  { value: 'referral', label: 'Indicação' },
+  { value: 'social', label: 'Redes Sociais' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'other', label: 'Outros' },
 ]
 
 export const columns: ColumnDef<any>[] = [
@@ -55,7 +55,7 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Name' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome' }),
     cell: ({ row }) => {
       return h('div', { class: 'flex flex-col' }, [
         h('span', { class: 'font-medium' }, row.getValue('name')),
@@ -65,7 +65,7 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'company',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Company' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Empresa' }),
     cell: ({ row }) => h('span', row.getValue('company') || '-'),
   },
   {
@@ -91,7 +91,7 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'priority',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Priority' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Prioridade' }),
     cell: ({ row }) => {
       const priority = priorityOptions.find(p => p.value === row.getValue('priority'))
       if (!priority)
@@ -112,7 +112,7 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'source',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Source' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Origem' }),
     cell: ({ row }) => {
       const source = sourceOptions.find(s => s.value === row.getValue('source'))
       return h('span', { class: 'capitalize' }, source?.label || row.getValue('source'))
@@ -123,7 +123,7 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'value',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Value' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Valor' }),
     cell: ({ row }) => {
       const value = row.getValue('value') as number
       return h(
@@ -137,21 +137,31 @@ export const columns: ColumnDef<any>[] = [
     },
   },
   {
-    accessorKey: 'assignedTo',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Assigned To' }),
-    cell: ({ row }) => h('span', row.getValue('assignedTo') || 'Unassigned'),
+    accessorKey: 'assigned_to',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Responsável' }),
+    cell: ({ row }) => h('span', row.getValue('assigned_to') || row.original.assignedTo || 'Não atribuído'),
   },
   {
-    accessorKey: 'createdAt',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Created' }),
+    accessorKey: 'created_at',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Criado em' }),
     cell: ({ row }) => {
-      const date = new Date(row.getValue('createdAt'))
+      const rawDate = row.getValue('created_at') || row.original.createdAt
+      if (!rawDate)
+        return h('span', { class: 'text-sm text-muted-foreground' }, '-')
+      const date = new Date(String(rawDate))
+      if (Number.isNaN(date.getTime()))
+        return h('span', { class: 'text-sm text-muted-foreground' }, '-')
       return h('span', { class: 'text-sm' }, date.toLocaleDateString('pt-BR'))
     },
   },
   {
     id: 'actions',
-    cell: ({ row }) => h(DataTableRowActions, { row }),
+    cell: ({ row, table }) =>
+      h(DataTableRowActions, {
+        row,
+        onEdit: () => (table.options.meta as any)?.onEdit?.(row.original),
+        onDelete: () => (table.options.meta as any)?.onDelete?.(row.original),
+      }),
   },
 ]
 
@@ -177,17 +187,17 @@ export const sourceColumns: ColumnDef<LeadSource>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Source Name' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome da origem' }),
     cell: ({ row }) => h('span', { class: 'font-medium text-muted-foreground' }, row.getValue('name')),
   },
   {
     accessorKey: 'description',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Description' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Descrição' }),
     cell: ({ row }) => h('span', { class: 'truncate text-xs text-muted-foreground' }, row.getValue('description')),
   },
   {
     accessorKey: 'is_default',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Default' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Padrão' }),
     cell: ({ row }) => {
       const isDefault = row.original.is_default
       return h('div', { class: 'flex items-center' }, [
@@ -205,7 +215,7 @@ export const sourceColumns: ColumnDef<LeadSource>[] = [
               name: isDefault ? 'lucide:check-circle' : 'lucide:circle',
               class: 'mr-1 h-3.5 w-3.5',
             }),
-            isDefault ? 'Default' : 'Custom',
+            isDefault ? 'Padrão' : 'Personalizado',
           ],
         ),
       ])

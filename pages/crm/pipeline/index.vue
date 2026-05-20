@@ -36,7 +36,7 @@ import SheetHeader from '~/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '~/components/ui/sheet/SheetTitle.vue'
 import SheetTrigger from '~/components/ui/sheet/SheetTrigger.vue'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
-import DataTableViewOptions from '~/components/tasks/components/DataTableViewOptions.vue'
+import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
@@ -57,6 +57,8 @@ interface Pipeline {
 interface LeadExt extends Lead {
   sales_stage_id?: string
   pipeline_id?: string
+  assigned_to?: string | null
+  created_at?: string
 }
 
 const { tenantId } = useTenant()
@@ -73,7 +75,7 @@ const isEditLeadDialogOpen = ref(false)
 const isSheetOpen = ref(false)
 const showDeleteDialog = ref(false)
 const leadToDelete = ref<Lead | null>(null)
-const selectedItems = ref([])
+const selectedItems = ref<LeadExt[]>([])
 const showMultiDeleteDialog = ref(false)
 const isAddPipelineDialogOpen = ref(false)
 const newPipeline = ref({ name: '', description: '' })
@@ -130,27 +132,44 @@ const stageProgress = computed(() => {
   return progress
 })
 
-// Métricas do topo (Total Pipeline, Taxa Conversão, Ticket Médio, Ganhos no Mês)
-const pipelineTotal = computed(() =>
-  leads.value
-    .filter(l => l.status !== 'won' && l.status !== 'lost')
-    .reduce((sum, l) => sum + (Number(l.value) || 0), 0),
+// Métricas do topo (Total do Pipeline, Taxa de Conversão, Valor em Negociação, Ganhos do Mês)
+const negotiationStageIds = computed(() =>
+  stages.value
+    .filter(stage => stage.name?.toLowerCase().includes('negocia') || stage.name?.toLowerCase().includes('negoti'))
+    .map(stage => String(stage.id)),
 )
+const wonStageIds = computed(() =>
+  stages.value
+    .filter(stage => stage.name?.toLowerCase().includes('ganh') || stage.name?.toLowerCase().includes('won'))
+    .map(stage => String(stage.id)),
+)
+const negotiationValue = computed(() => {
+  const ids = negotiationStageIds.value
+  return leads.value
+    .filter((lead) => {
+      if (ids.length > 0)
+        return ids.includes(String(lead.sales_stage_id || ''))
+      // Fallback quando não existir estágio de negociação configurado.
+      return lead.status === 'negotiation'
+    })
+    .reduce((sum, l) => sum + (Number(l.value) || 0), 0)
+})
 const totalLeadsCount = computed(() => leads.value.length)
 const conversionRate = computed(() => {
   const total = totalLeadsCount.value
   if (total === 0)
     return 0
-  const won = leads.value.filter(l => l.status === 'won').length
+  const wonIds = wonStageIds.value
+  const won = leads.value.filter((lead) => {
+    if (wonIds.length > 0)
+      return wonIds.includes(String(lead.sales_stage_id || ''))
+    return lead.status === 'won'
+  }).length
   return Math.round((won / total) * 10000) / 100
 })
-const ticketMedio = computed(() => {
-  const total = totalLeadsCount.value
-  if (total === 0)
-    return 0
-  const sum = leads.value.reduce((s, l) => s + (Number(l.value) || 0), 0)
-  return sum / total
-})
+const pipelineTotalValue = computed(() =>
+  leads.value.reduce((sum, lead) => sum + (Number(lead.value) || 0), 0),
+)
 const ganhosNoMes = computed(() => {
   const now = new Date()
   const thisYear = now.getFullYear()
@@ -280,13 +299,22 @@ const leadDateRangeLabel = computed(() => {
   }
   return 'Selecionar período'
 })
+const leadDateRangeKey = computed(() => {
+  const start = toIsoDate(leadDateRange.value?.start) || ''
+  const end = toIsoDate(leadDateRange.value?.end) || ''
+  return `${start}__${end}`
+})
 
 function clearLeadDateRange() {
   leadDateRange.value = {}
 }
 
-function setLeadDatePreset(preset: 'today' | '7d' | '30d' | 'month') {
+function setLeadDatePreset(preset: 'all' | 'today' | '7d' | '30d' | 'month') {
   const now = today(getLocalTimeZone())
+  if (preset === 'all') {
+    leadDateRange.value = {}
+    return
+  }
   if (preset === 'today') {
     leadDateRange.value = { start: now, end: now }
     return
@@ -329,6 +357,25 @@ function isStageWonOrLost(stageName: string): 'won' | 'lost' | null {
   return null
 }
 
+function getStatusFromStageName(stageName: string): Lead['status'] | null {
+  const name = (stageName || '').toLowerCase()
+  if (name.includes('novo') || name.includes('new'))
+    return 'new'
+  if (name.includes('contat') || name.includes('contact'))
+    return 'contacted'
+  if (name.includes('qualific') || name.includes('qualif'))
+    return 'qualified'
+  if (name.includes('propost') || name.includes('proposal'))
+    return 'proposal'
+  if (name.includes('negocia') || name.includes('negoti'))
+    return 'negotiation'
+  if (name.includes('ganh') || name.includes('won'))
+    return 'won'
+  if (name.includes('perdid') || name.includes('lost'))
+    return 'lost'
+  return null
+}
+
 async function handleDrop(event: DragEvent, newStageId: string) {
   event.preventDefault()
   if (!event.dataTransfer)
@@ -336,14 +383,36 @@ async function handleDrop(event: DragEvent, newStageId: string) {
   try {
     const data = JSON.parse(event.dataTransfer.getData('text/plain'))
     const { leadId, currentStageId } = data
-    if (currentStageId === newStageId)
-      return
 
     const lead = leads.value.find(l => l.id === leadId)
+    if (!lead)
+      return
+    if (currentStageId === newStageId) {
+      // Soltou na mesma coluna (fora de um card alvo): move para o final da coluna.
+      const previousLeads = [...leads.value]
+      const remaining = leads.value.filter(l => l.id !== leadId)
+      const sameStage = remaining.filter(l => String(l.sales_stage_id || '') === String(newStageId))
+      if (sameStage.length === 0) {
+        leads.value = [...remaining, lead]
+      }
+      else {
+        const lastSameStageId = sameStage[sameStage.length - 1].id
+        const insertAt = remaining.findIndex(l => l.id === lastSameStageId) + 1
+        leads.value = [...remaining.slice(0, insertAt), lead, ...remaining.slice(insertAt)]
+      }
+      if (leads.value.length === 0)
+        leads.value = previousLeads
+      return
+    }
+
     const newStage = stages.value.find(s => s.id === newStageId)
     const wonOrLost = newStage ? isStageWonOrLost(newStage.name) : null
+    const statusFromStage = newStage ? getStatusFromStageName(newStage.name) : null
+    let newStatus: Lead['status'] = statusFromStage ?? lead?.status ?? 'new'
+    // Se sair de um estágio terminal para outro não-terminal, remove status de fechamento.
+    if (!statusFromStage && (lead?.status === 'won' || lead?.status === 'lost'))
+      newStatus = 'negotiation'
     const closedAt = wonOrLost ? new Date().toISOString() : null
-    const newStatus = wonOrLost ?? lead?.status
 
     const previousLeads = [...leads.value]
     const updatedLeads = leads.value.map((l) => {
@@ -363,7 +432,7 @@ async function handleDrop(event: DragEvent, newStageId: string) {
         method: 'PUT',
         body: {
           sales_stage_id: newStageId,
-          ...(wonOrLost ? { status: wonOrLost } : {}),
+          status: newStatus,
           closed_at: closedAt,
         },
       })
@@ -379,17 +448,77 @@ async function handleDrop(event: DragEvent, newStageId: string) {
   }
 }
 
+function handleDropOnLead(event: DragEvent, newStageId: string, targetLeadId: string) {
+  event.preventDefault()
+  if (!event.dataTransfer)
+    return
+  try {
+    const data = JSON.parse(event.dataTransfer.getData('text/plain'))
+    const { leadId, currentStageId } = data
+    if (!leadId || leadId === targetLeadId)
+      return
+
+    const movingLead = leads.value.find(l => l.id === leadId)
+    const targetLead = leads.value.find(l => l.id === targetLeadId)
+    if (!movingLead || !targetLead)
+      return
+
+    // Reordenação local para posicionar acima/abaixo do card alvo.
+    const remaining = leads.value.filter(l => l.id !== leadId)
+    const targetIndex = remaining.findIndex(l => l.id === targetLeadId)
+    if (targetIndex < 0)
+      return
+    const targetElement = event.currentTarget as HTMLElement | null
+    let insertIndex = targetIndex
+    if (targetElement) {
+      const rect = targetElement.getBoundingClientRect()
+      const isBelowHalf = event.clientY > rect.top + rect.height / 2
+      insertIndex = isBelowHalf ? targetIndex + 1 : targetIndex
+    }
+    const moved: LeadExt = {
+      ...movingLead,
+      sales_stage_id: newStageId,
+    }
+    leads.value = [...remaining.slice(0, insertIndex), moved, ...remaining.slice(insertIndex)]
+
+    // Se mudou de coluna, reaproveita a regra de status/fechamento já aplicada no drop padrão.
+    if (String(currentStageId) !== String(newStageId)) {
+      handleDrop(event, newStageId)
+    }
+  }
+  catch (error) {
+    console.error('Error processing card reordering:', error)
+  }
+}
+
 async function handleDeleteConfirm() {
   if (!leadToDelete.value)
     return
   showDeleteDialog.value = false
-
-  // Aqui seria a chamada para a API para excluir o lead
-  // await $fetch(`/api/crm/leads/${leadToDelete.value.id}`, { method: 'DELETE' })
-
-  // Simulando a exclusão localmente
-  leads.value = leads.value.filter(lead => lead.id !== leadToDelete.value?.id)
-  leadToDelete.value = null
+  const leadId = leadToDelete.value.id
+  const tenant = tenantId.value
+  const tenantUuid = typeof tenant === 'object' && tenant !== null && 'id' in tenant
+    ? (tenant as { id: string }).id
+    : tenant
+  try {
+    await $fetch('/api/crm/lead', {
+      method: 'DELETE',
+      body: {
+        id: leadId,
+        tenant_id: tenantUuid,
+      },
+    })
+    leads.value = leads.value.filter(lead => lead.id !== leadId)
+    selectedItems.value = selectedItems.value.filter(item => item.id !== leadId)
+    toast.success('Lead excluído com sucesso!')
+  }
+  catch (e: any) {
+    const msg = e?.data?.message || e?.message || 'Erro ao excluir lead. Tente novamente.'
+    toast.error(msg)
+  }
+  finally {
+    leadToDelete.value = null
+  }
 }
 
 function showMultiDeleteConfirmation() {
@@ -398,18 +527,54 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
+  if (!selectedItems.value.length)
+    return
 
-  // Simulando a exclusão múltipla localmente
-  const leadIndicesToDelete = [...selectedItems.value]
-  const leadsToDelete = leadIndicesToDelete.map(idx => leads.value[idx])
-  const leadIdsToDelete = leadsToDelete.map(lead => lead.id)
+  const tenant = tenantId.value
+  const tenantUuid = typeof tenant === 'object' && tenant !== null && 'id' in tenant
+    ? (tenant as { id: string }).id
+    : tenant
+  const leadIdsToDelete = selectedItems.value.map(lead => lead.id)
 
-  leads.value = leads.value.filter(lead => !leadIdsToDelete.includes(lead.id))
+  const results = await Promise.allSettled(
+    leadIdsToDelete.map(id =>
+      $fetch('/api/crm/lead', {
+        method: 'DELETE',
+        body: {
+          id,
+          tenant_id: tenantUuid,
+        },
+      }),
+    ),
+  )
+
+  const successIds = leadIdsToDelete.filter((_, index) => results[index].status === 'fulfilled')
+  const failedCount = results.length - successIds.length
+
+  if (successIds.length) {
+    leads.value = leads.value.filter(lead => !successIds.includes(lead.id))
+    toast.success(
+      successIds.length === 1
+        ? '1 lead excluído com sucesso!'
+        : `${successIds.length} leads excluídos com sucesso!`,
+    )
+  }
+
+  if (failedCount > 0) {
+    toast.error(
+      failedCount === 1
+        ? '1 lead não pôde ser excluído.'
+        : `${failedCount} leads não puderam ser excluídos.`,
+    )
+  }
+
   selectedItems.value = []
 }
 
-function updateSelectedItems(items: any) {
-  selectedItems.value = items
+function updateSelectedItems(indices: number[]) {
+  selectedItems.value = indices
+    .map(index => leads.value[index])
+    .filter((lead): lead is LeadExt => Boolean(lead))
 }
 
 // Abre o dialog de novo lead atribuindo ao estágio "Novo" (primeiro da lista).
@@ -457,7 +622,8 @@ function handleLeadUpdated(_updatedLead: any) {
 
 // Handlers para DataTable global
 function handleEdit(lead: Lead) {
-  navigateTo(`/crm/leads/edit/${lead.id}`)
+  selectedLead.value = lead
+  isEditLeadDialogOpen.value = true
 }
 function handleDelete(lead: Lead) {
   leadToDelete.value = lead
@@ -576,9 +742,9 @@ watch(selectedPipeline, () => {
   fetchLeads()
 })
 
-watch(leadDateRange, () => {
+watch(leadDateRangeKey, () => {
   fetchLeads()
-}, { deep: true })
+})
 
 async function handleCreatePipeline() {
   if (!newPipeline.value.name)
@@ -678,6 +844,9 @@ async function saveStagesOrder() {
           </PopoverTrigger>
           <PopoverContent class="w-auto p-0" align="end">
             <div class="border-b p-2 flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" class="h-7 px-2 text-xs" @click="setLeadDatePreset('all')">
+                Todo o período
+              </Button>
               <Button variant="outline" size="sm" class="h-7 px-2 text-xs" @click="setLeadDatePreset('today')">
                 Hoje
               </Button>
@@ -764,10 +933,10 @@ async function saveStagesOrder() {
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ formatCurrency(pipelineTotal) }}
+            {{ formatCurrency(pipelineTotalValue) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            Soma do valor dos leads ativos (excl. ganhos/perdidos)
+            {{ totalLeadsCount }} lead(s) no pipeline atual
           </p>
         </CardContent>
       </Card>
@@ -792,16 +961,16 @@ async function saveStagesOrder() {
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Ticket Médio
+            Valor em Negociação
           </CardTitle>
           <Icon name="lucide:receipt" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ formatCurrency(ticketMedio) }}
+            {{ formatCurrency(negotiationValue) }}
           </div>
           <p class="text-xs text-muted-foreground">
-            Valor total / total de leads
+            Soma apenas dos leads no estágio de negociação
           </p>
         </CardContent>
       </Card>
@@ -809,7 +978,7 @@ async function saveStagesOrder() {
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Ganhos no Mês
+            Ganhos do Mês
           </CardTitle>
           <Icon name="lucide:calendar-check" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
@@ -930,13 +1099,15 @@ async function saveStagesOrder() {
           >
             <div class="space-y-2">
               <div
-                v-for="lead in leadsByStage[String(stage.id)]"
+                v-for="(lead, leadIndex) in leadsByStage[String(stage.id)]"
                 :key="lead.id"
                 class="cursor-grab border border-l-4 rounded-lg bg-background p-3 transition-shadow hover:shadow-md"
                 :class="getPriorityColor(lead.priority)"
                 draggable="true"
                 @click="handleLeadClick(lead)"
                 @dragstart="handleDragStart($event, lead.id, lead.sales_stage_id)"
+                @dragover.stop.prevent="handleDragOver"
+                @drop.stop="handleDropOnLead($event, String(stage.id), lead.id)"
               >
                 <!-- Lead Card Content -->
                 <div class="space-y-2">
@@ -979,7 +1150,7 @@ async function saveStagesOrder() {
                   <div class="grid grid-cols-2 gap-2 text-xs">
                     <div class="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-muted-foreground">
                       <Icon name="lucide:user" class="h-3 w-3" />
-                      <span class="truncate">{{ lead.assignedTo || 'Não atribuído' }}</span>
+                      <span class="truncate">{{ lead.assignedTo || lead.assigned_to || 'Não atribuído' }}</span>
                     </div>
                     <div class="flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-muted-foreground">
                       <Icon name="lucide:tag" class="h-3 w-3" />

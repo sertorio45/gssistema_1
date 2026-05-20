@@ -3,15 +3,41 @@ description:
 globs: 
 alwaysApply: true
 ---
-Regras Gerais de Codificação
-Frontend: Sempre desenvolva o frontend com textos, variáveis e informações em portugues.
-Backend: Sempre desenvolva o backend com textos, variáveis e informações em ingles.
-Organização: Mantenha o código organizado, criando itens reutilizáveis globalmente utilizando os recursos do Nuxt 3.
-Estrutura de Módulos: Para cada novo módulo (ex: articles), crie e organize as pastas relacionadas, nomeando-as conforme o domínio do módulo.
-Menus: Toda lógica de menus deve ser centralizada no arquivo constants/menus.ts.
-Bibliotecas: Mantenha as bibliotecas de UI Shadcn, tema e utilitários intactas, sem modificações diretas.
-Listagens: Todas as páginas de listagem devem utilizar datatables padronizados, seguindo o exemplo da página de Tasks.
-Cache: Implemente cache em todos os módulos criados (exemplo: articles) para otimizar a performance e evitar requisições desnecessárias.
-Sempre usar SSR nos projetos NUXT 3.
-Pasta de components prontos components/ui/
-Utilize sempre composables e pastas do nuxt quando for construir qualquer aplicacao ou modulo.
+# Regras Gerais de Codificação
+
+## Idiomas
+- **Frontend (UI):** Textos visíveis ao usuário, labels, placeholders e
+  mensagens sempre em **português**.
+- **Código fonte:** Variáveis, funções, tipos, interfaces e nomes de arquivos
+  sempre em **inglês**.
+- **Backend:** Toda lógica, variáveis e comentários de código em **inglês**.
+
+## Organização e Estrutura
+- Utilize sempre os recursos nativos do Nuxt 3: composables, plugins,
+  middleware, layouts e server routes.
+- Para cada novo módulo (ex: `articles`), crie a estrutura de pastas seguindo
+  o padrão do domínio:
+```
+  modules/articles/
+  ├── components/
+  ├── composables/
+  ├── pages/
+  └── types/
+```
+- Toda lógica de menus centralizada em `constants/menus.ts`.
+- Componentes prontos de UI ficam em `components/ui/` — nunca modifique
+  esses arquivos diretamente.
+
+## Padrões de Desenvolvimento
+- **Listagens:** Sempre usar datatables padronizados (seguir exemplo de Tasks).
+- **Cache:** Implementar cache em todos os módulos para evitar requisições
+  desnecessárias. Usar `useAsyncData` com chave única por módulo.
+- **SSR:** Todos os projetos Nuxt 3 devem usar SSR obrigatoriamente.
+- **Tipagem:** Todo código deve ser escrito em TypeScript. Evite `any`.
+- **Composables:** Extraia lógica reutilizável para composables antes de
+  duplicar código em dois lugares.
+
+## Proibições
+- Não modificar arquivos dentro de `components/ui/`.
+- Não criar lógica de menu fora de `constants/menus.ts`.
+- Não usar `<script setup>` sem tipagem TypeScript explícita.

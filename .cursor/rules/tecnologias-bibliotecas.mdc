@@ -3,21 +3,33 @@ description:
 globs: 
 alwaysApply: true
 ---
-# Tecnologias e Bibliotecas Utilizadas
+# Tecnologias e Bibliotecas
 
-Este projeto utiliza as seguintes tecnologias e bibliotecas principais:
+## Stack Principal
 
-- **Nuxt 3**: Framework para aplicações Vue 3 com SSR, SSG e organização modular.
-- **Vue 3**: Biblioteca principal para construção de interfaces reativas.
-- **TypeScript**: Linguagem de tipagem estática sobre JavaScript, utilizada em todos os scripts.
-- **Shadcn para Nuxt**: Biblioteca de componentes UI baseada em shadcn/ui, adaptada para Nuxt 3.
-- **Unocss**: Utilitário de CSS atômico para estilização rápida e flexível.
-- **Lucide Icons**: Biblioteca de ícones SVG utilizada nos componentes.
-- https://github.com/GrapesJS/grapesjs Grapesjs
+| Tecnologia       | Uso                                                         |
+|------------------|-------------------------------------------------------------|
+| Nuxt 3           | Framework principal — SSR obrigatório                       |
+| Vue 3            | Construção de interfaces reativas com Composition API       |
+| TypeScript       | Tipagem estática em todos os arquivos `.ts` e `.vue`        |
+| Shadcn/Nuxt      | Componentes UI — não modificar os arquivos base             |
+| UnoCSS           | Estilização utilitária — preferir sobre CSS customizado     |
+| Lucide Icons     | Ícones SVG — usar sempre via componente `<LucideIcon />`    |
+| GrapesJS         | Editor visual de conteúdo (page builder)                    |
+| Supabase         | Backend as a Service — banco, auth e storage                |
 
-## Observações
-- O código dos módulos deve ser organizado e reutilizável, seguindo o padrão de diretórios do Nuxt 3.
-- Componentes e utilitários devem ser globais sempre que possível.
-- O frontend é todo em inglês, mas a comunicação e documentação podem ser em português.
-- As bibliotecas de tema e UI devem ser mantidas intactas.
+## Diretrizes de Uso
 
+- **Shadcn:** Use os componentes como base. Para customizações visuais,
+  use as CSS variables do tema, nunca edite os arquivos do componente.
+- **UnoCSS:** Prefira classes utilitárias a estilos inline ou `<style>` 
+  scoped, exceto quando necessário para animações complexas.
+- **GrapesJS:** Utilizado apenas nos módulos de criação de landing pages
+  e e-mails. Não usar em outras partes do sistema.
+- **Supabase:** Toda comunicação com o banco deve passar pelos composables
+  de serviço (`composables/services/`), nunca direto nos componentes.
+
+## Proibições
+- Não instalar bibliotecas de UI alternativas ao Shadcn sem alinhamento.
+- Não usar `axios` — use o `$fetch` nativo do Nuxt.
+- Não usar `Options API` — somente `Composition API` com `<script setup>`.

@@ -81,7 +81,7 @@ watch([leadSourcesPending, salesStagesPending, pipelinesPending], () => {
   isLoadingData.value = isLoadingAnyData.value
   
   if (hasDataError.value) {
-    dataError.value = 'Error loading data. Please try again.'
+    dataError.value = 'Erro ao carregar dados. Tente novamente.'
   } else {
     dataError.value = null
   }
@@ -98,25 +98,25 @@ const steps = [
   {
     step: 1,
     title: 'Lead',
-    description: 'Lead information (required)',
+    description: 'Informações do lead (obrigatório)',
     required: true,
   },
   {
     step: 2,
-    title: 'Contact',
-    description: 'Contact details (required)',
+    title: 'Contato',
+    description: 'Detalhes do contato (obrigatório)',
     required: true,
   },
   {
     step: 3,
-    title: 'Company',
-    description: 'Company info (optional)',
+    title: 'Empresa',
+    description: 'Informações da empresa (opcional)',
     required: false,
   },
   {
     step: 4,
-    title: 'Meeting',
-    description: 'Meeting details (optional)',
+    title: 'Reunião',
+    description: 'Detalhes da reunião (opcional)',
     required: false,
   },
 ]
@@ -274,7 +274,7 @@ async function submitLead() {
   try {
     // Validar campos obrigatórios
     if (!leadForm.value.name || !contactForm.value.name || !contactForm.value.email) {
-      throw new Error('Please fill in all required fields')
+      throw new Error('Preencha todos os campos obrigatórios')
     }
 
     const pipelineId = getActivePipelineId()
@@ -302,12 +302,12 @@ async function submitLead() {
       .single()
 
     if (leadError) {
-      console.error('Lead creation error:', leadError)
-      throw new Error(`Failed to create lead: ${leadError.message}`)
+      console.error('Erro ao criar lead:', leadError)
+      throw new Error(`Falha ao criar lead: ${leadError.message}`)
     }
 
     if (!lead) {
-      throw new Error('Failed to create lead: No data returned')
+      throw new Error('Falha ao criar lead: nenhum dado retornado')
     }
 
     // 2. Cria o Contact - simplificado para evitar erros de tipo
@@ -325,12 +325,12 @@ async function submitLead() {
       .single()
 
     if (contactError) {
-      console.error('Contact creation error:', contactError)
-      throw new Error(`Failed to create contact: ${contactError.message}`)
+      console.error('Erro ao criar contato:', contactError)
+      throw new Error(`Falha ao criar contato: ${contactError.message}`)
     }
 
     if (!contact) {
-      throw new Error('Failed to create contact: No data returned')
+      throw new Error('Falha ao criar contato: nenhum dado retornado')
     }
 
     // 3. Cria a Company se preenchido - simplificado
@@ -349,8 +349,8 @@ async function submitLead() {
         .single()
 
       if (companyError) {
-        console.error('Company creation error:', companyError)
-        console.warn('Company creation failed, continuing without company')
+        console.error('Erro ao criar empresa:', companyError)
+        console.warn('Falha ao criar empresa, continuando sem empresa')
       }
       else {
         company = companyResult
@@ -405,8 +405,8 @@ async function submitLead() {
     // Lead criado com sucesso - sem log para evitar violação de linter
   }
   catch (err: any) {
-    console.error('Error creating lead:', err)
-    console.error(`❌ Error creating lead: ${err.message}`)
+    console.error('Erro ao criar lead:', err)
+    console.error(`Falha ao criar lead: ${err.message}`)
   }
   finally {
     loading.value = false
@@ -458,7 +458,7 @@ async function submitLead() {
       
       <!-- Loading text -->
       <div class="text-center">
-        <p class="text-sm text-muted-foreground">Loading form data...</p>
+        <p class="text-sm text-muted-foreground">Carregando dados do formulário...</p>
       </div>
     </div>
 
@@ -470,14 +470,14 @@ async function submitLead() {
         </svg>
       </div>
       <div class="text-center">
-        <h3 class="text-sm font-medium text-destructive">Failed to load data</h3>
+        <h3 class="text-sm font-medium text-destructive">Falha ao carregar dados</h3>
         <p class="text-xs text-muted-foreground mt-1">{{ dataError }}</p>
       </div>
       <Button variant="outline" size="sm" @click="refreshData">
         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        Try Again
+        Tentar novamente
       </Button>
     </div>
 
@@ -530,10 +530,10 @@ async function submitLead() {
       <Card class="max-w-3xl w-full border p-2 shadow-lg">
         <CardHeader class="mb-4">
           <CardTitle>
-            <span v-if="step === 0">Lead Information <span class="text-destructive">*</span></span>
-            <span v-else-if="step === 1">Contact Details <span class="text-destructive">*</span></span>
-            <span v-else-if="step === 2">Company Info</span>
-            <span v-else>Meeting Details</span>
+            <span v-if="step === 0">Informações do lead <span class="text-destructive">*</span></span>
+            <span v-else-if="step === 1">Detalhes do contato <span class="text-destructive">*</span></span>
+            <span v-else-if="step === 2">Informações da empresa</span>
+            <span v-else>Detalhes da reunião</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -640,19 +640,19 @@ async function submitLead() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="technology">
-                      Technology
+                      Tecnologia
                     </SelectItem>
                     <SelectItem value="finance">
-                      Finance
+                      Finanças
                     </SelectItem>
                     <SelectItem value="healthcare">
-                      Healthcare
+                      Saúde
                     </SelectItem>
                     <SelectItem value="education">
-                      Education
+                      Educação
                     </SelectItem>
                     <SelectItem value="retail">
-                      Retail
+                      Varejo
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -665,19 +665,19 @@ async function submitLead() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1-10">
-                      1-10 employees
+                      1-10 colaboradores
                     </SelectItem>
                     <SelectItem value="11-50">
-                      11-50 employees
+                      11-50 colaboradores
                     </SelectItem>
                     <SelectItem value="51-200">
-                      51-200 employees
+                      51-200 colaboradores
                     </SelectItem>
                     <SelectItem value="201-500">
-                      201-500 employees
+                      201-500 colaboradores
                     </SelectItem>
                     <SelectItem value="501+">
-                      501+ employees
+                      501+ colaboradores
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -711,13 +711,13 @@ async function submitLead() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="presential">
-                      Presential
+                      Presencial
                     </SelectItem>
                     <SelectItem value="virtual">
                       Virtual
                     </SelectItem>
                     <SelectItem value="phone">
-                      Phone
+                      Telefone
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -735,10 +735,10 @@ async function submitLead() {
         </CardContent>
         <div class="flex justify-between gap-2 px-5 py-2">
           <Button variant="outline" :disabled="step === 0" @click="prevStep">
-            Back
+            Voltar
           </Button>
           <Button v-if="step < totalSteps - 1" :disabled="!validateStep()" @click="nextStep">
-            Next
+            Próximo
           </Button>
           <Button v-else :loading="loading" :disabled="!validateStep()" @click="submitLead">
             Salvar lead

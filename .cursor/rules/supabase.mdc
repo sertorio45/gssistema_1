@@ -3,18 +3,32 @@ description:
 globs: 
 alwaysApply: true
 ---
-# Regras SUPABASE
-- Para todas logica criada, segue abaixo as policies que devem ser criadas:
+# Regras Supabase
 
-    Policies para usuários autenticados:
+## Políticas de Acesso (RLS)
 
-    - Admin e Funcionário:
-    Acesso total (ALL) a todos os tenants, mesmo sem relacao ao id de usuário.
+Para toda tabela criada, implemente as seguintes policies:
 
-    - Cliente:
-    Acesso total (ALL), mas somente aos dados relacionados ao tenant do usuário.
+### Usuários autenticados
 
-    Policies para acesso público:
+| Role         | Permissão | Escopo                                      |
+|--------------|-----------|---------------------------------------------|
+| Admin        | ALL       | Todos os tenants (sem restrição de tenant)  |
+| Funcionário  | ALL       | Todos os tenants (sem restrição de tenant)  |
+| Cliente      | ALL       | Somente dados do próprio tenant do usuário  |
 
-    - Público (sem autenticação):
-    Apenas SELECT permitido, restrito aos dados públicos relacionados ao tenant.
+### Acesso público (sem autenticação)
+
+| Tipo   | Permissão | Escopo                                     |
+|--------|-----------|--------------------------------------------|
+| Public | SELECT    | Somente dados públicos do tenant relevante |
+
+## Padrões de Nomenclatura
+- Tabelas: `snake_case` no plural (ex: `user_profiles`, `course_modules`).
+- Colunas de tenant: sempre chamadas `tenant_id` com FK para `tenants.id`.
+- Funções RPC: prefixo do domínio (ex: `courses_get_by_slug`).
+
+## Obrigações em toda tabela
+- Sempre incluir: `id`, `created_at`, `updated_at`, `tenant_id`.
+- RLS deve estar **habilitado** em todas as tabelas sem exceção.
+- Nunca expor dados de um tenant para outro tenant.

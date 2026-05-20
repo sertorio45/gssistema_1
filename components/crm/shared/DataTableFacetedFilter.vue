@@ -36,7 +36,7 @@ const selectedValues = computed(() => new Set(props.column?.getFilterValue() as 
           </Badge>
           <div class="hidden lg:flex space-x-1">
             <Badge v-if="selectedValues.size > 2" variant="secondary" class="rounded-sm px-1 font-normal">
-              {{ selectedValues.size }} selected
+              {{ selectedValues.size }} selecionados
             </Badge>
 
             <template v-else>
@@ -70,7 +70,6 @@ const selectedValues = computed(() => new Set(props.column?.getFilterValue() as 
               :value="option"
               @select="
                 (e: any) => {
-                  console.log(e.detail.value)
                   const isSelected = selectedValues.has(option.value)
                   if (isSelected) {
                     selectedValues.delete(option.value)
