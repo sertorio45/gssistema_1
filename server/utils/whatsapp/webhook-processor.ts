@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { mapEvolutionConnectionState } from '~/server/utils/whatsapp/evolution-client'
+import { broadcastWhatsAppEvent } from '~/server/utils/whatsapp/realtime-broadcast'
 
 function normalizePhone(jid: string): string {
   return jid.replace(/@.*/, '').replace(/\D/g, '')
@@ -65,7 +66,7 @@ async function upsertConversation(
 
   if (existing?.id) {
     const unread = params.fromMe ? (existing.unread_count ?? 0) : (existing.unread_count ?? 0) + 1
-    await client
+    const { data: updated } = await client
       .from('whatsapp_conversation')
       .update({
         instance_id: params.instanceId,
@@ -78,6 +79,12 @@ async function upsertConversation(
         updated_at: new Date().toISOString(),
       })
       .eq('id', existing.id)
+      .select('*')
+      .single()
+
+    if (updated) {
+      await broadcastWhatsAppEvent(params.tenantId, 'conversation', updated)
+    }
 
     return existing.id as string
   }
@@ -98,11 +105,15 @@ async function upsertConversation(
       channel: 'whatsapp',
       is_online: false,
     })
-    .select('id')
+    .select('*')
     .single()
 
   if (error)
     throw error
+
+  if (created) {
+    await broadcastWhatsAppEvent(params.tenantId, 'conversation', created)
+  }
 
   return created.id as string
 }
@@ -176,7 +187,7 @@ export async function processEvolutionWebhook(
         .maybeSingle()
 
       if (!existingMsg?.id) {
-        await client.from('whatsapp_message').insert({
+        const { data: inserted } = await client.from('whatsapp_message').insert({
           tenant_id: tenantId,
           conversation_id: conversationId,
           instance_id: instanceId,
@@ -190,7 +201,11 @@ export async function processEvolutionWebhook(
           status: fromMe ? 'sent' : 'delivered',
           sent_at: timestamp,
           metadata: {},
-        })
+        }).select('*').single()
+
+        if (inserted) {
+          await broadcastWhatsAppEvent(tenantId, 'message', inserted)
+        }
       }
     }
 
@@ -211,11 +226,16 @@ export async function processEvolutionWebhook(
             : status === 'server_ack' ? 'sent'
               : status
 
-      await client
+      const { data: updated } = await client
         .from('whatsapp_message')
         .update({ status: mappedStatus, updated_at: new Date().toISOString() })
         .eq('tenant_id', tenantId)
         .eq('external_id', messageId)
+        .select('*')
+        .maybeSingle()
+
+      if (updated)
+        await broadcastWhatsAppEvent(tenantId, 'message', updated)
     }
 
     return { handled: true, type: 'status' }
@@ -261,7 +281,7 @@ export async function processCloudWebhook(
         fromMe: false,
       })
 
-      await client.from('whatsapp_message').insert({
+      const { data: inserted } = await client.from('whatsapp_message').insert({
         tenant_id: tenantId,
         conversation_id: conversationId,
         instance_id: instanceId,
@@ -274,7 +294,11 @@ export async function processCloudWebhook(
         status: 'delivered',
         sent_at: timestamp,
         metadata: {},
-      })
+      }).select('*').single()
+
+      if (inserted) {
+        await broadcastWhatsAppEvent(tenantId, 'message', inserted)
+      }
     }
 
     return { handled: true, type: 'message' }
@@ -283,11 +307,16 @@ export async function processCloudWebhook(
   if (value.statuses?.length) {
     for (const st of value.statuses) {
       const mappedStatus = st.status === 'read' ? 'read' : st.status === 'delivered' ? 'delivered' : 'sent'
-      await client
+      const { data: updated } = await client
         .from('whatsapp_message')
         .update({ status: mappedStatus })
         .eq('tenant_id', tenantId)
         .eq('external_id', String(st.id))
+        .select('*')
+        .maybeSingle()
+
+      if (updated)
+        await broadcastWhatsAppEvent(tenantId, 'message', updated)
     }
 
     return { handled: true, type: 'status' }

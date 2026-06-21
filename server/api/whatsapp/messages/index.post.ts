@@ -6,6 +6,7 @@ import { mapMessageRow } from '~/composables/whatsapp/useWhatsAppMapper'
 import { resolveWhatsAppTenantContext } from '~/server/utils/whatsapp/context'
 import { loadInstanceWithIntegration } from '~/server/utils/whatsapp/instance-loader'
 import { sendWhatsAppTextMessage } from '~/server/utils/whatsapp/message-sender'
+import { broadcastWhatsAppEvent } from '~/server/utils/whatsapp/realtime-broadcast'
 
 interface SendMessageBody {
   tenant_id?: string
@@ -114,7 +115,7 @@ export default defineEventHandler(async (event) => {
   if (msgError)
     throw createError({ statusCode: 400, statusMessage: msgError.message })
 
-  await client
+  const { data: updatedConversation } = await client
     .from('whatsapp_conversation')
     .update({
       last_message_preview: text,
@@ -122,6 +123,12 @@ export default defineEventHandler(async (event) => {
       updated_at: now,
     })
     .eq('id', conversation.id)
+    .select('*')
+    .single()
+
+  await broadcastWhatsAppEvent(tenantId, 'message', message as any)
+  if (updatedConversation)
+    await broadcastWhatsAppEvent(tenantId, 'conversation', updatedConversation as any)
 
   return { data: mapMessageRow(message as any) }
 })

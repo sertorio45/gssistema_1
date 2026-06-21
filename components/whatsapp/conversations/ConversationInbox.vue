@@ -39,13 +39,14 @@ const {
   pending: messagesPending,
   sending,
   appendMessage,
+  updateMessage,
   sendMessage,
 } = useWhatsAppMessages(activeIdRef)
 
 useWhatsAppRealtime({
   onMessage: (message) => {
     if (message.conversationId === activeId.value) {
-      appendMessage(message)
+      updateMessage(message)
       if (!message.fromMe)
         markAsRead(activeId.value!)
     }

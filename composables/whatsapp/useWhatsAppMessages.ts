@@ -1,5 +1,26 @@
 import type { WhatsAppMessage } from '~/types/whatsapp'
 
+const POLL_INTERVAL_MS = 5000
+
+function sortMessages(messages: WhatsAppMessage[]) {
+  return [...messages].sort((a, b) => {
+    const aTime = new Date(a.sentAt || a.createdAt).getTime()
+    const bTime = new Date(b.sentAt || b.createdAt).getTime()
+    return aTime - bTime
+  })
+}
+
+function mergeMessages(current: WhatsAppMessage[], remote: WhatsAppMessage[]) {
+  const byId = new Map<string, WhatsAppMessage>()
+  for (const message of current)
+    byId.set(message.id, message)
+
+  for (const message of remote)
+    byId.set(message.id, { ...byId.get(message.id), ...message })
+
+  return sortMessages(Array.from(byId.values()))
+}
+
 export function useWhatsAppMessages(conversationId: Ref<string | null>) {
   const { tenantId } = useTenant()
 
@@ -30,6 +51,57 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
   })
 
   const sending = ref(false)
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  async function fetchMessages() {
+    if (!tenantId.value || !conversationId.value)
+      return [] as WhatsAppMessage[]
+
+    const response = await $fetch<{ data: WhatsAppMessage[] }>(
+      `/api/whatsapp/conversations/${conversationId.value}/messages`,
+      { query: { tenant_id: tenantId.value } },
+    )
+    return response.data || []
+  }
+
+  async function syncMessages() {
+    if (!tenantId.value || !conversationId.value || pending.value)
+      return
+
+    try {
+      const remote = await fetchMessages()
+      data.value = mergeMessages(data.value || [], remote)
+    }
+    catch {
+      /* non-blocking poll */
+    }
+  }
+
+  function startPolling() {
+    stopPolling()
+    if (!import.meta.client)
+      return
+
+    pollTimer = setInterval(() => {
+      syncMessages()
+    }, POLL_INTERVAL_MS)
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  watch(conversationId, (id) => {
+    if (id)
+      startPolling()
+    else
+      stopPolling()
+  }, { immediate: true })
+
+  onUnmounted(stopPolling)
 
   function appendMessage(message: WhatsAppMessage) {
     if (message.conversationId !== conversationId.value)
@@ -37,19 +109,13 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
     const exists = (data.value || []).some(m => m.id === message.id)
     if (exists)
       return
-    data.value = [...(data.value || []), message]
+    data.value = sortMessages([...(data.value || []), message])
   }
 
   function updateMessage(message: WhatsAppMessage) {
     if (message.conversationId !== conversationId.value)
       return
-    const list = [...(data.value || [])]
-    const index = list.findIndex(m => m.id === message.id || m.externalId === message.externalId)
-    if (index >= 0)
-      list[index] = { ...list[index], ...message }
-    else
-      list.push(message)
-    data.value = list
+    data.value = mergeMessages(data.value || [], [message])
   }
 
   async function sendMessage(content: string) {
@@ -66,7 +132,7 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
           content: content.trim(),
         },
       })
-      appendMessage(response.data)
+      updateMessage(response.data)
       return response.data
     }
     finally {
@@ -82,5 +148,6 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
     appendMessage,
     updateMessage,
     sendMessage,
+    syncMessages,
   }
 }
