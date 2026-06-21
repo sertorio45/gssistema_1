@@ -26,7 +26,6 @@ export interface OllamaConfigStatus {
   hasClientId: boolean
   hasClientSecret: boolean
   ready: boolean
-  runtime: string
   hint: string
 }
 
@@ -75,9 +74,9 @@ export function getOllamaConfigStatus(): OllamaConfigStatus {
   const hasClientSecret = Boolean(config.cfAccessClientSecret)
   const ready = Boolean(config.baseUrl && hasClientId && hasClientSecret)
 
-  let hint = 'Configuração OK — use Service Token CF-Access (não bypass por IP).'
+  let hint = 'Configuração OK.'
   if (!hasClientId || !hasClientSecret) {
-    hint = 'Na Vercel: Settings → Environment Variables → adicione OLLAMA_CF_ACCESS_CLIENT_ID e OLLAMA_CF_ACCESS_CLIENT_SECRET em Production → Redeploy.'
+    hint = 'Configure OLLAMA_CF_ACCESS_CLIENT_ID e OLLAMA_CF_ACCESS_CLIENT_SECRET no servidor.'
   }
 
   return {
@@ -85,7 +84,6 @@ export function getOllamaConfigStatus(): OllamaConfigStatus {
     hasClientId,
     hasClientSecret,
     ready,
-    runtime: process.env.VERCEL ? 'vercel' : (process.env.NODE_ENV || 'unknown'),
     hint,
   }
 }
@@ -118,9 +116,7 @@ export async function ollamaChat(params: {
 
   if (!config.cfAccessClientId || !config.cfAccessClientSecret) {
     throw new Error(
-      process.env.VERCEL
-        ? 'Credenciais Ollama ausentes na Vercel. Adicione OLLAMA_CF_ACCESS_CLIENT_ID e OLLAMA_CF_ACCESS_CLIENT_SECRET em Environment Variables (Production) e faça redeploy.'
-        : 'Configure OLLAMA_CF_ACCESS_CLIENT_ID e OLLAMA_CF_ACCESS_CLIENT_SECRET no .env do servidor.',
+      'Configure OLLAMA_CF_ACCESS_CLIENT_ID e OLLAMA_CF_ACCESS_CLIENT_SECRET no servidor.',
     )
   }
 
@@ -150,9 +146,7 @@ export async function ollamaChat(params: {
     const status = error?.statusCode || error?.response?.status
     if (status === 403) {
       throw new Error(
-        process.env.VERCEL
-          ? 'Ollama 403 na Vercel — bypass por IP não funciona (IPs dinâmicos). Use Service Token CF-Access nas variáveis de ambiente e adicione política "Service Auth" no app Cloudflare.'
-          : 'Ollama retornou 403 Forbidden — verifique Service Token CF-Access (Client-Id + Client-Secret).',
+        'Ollama retornou 403 Forbidden — verifique as credenciais CF-Access no servidor.',
       )
     }
     throw error

@@ -1,6 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import {
+  buildAgentSystemPrompt,
+  findActiveAgentSession,
+  loadAgentContactContext,
+  loadConversationHistoryForAgent,
+  persistAgentSession,
+} from '~/server/utils/whatsapp/agent-context'
+import {
   buildToolsSystemPrompt,
   executeAgentTool,
   loadEnabledAgentTools,
@@ -9,13 +16,14 @@ import {
 import type { LlmProvider } from '~/server/utils/whatsapp/llm-client'
 import { runLlmChat } from '~/server/utils/whatsapp/llm-client'
 
-interface AgentFlowContext {
+export interface AgentFlowContext {
   tenantId: string
   messageContent: string
   contactPhone: string
   contactName?: string | null
   conversationId: string | null
   contactId: string | null
+  messageId?: string | null
   isTest?: boolean
 }
 
@@ -29,7 +37,7 @@ export async function runWhatsAppAgentReply(
     ctx: AgentFlowContext
     conversationHistory?: Array<{ role: 'user' | 'assistant', content: string }>
   },
-): Promise<{ reply: string, tokensUsed: number, sessionId: string | null }> {
+): Promise<{ reply: string, tokensUsed: number, sessionId: string | null, historyMessages: number }> {
   const { data: agent, error } = await client
     .from('whatsapp_agent')
     .select('*')
@@ -44,30 +52,49 @@ export async function runWhatsAppAgentReply(
     throw new Error('Agent is inactive')
 
   const provider = (agent.llm_provider || 'ollama') as LlmProvider
-  const systemPrompt = String(agent.system_prompt || '').trim()
   const userMessage = params.ctx.messageContent.trim()
   if (!userMessage)
     throw new Error('Empty user message for agent')
 
-  const tools = await loadEnabledAgentTools(client, params.tenantId, params.agentId)
+  const [tools, contact, history, activeSession] = await Promise.all([
+    loadEnabledAgentTools(client, params.tenantId, params.agentId),
+    loadAgentContactContext(client, params.tenantId, params.ctx.contactId, {
+      name: params.ctx.contactName,
+      phone: params.ctx.contactPhone,
+    }),
+    params.conversationHistory
+      ? Promise.resolve(params.conversationHistory)
+      : params.ctx.conversationId && !params.ctx.isTest
+        ? loadConversationHistoryForAgent(client, {
+            tenantId: params.tenantId,
+            conversationId: params.ctx.conversationId,
+            excludeMessageId: params.ctx.messageId,
+          })
+        : Promise.resolve([]),
+    params.ctx.conversationId && !params.ctx.isTest
+      ? findActiveAgentSession(client, {
+          tenantId: params.tenantId,
+          agentId: params.agentId,
+          conversationId: params.ctx.conversationId,
+        })
+      : Promise.resolve(null),
+  ])
+
   const toolsPrompt = buildToolsSystemPrompt(tools)
+  const systemPrompt = buildAgentSystemPrompt({
+    basePrompt: String(agent.system_prompt || '').trim(),
+    toolsPrompt,
+    contact,
+  })
 
-  const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = []
-  const combinedSystem = [systemPrompt, toolsPrompt].filter(Boolean).join('\n\n')
-  if (combinedSystem)
-    messages.push({ role: 'system', content: combinedSystem })
+  const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
+    { role: 'system', content: systemPrompt },
+  ]
 
-  for (const item of params.conversationHistory || [])
+  for (const item of history)
     messages.push(item)
 
-  messages.push({
-    role: 'user',
-    content: [
-      `Contato: ${params.ctx.contactName || params.ctx.contactPhone}`,
-      `Telefone: ${params.ctx.contactPhone}`,
-      `Mensagem: ${userMessage}`,
-    ].join('\n'),
-  })
+  messages.push({ role: 'user', content: userMessage })
 
   let totalTokens = 0
   let reply = ''
@@ -90,7 +117,7 @@ export async function runWhatsAppAgentReply(
     }
 
     if (iteration === MAX_TOOL_ITERATIONS) {
-      reply = 'Desculpe, não consegui concluir a ação solicitada. Um atendente humano pode ajudar em breve.'
+      reply = 'Preciso de mais informações ou de um atendente humano para concluir seu pedido. Pode me contar um pouco mais?'
       break
     }
 
@@ -113,22 +140,26 @@ export async function runWhatsAppAgentReply(
   let sessionId: string | null = null
 
   if (!params.ctx.isTest && params.ctx.conversationId) {
-    const { data: session } = await client
-      .from('whatsapp_agent_session')
-      .insert({
-        tenant_id: params.tenantId,
-        agent_id: params.agentId,
-        conversation_id: params.ctx.conversationId,
-        contact_id: params.ctx.contactId,
-        status: 'active',
-        messages_context: messages.concat({ role: 'assistant', content: reply }),
-        tokens_used: totalTokens,
-      })
-      .select('id')
-      .single()
+    const messagesContext = messages
+      .filter(item => item.role !== 'system')
+      .concat({ role: 'assistant', content: reply })
 
-    sessionId = session?.id as string || null
+    sessionId = await persistAgentSession(client, {
+      tenantId: params.tenantId,
+      agentId: params.agentId,
+      conversationId: params.ctx.conversationId,
+      contactId: params.ctx.contactId,
+      messagesContext,
+      tokensUsed: totalTokens,
+      existingSessionId: activeSession?.id,
+      previousTokensUsed: activeSession?.tokensUsed,
+    })
   }
 
-  return { reply, tokensUsed: totalTokens, sessionId }
+  return {
+    reply,
+    tokensUsed: totalTokens,
+    sessionId,
+    historyMessages: history.length,
+  }
 }

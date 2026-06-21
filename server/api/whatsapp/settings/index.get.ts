@@ -10,13 +10,11 @@ export default defineEventHandler(async (event) => {
   const { tenantId } = await resolveWhatsAppTenantContext(event, query.tenant_id as string | undefined)
   const client = serverSupabaseServiceRole(event)
   const settings = await getWhatsAppModuleSettings(client, tenantId)
-  const ollamaStatus = getOllamaConfigStatus()
 
   return {
     data: {
       ...settings,
-      ollamaConfigured: ollamaStatus.ready,
-      ollamaStatus,
+      ollamaConfigured: getOllamaConfigStatus().ready,
     },
   }
 })

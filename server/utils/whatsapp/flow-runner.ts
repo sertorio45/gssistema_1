@@ -419,10 +419,19 @@ async function executeNode(
     }
 
     try {
-      const { reply, tokensUsed, sessionId } = await runWhatsAppAgentReply(client, {
+      const { reply, tokensUsed, sessionId, historyMessages } = await runWhatsAppAgentReply(client, {
         tenantId: ctx.tenantId,
         agentId,
-        ctx,
+        ctx: {
+          tenantId: ctx.tenantId,
+          messageContent: ctx.messageContent,
+          contactPhone: ctx.contactPhone,
+          contactName: ctx.contactName,
+          conversationId: ctx.conversationId,
+          contactId: ctx.contactId,
+          messageId: ctx.messageId,
+          isTest: ctx.isTest,
+        },
       })
 
       if (sendReply && reply) {
@@ -443,7 +452,7 @@ async function executeNode(
         })
       }
 
-      await log('ai_agent', { agentId, reply, tokensUsed, sessionId, sendReply })
+      await log('ai_agent', { agentId, reply, tokensUsed, sessionId, sendReply, historyMessages })
       return 'output_1'
     }
     catch (error: any) {

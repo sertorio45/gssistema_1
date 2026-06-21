@@ -27,13 +27,11 @@ export default defineEventHandler(async (event) => {
     await saveWhatsAppLlmSettings(client, tenantId, body.llm)
 
   const settings = await getWhatsAppModuleSettings(client, tenantId)
-  const ollamaStatus = getOllamaConfigStatus()
 
   return {
     data: {
       ...settings,
-      ollamaConfigured: ollamaStatus.ready,
-      ollamaStatus,
+      ollamaConfigured: getOllamaConfigStatus().ready,
     },
   }
 })

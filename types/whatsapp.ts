@@ -487,14 +487,6 @@ export interface WhatsAppModuleSettings {
   general: WhatsAppGeneralSettings
   llm: WhatsAppLlmSettings
   ollamaConfigured: boolean
-  ollamaStatus?: {
-    baseUrl: string
-    hasClientId: boolean
-    hasClientSecret: boolean
-    ready: boolean
-    runtime: string
-    hint: string
-  }
 }
 
 export interface WhatsAppInstanceIntegrationView {

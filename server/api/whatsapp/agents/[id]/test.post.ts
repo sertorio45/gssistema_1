@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   if (!id)
     throw createError({ statusCode: 400, statusMessage: 'id is required' })
 
-  const body = await readBody<{ tenant_id?: string, message?: string }>(event)
+  const body = await readBody<{ tenant_id?: string, message?: string, conversation_id?: string }>(event)
   const { tenantId } = await resolveWhatsAppTenantContext(event, body.tenant_id)
   const message = body.message?.trim()
 
@@ -25,10 +25,10 @@ export default defineEventHandler(async (event) => {
       tenantId,
       messageContent: message,
       contactPhone: '5511999999999',
-      contactName: 'Teste',
-      conversationId: null,
+      contactName: 'Contato teste',
+      conversationId: body.conversation_id?.trim() || null,
       contactId: null,
-      isTest: true,
+      isTest: !body.conversation_id,
     },
   })
 
