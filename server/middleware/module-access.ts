@@ -17,6 +17,8 @@ export default defineEventHandler(async (event) => {
     moduleName = 'article'
   if (path.startsWith('/api/marketing'))
     moduleName = 'marketing'
+  if (path.startsWith('/api/whatsapp'))
+    moduleName = 'whatsapp'
 
   if (!moduleName)
     return

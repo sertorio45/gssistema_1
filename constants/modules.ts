@@ -31,6 +31,13 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     icon: 'lucide:bar-chart-3',
     basePath: '/analytics',
   },
+  whatsapp: {
+    slug: 'whatsapp',
+    title: 'WhatsApp',
+    icon: 'lucide:message-circle',
+    basePath: '/whatsapp',
+    defaultPath: '/whatsapp/dashboard',
+  },
 }
 
 export const DEFAULT_MODULE_SLUG = 'crm'

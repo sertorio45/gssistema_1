@@ -35,10 +35,22 @@ export default defineNuxtConfig({
   routeRules: {
     '/crm/marketing': { ssr: true },
     '/crm/marketing/**': { ssr: true },
+    '/whatsapp': { ssr: true },
+    '/whatsapp/**': { ssr: true },
+    // Inbox usa realtime e componentes client-only; evita erro de vnode no SSR.
+    '/whatsapp/conversations': { ssr: false },
+    '/whatsapp/conversations/**': { ssr: false },
   },
 
   imports: {
-    dirs: ['./lib'],
+    dirs: [
+      './lib',
+      './composables/whatsapp',
+    ],
+  },
+
+  pinia: {
+    storesDirs: ['./stores/**'],
   },
 
   compatibilityDate: '2024-12-14',

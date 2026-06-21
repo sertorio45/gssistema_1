@@ -1,15 +1,22 @@
 import { useSupabaseClient } from '#imports'
 
+import { createSharedComposable } from '@vueuse/core'
 import { computed, onMounted, ref, watch } from 'vue'
 
-import { MODULE_META, type ModuleMeta, DEFAULT_MODULE_SLUG } from '~/constants/modules'
+import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
+import { MODULE_META, type ModuleMeta, DEFAULT_MODULE_SLUG } from '~/constants/modules'
 
 function getModuleSlugFromPath(path: string): string | null {
   for (const meta of Object.values(MODULE_META)) {
-    if (path.startsWith(meta.basePath)) return meta.slug
+    if (path.startsWith(meta.basePath))
+      return meta.slug
   }
   return null
+}
+
+function getModuleMetaBySlug(slug: string): ModuleMeta | undefined {
+  return Object.values(MODULE_META).find(m => m.slug === slug)
 }
 
 const STORAGE_KEY = 'current-module-slug'
@@ -17,6 +24,8 @@ const STORAGE_KEY = 'current-module-slug'
 const currentModuleSlug = ref<string>(DEFAULT_MODULE_SLUG)
 const tenantModules = ref<Array<{ id: string; module_name: string; is_active: boolean }>>([])
 const isLoadingModules = ref(false)
+const includeAllModulesForStaff = ref(false)
+const hasResolvedRole = ref(false)
 
 function isUuid(value: string | null | undefined) {
   if (!value)
@@ -33,7 +42,7 @@ function persistModuleSlug(slug: string) {
 function restoreModuleSlug(): string {
   if (import.meta.client) {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
+    if (saved && getModuleMetaBySlug(saved)) {
       return saved
     }
   }
@@ -62,57 +71,119 @@ async function fetchTenantModules(tenantId: string | null) {
   return tenantModules.value
 }
 
+function ensureValidModuleSlug(currentPath?: string) {
+  const slug = currentModuleSlug.value
+  const list = availableModules.value
+
+  const stillValid = list.some(m => m.slug === slug)
+    || (includeAllModulesForStaff.value && !!getModuleMetaBySlug(slug))
+
+  if (stillValid)
+    return
+
+  if (!hasResolvedRole.value)
+    return
+
+  const pathSlug = currentPath ? getModuleSlugFromPath(currentPath) : null
+  if (pathSlug && getModuleMetaBySlug(pathSlug)) {
+    if (includeAllModulesForStaff.value || list.some(m => m.slug === pathSlug)) {
+      currentModuleSlug.value = pathSlug
+      persistModuleSlug(pathSlug)
+      return
+    }
+  }
+
+  if (list.length > 0) {
+    currentModuleSlug.value = list[0].slug
+    persistModuleSlug(currentModuleSlug.value)
+  }
+}
+
 const availableModules = computed(() => {
-  return tenantModules.value
+  const fromTenant = tenantModules.value
     .map((tm) => {
       const meta = MODULE_META[tm.module_name]
-      if (!meta) return null
+      if (!meta)
+        return null
       return { ...meta, id: tm.id, module_name: tm.module_name }
     })
     .filter((m): m is ModuleMeta & { id: string; module_name: string } => m !== null)
+
+  if (!includeAllModulesForStaff.value)
+    return fromTenant
+
+  const registeredNames = new Set(fromTenant.map(m => m.module_name))
+  const staffExtras = Object.entries(MODULE_META)
+    .filter(([moduleName]) => !registeredNames.has(moduleName))
+    .map(([module_name, meta]) => ({
+      ...meta,
+      id: `local-${module_name}`,
+      module_name,
+    }))
+
+  return [...fromTenant, ...staffExtras]
 })
 
 const currentModuleMeta = computed(() => {
-  const found = Object.values(MODULE_META).find(m => m.slug === currentModuleSlug.value)
-  return found ?? MODULE_META.crm
+  return getModuleMetaBySlug(currentModuleSlug.value) ?? MODULE_META.crm
 })
 
-export function useModule() {
+function _useModule() {
   const { currentTenant, tenantId } = useTenant()
+  const { currentRole, currentUser } = useAuth()
   const route = useRoute()
+
+  watch([currentRole, currentUser], ([role, user]) => {
+    const globalRole = user?.user_metadata?.role || user?.app_metadata?.role
+    includeAllModulesForStaff.value = role === 'admin'
+      || role === 'funcionario'
+      || globalRole === 'admin'
+      || globalRole === 'funcionario'
+    hasResolvedRole.value = !user || role !== null
+    if (hasResolvedRole.value)
+      ensureValidModuleSlug(route.path)
+  }, { immediate: true })
 
   onMounted(async () => {
     currentModuleSlug.value = restoreModuleSlug()
     await fetchTenantModules(tenantId.value ?? currentTenant.value?.id ?? null)
+    ensureValidModuleSlug(route.path)
   })
 
-  // Sync current module from route when navigating
   watch(() => route.path, (path) => {
     const slug = getModuleSlugFromPath(path)
     if (slug && slug !== currentModuleSlug.value) {
       currentModuleSlug.value = slug
       persistModuleSlug(slug)
     }
+    ensureValidModuleSlug(path)
   }, { immediate: true })
 
   watch(tenantId, async (newTenantId) => {
     await fetchTenantModules(newTenantId ?? null)
-    const slug = currentModuleSlug.value
-    const list = availableModules.value
-    const stillValid = list.some(m => m.slug === slug)
-    if (!stillValid && list.length > 0) {
-      currentModuleSlug.value = list[0].slug
-      persistModuleSlug(currentModuleSlug.value)
-    }
-  }, { immediate: true })
+    ensureValidModuleSlug(route.path)
+  })
+
+  watch(availableModules, () => {
+    ensureValidModuleSlug(route.path)
+  })
 
   async function loadModules() {
     await fetchTenantModules(currentTenant.value?.id ?? tenantId.value ?? null)
+    ensureValidModuleSlug(route.path)
   }
 
   function setCurrentModuleBySlug(slug: string) {
+    if (!getModuleMetaBySlug(slug))
+      return
+
     currentModuleSlug.value = slug
     persistModuleSlug(slug)
+  }
+
+  function getModulePath(slug: string) {
+    const meta = getModuleMetaBySlug(slug)
+    return meta?.defaultPath ?? meta?.basePath ?? null
   }
 
   return {
@@ -123,6 +194,9 @@ export function useModule() {
     isLoadingModules,
     loadModules,
     setCurrentModuleBySlug,
+    getModulePath,
     MODULE_META,
   }
 }
+
+export const useModule = createSharedComposable(_useModule)

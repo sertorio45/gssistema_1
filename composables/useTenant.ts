@@ -139,8 +139,11 @@ export function useTenant() {
   }
 
   // Restaura o tenant salvo ao iniciar
-  onMounted(() => {
+  onMounted(async () => {
     restoreLastTenant()
+    if (!tenantId.value) {
+      await setTenantFromJWT()
+    }
   })
 
   return {

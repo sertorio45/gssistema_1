@@ -259,6 +259,7 @@ export interface Database {
           email: string
           id: string
           last_contact: string | null
+          lead_id: string | null
           name: string
           notes: string | null
           phone: string
@@ -273,6 +274,7 @@ export interface Database {
           email: string
           id?: string
           last_contact?: string | null
+          lead_id?: string | null
           name: string
           notes?: string | null
           phone: string
@@ -287,6 +289,7 @@ export interface Database {
           email?: string
           id?: string
           last_contact?: string | null
+          lead_id?: string | null
           name?: string
           notes?: string | null
           phone?: string
@@ -301,6 +304,13 @@ export interface Database {
             columns: ['company_id']
             isOneToOne: false
             referencedRelation: 'crm_company'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'crm_contact_lead_id_fkey'
+            columns: ['lead_id']
+            isOneToOne: false
+            referencedRelation: 'crm_lead'
             referencedColumns: ['id']
           },
           {

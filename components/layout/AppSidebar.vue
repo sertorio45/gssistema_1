@@ -110,16 +110,19 @@ const filteredMenuComputed = computed(() => filterMenuByRoleAndModule(navMenu))
 const flatModuleLinks = computed((): NavLink[] => {
   const moduleTitle = currentModuleMeta.value?.title
   if (!moduleTitle) return []
-  const section = filteredMenuComputed.value.find(s => s.items.length > 0)
-  const group = section?.items.find((i): i is NavGroup => 'children' in i && i.title === moduleTitle)
-  if (!group || !('children' in group) || !group.children?.length) return []
-  return group.children.map((child: any) => ({
-    title: child.title,
-    icon: child.icon,
-    link: child.link || (child.children?.[0]?.link) || '#',
-    roles: child.roles,
-    new: child.new,
-  }))
+  for (const section of filteredMenuComputed.value) {
+    const group = section.items.find((i): i is NavGroup => 'children' in i && i.title === moduleTitle)
+    if (group?.children?.length) {
+      return group.children.map((child: any) => ({
+        title: child.title,
+        icon: child.icon,
+        link: child.link || (child.children?.[0]?.link) || '#',
+        roles: child.roles,
+        new: child.new,
+      }))
+    }
+  }
+  return []
 })
 
 const showFlatModuleMenu = computed(() => flatModuleLinks.value.length > 0)

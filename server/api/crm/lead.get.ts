@@ -38,7 +38,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (role === 'admin' || role === 'funcionario' || role === 'cliente') {
-    let query = client.from('crm_lead').select('*').eq('tenant_id', effectiveTenantId)
+    let query = client
+      .from('crm_lead')
+      .select('*, crm_contact(email, phone, name, position)')
+      .eq('tenant_id', effectiveTenantId)
     if (pipeline_id) {
       query = query.eq('pipeline_id', pipeline_id)
     }
@@ -54,7 +57,18 @@ export default defineEventHandler(async (event) => {
       return { status: 400, message: error.message }
     }
 
-    return data
+    return (data || []).map((lead: Record<string, unknown>) => {
+      const contacts = lead.crm_contact as Array<{ email?: string, phone?: string, name?: string, position?: string }> | null
+      const primaryContact = Array.isArray(contacts) ? contacts[0] : null
+      const { crm_contact: _contacts, ...leadFields } = lead
+      return {
+        ...leadFields,
+        email: primaryContact?.email ?? null,
+        phone: primaryContact?.phone ?? null,
+        contact_name: primaryContact?.name ?? null,
+        contact_position: primaryContact?.position ?? null,
+      }
+    })
   }
   else {
     return { status: 403, message: 'Forbidden' }

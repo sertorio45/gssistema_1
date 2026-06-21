@@ -310,16 +310,17 @@ async function submitLead() {
       throw new Error('Falha ao criar lead: nenhum dado retornado')
     }
 
-    // 2. Cria o Contact - simplificado para evitar erros de tipo
+    // 2. Cria o Contact vinculado ao lead
     const { data: contact, error: contactError } = await supabase
       .from('crm_contact')
       .insert([{
         name: contactForm.value.name,
         email: contactForm.value.email,
-        phone: contactForm.value.phone,
+        phone: contactForm.value.phone || '',
         position: contactForm.value.position,
         notes: contactForm.value.notes,
         tenant_id: tenantId.value,
+        lead_id: lead.id,
       }])
       .select()
       .single()
@@ -399,8 +400,12 @@ async function submitLead() {
 
     step.value = 0
 
-    // Emitir evento para o componente pai
-    emit('lead-created', lead)
+    // Emitir evento para o componente pai (inclui dados do contato para exibição imediata)
+    emit('lead-created', {
+      ...lead,
+      email: contact.email,
+      phone: contact.phone,
+    })
     
     // Lead criado com sucesso - sem log para evitar violação de linter
   }

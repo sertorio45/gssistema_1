@@ -54,6 +54,7 @@ export interface Contact {
   position?: string
   company_id?: string
   company_name?: string
+  lead_id?: string | null
   notes?: string
   created_at: string
   updated_at: string
@@ -103,36 +104,25 @@ export interface Meeting {
   lead_name?: string
 }
 
-export interface WhatsAppMessage {
+export interface LeadSource {
   id: string
-  instanceId: string
-  remoteJid: string
-  fromMe: boolean
-  messageType: 'text' | 'image' | 'document' | 'audio' | 'video'
-  message: string
-  timestamp: string
-  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
-  contact_id?: string
-  lead_id?: string
-  tenant_id: string
-  mediaUrl?: string
-  fileName?: string
+  name: string
+  description?: string
+  is_default: boolean
+  is_active: boolean
+  tenant_id?: string
+  created_at: string
+  updated_at: string
 }
 
-export interface WhatsAppConversation {
-  id: string
-  remoteJid: string
-  contactName: string
-  contactPhone: string
-  lastMessage: string
-  lastMessageTime: string
-  unreadCount: number
-  contact_id?: string
-  lead_id?: string
-  tenant_id: string
-  isOnline: boolean
-  profilePicture?: string
-}
+// @deprecated — use types/whatsapp.ts
+export type {
+  WhatsAppMessage,
+  WhatsAppConversation,
+  EvolutionAPIConfig,
+  EvolutionAPIMessage,
+  EvolutionAPIWebhook,
+} from '~/types/whatsapp'
 
 export interface SalesStage {
   id: string
@@ -158,52 +148,4 @@ export interface DashboardKPI {
   revenueByMonth: Array<{ month: string, revenue: number }>
   topSources: Array<{ source: string, count: number }>
   topPerformers: Array<{ name: string, deals: number, revenue: number }>
-}
-
-export interface EvolutionAPIConfig {
-  instanceId: string
-  token: string
-  baseUrl: string
-  webhookUrl?: string
-}
-
-export interface EvolutionAPIMessage {
-  key: {
-    remoteJid: string
-    fromMe: boolean
-    id: string
-  }
-  messageType: string
-  message: {
-    conversation?: string
-    imageMessage?: {
-      url: string
-      caption?: string
-    }
-    documentMessage?: {
-      url: string
-      fileName: string
-      caption?: string
-    }
-  }
-  messageTimestamp: number
-  status: string
-  instanceId: string
-}
-
-export interface EvolutionAPIWebhook {
-  event: 'messages.upsert' | 'messages.update' | 'connection.update'
-  instance: string
-  data: any
-}
-
-export interface LeadSource {
-  id: string
-  name: string
-  description?: string
-  is_default: boolean
-  is_active: boolean
-  tenant_id?: string
-  created_at: string
-  updated_at: string
 }

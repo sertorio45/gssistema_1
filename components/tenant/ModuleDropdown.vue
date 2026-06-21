@@ -14,7 +14,15 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useModule } from '~/composables/useModule'
 import { useTenant } from '~/composables/useTenant'
 
-const { currentModuleSlug, currentModuleMeta, availableModules, setCurrentModuleBySlug, loadModules, isLoadingModules } = useModule()
+const {
+  currentModuleSlug,
+  currentModuleMeta,
+  availableModules,
+  setCurrentModuleBySlug,
+  getModulePath,
+  loadModules,
+  isLoadingModules,
+} = useModule()
 const { currentTenant } = useTenant()
 
 const isOpen = ref(false)
@@ -25,14 +33,16 @@ onMounted(async () => {
 
 const currentModuleDisplay = computed(() => currentModuleMeta.value)
 
-function selectModule(slug: string) {
+async function selectModule(slug: string) {
+  const path = getModulePath(slug)
+  if (!path)
+    return
+
   setCurrentModuleBySlug(slug)
   isOpen.value = false
-  const meta = availableModules.value.find(m => m.slug === slug)
-  if (meta) {
-    const path = meta.defaultPath ?? meta.basePath
-    if (path) navigateTo(path)
-  }
+
+  await navigateTo(path)
+
   window.dispatchEvent(
     new CustomEvent('module-changed', { detail: { moduleSlug: slug } }),
   )
@@ -55,18 +65,12 @@ function selectModule(slug: string) {
             </span>
             <Icon name="lucide:chevron-down" class="h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
-          <NuxtLink
-            :to="currentModuleDisplay.defaultPath ?? currentModuleDisplay.basePath"
-            class="shrink-0 p-1 rounded hover:bg-muted/50"
-            @click.stop
-          >
-          </NuxtLink>
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" class="w-[260px]" side="right" :side-offset="8">
         <div class="px-3 py-2 border-b">
           <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Select module
+            Selecionar módulo
           </p>
         </div>
         <div class="py-1.5 max-h-[280px] overflow-y-auto">
@@ -88,7 +92,7 @@ function selectModule(slug: string) {
               :key="module.id"
               class="flex cursor-pointer items-center gap-3 px-3 py-2.5"
               :class="{ 'bg-muted/60': currentModuleSlug === module.slug }"
-              @click="selectModule(module.slug)"
+              @select.prevent="selectModule(module.slug)"
             >
               <div
                 class="h-8 w-8 shrink-0 flex items-center justify-center rounded-md bg-primary/10 text-primary"
@@ -108,7 +112,7 @@ function selectModule(slug: string) {
               />
             </DropdownMenuItem>
             <div v-if="availableModules.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
-              No modules available
+              Nenhum módulo disponível
             </div>
           </template>
         </div>

@@ -130,6 +130,7 @@ const leadForm = ref({
 })
 
 // Contact form data
+const contactId = ref<string | null>(null)
 const contactForm = ref({
   name: '',
   email: '',
@@ -137,6 +138,45 @@ const contactForm = ref({
   position: '',
   notes: '',
 })
+
+async function loadLeadContact(leadId: string) {
+  if (!tenantId.value)
+    return
+
+  const { data, error } = await supabase
+    .from('crm_contact')
+    .select('id, name, email, phone, position, notes')
+    .eq('lead_id', leadId)
+    .eq('tenant_id', tenantId.value)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('Falha ao carregar contato do lead:', error)
+  }
+
+  if (data) {
+    contactId.value = data.id
+    contactForm.value = {
+      name: data.name || '',
+      email: data.email || '',
+      phone: data.phone || '',
+      position: data.position || '',
+      notes: data.notes || '',
+    }
+    return
+  }
+
+  contactId.value = null
+  contactForm.value = {
+    name: props.lead?.contact_name || '',
+    email: props.lead?.email || '',
+    phone: props.lead?.phone || '',
+    position: props.lead?.contact_position || '',
+    notes: '',
+  }
+}
 
 // Company form data
 const companyForm = ref({
@@ -195,15 +235,7 @@ watch([() => props.lead, leadSources], () => {
       notes: props.lead.notes || '',
     }
 
-    // TODO: Carregar dados relacionados do lead (contact, company, meeting)
-    // Por enquanto, campos ficam vazios para edição
-    contactForm.value = {
-      name: '',
-      email: '',
-      phone: '',
-      position: '',
-      notes: '',
-    }
+    loadLeadContact(props.lead.id)
 
     companyForm.value = {
       name: '',
@@ -313,22 +345,32 @@ async function updateLead() {
     // A API retorna { statusCode: 200, body: data }
     const updatedLead = leadResponse.body || leadResponse
 
-    // 2. Criar/Atualizar Contact (se preenchido)
+    // 2. Criar/Atualizar Contact vinculado ao lead (se preenchido)
     if (contactForm.value.name || contactForm.value.email) {
       const contactData = {
         name: contactForm.value.name,
         email: contactForm.value.email,
-        phone: contactForm.value.phone,
+        phone: contactForm.value.phone || '',
         position: contactForm.value.position,
         notes: contactForm.value.notes,
         tenant_id: tenantId.value,
+        lead_id: props.lead.id,
       }
 
       try {
-        await $fetch('/api/crm/contacts', {
-          method: 'POST',
-          body: contactData,
-        })
+        if (contactId.value) {
+          await $fetch(`/api/crm/contacts/${contactId.value}`, {
+            method: 'PUT',
+            body: contactData,
+          })
+        }
+        else {
+          const contactResponse = await $fetch<{ data: { id: string } }>('/api/crm/contacts', {
+            method: 'POST',
+            body: contactData,
+          })
+          contactId.value = contactResponse.data?.id ?? null
+        }
       }
       catch (contactErr) {
         console.warn('Falha ao criar/atualizar contato:', contactErr)
