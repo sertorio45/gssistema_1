@@ -14,6 +14,8 @@ import {
 import { Textarea } from '~/components/ui/textarea'
 import { WHATSAPP_FLOW_VARIABLES } from '~/constants/whatsapp-flow-nodes'
 
+const { agents } = useWhatsAppAgents()
+
 const props = defineProps<{
   nodeId: number | null
   nodeData: Record<string, unknown> | null
@@ -113,28 +115,105 @@ function insertVariable(key: string) {
 
     <template v-else-if="nodeType === 'message'">
       <div class="space-y-2">
-        <Label>Texto da mensagem</Label>
-        <Textarea
-          :model-value="String(localData.text || '')"
-          rows="4"
+        <Label>Tipo de conteúdo</Label>
+        <Select
+          :model-value="String(localData.contentType || 'text')"
           @update:model-value="(value) => {
-            localData.text = value
+            localData.contentType = value
+            applyUpdate()
           }"
-          @blur="applyUpdate"
-        />
-      </div>
-      <div class="flex flex-wrap gap-1">
-        <Button
-          v-for="item in WHATSAPP_FLOW_VARIABLES"
-          :key="item.key"
-          variant="outline"
-          size="sm"
-          type="button"
-          @click="insertVariable(item.key)"
         >
-          {{ item.label }}
-        </Button>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text">
+              Texto
+            </SelectItem>
+            <SelectItem value="media">
+              Mídia (URL)
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      <template v-if="localData.contentType === 'media'">
+        <div class="space-y-2">
+          <Label>Tipo de mídia</Label>
+          <Select
+            :model-value="String(localData.mediaType || 'image')"
+            @update:model-value="(value) => {
+              localData.mediaType = value
+              applyUpdate()
+            }"
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="image">
+                Imagem
+              </SelectItem>
+              <SelectItem value="video">
+                Vídeo
+              </SelectItem>
+              <SelectItem value="audio">
+                Áudio
+              </SelectItem>
+              <SelectItem value="document">
+                Documento
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div class="space-y-2">
+          <Label>URL da mídia</Label>
+          <Input
+            :model-value="String(localData.mediaUrl || '')"
+            placeholder="https://..."
+            @update:model-value="(value) => { localData.mediaUrl = value }"
+            @blur="applyUpdate"
+          />
+        </div>
+        <div class="space-y-2">
+          <Label>Legenda (opcional)</Label>
+          <Textarea
+            :model-value="String(localData.mediaCaption || localData.text || '')"
+            rows="3"
+            @update:model-value="(value) => {
+              localData.mediaCaption = value
+              localData.text = value
+            }"
+            @blur="applyUpdate"
+          />
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="space-y-2">
+          <Label>Texto da mensagem</Label>
+          <Textarea
+            :model-value="String(localData.text || '')"
+            rows="4"
+            @update:model-value="(value) => {
+              localData.text = value
+            }"
+            @blur="applyUpdate"
+          />
+        </div>
+        <div class="flex flex-wrap gap-1">
+          <Button
+            v-for="item in WHATSAPP_FLOW_VARIABLES"
+            :key="item.key"
+            variant="outline"
+            size="sm"
+            type="button"
+            @click="insertVariable(item.key)"
+          >
+            {{ item.label }}
+          </Button>
+        </div>
+      </template>
     </template>
 
     <template v-else-if="nodeType === 'condition'">
@@ -181,18 +260,21 @@ function insertVariable(key: string) {
 
     <template v-else-if="nodeType === 'delay'">
       <div class="space-y-2">
-        <Label>Segundos (máx. 10)</Label>
+        <Label>Segundos (máx. 3600)</Label>
         <Input
           type="number"
           min="1"
-          max="10"
+          max="3600"
           :model-value="String(localData.seconds || 2)"
           @update:model-value="(value) => {
-            localData.seconds = Math.min(Math.max(Number(value) || 1, 1), 10)
+            localData.seconds = Math.min(Math.max(Number(value) || 1, 1), 3600)
             applyUpdate()
           }"
         />
       </div>
+      <p class="text-xs text-muted-foreground">
+        Até 10s executa na hora. Acima disso agenda retomada automática.
+      </p>
     </template>
 
     <template v-else-if="nodeType === 'webhook'">
@@ -368,6 +450,102 @@ function insertVariable(key: string) {
           }"
         >
           {{ localData.stopFlow !== false ? 'Sim' : 'Não' }}
+        </Button>
+      </div>
+    </template>
+
+    <template v-else-if="nodeType === 'action'">
+      <div class="space-y-2">
+        <Label>Tipo de ação</Label>
+        <Select
+          :model-value="String(localData.actionType || 'mark_read')"
+          @update:model-value="(value) => {
+            localData.actionType = value
+            applyUpdate()
+          }"
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="mark_read">
+              Marcar conversa como lida
+            </SelectItem>
+            <SelectItem value="resolve_conversation">
+              Resolver conversa
+            </SelectItem>
+            <SelectItem value="set_priority">
+              Definir prioridade
+            </SelectItem>
+            <SelectItem value="block_contact">
+              Bloquear contato
+            </SelectItem>
+            <SelectItem value="unblock_contact">
+              Desbloquear contato
+            </SelectItem>
+            <SelectItem value="opt_out">
+              Opt-out (sem campanhas)
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div v-if="localData.actionType === 'set_priority'" class="space-y-2">
+        <Label>Prioridade (0-5)</Label>
+        <Input
+          type="number"
+          min="0"
+          max="5"
+          :model-value="String(localData.priority || 1)"
+          @update:model-value="(value) => {
+            localData.priority = Math.min(Math.max(Number(value) || 1, 0), 5)
+            applyUpdate()
+          }"
+        />
+      </div>
+    </template>
+
+    <template v-else-if="nodeType === 'ai_agent'">
+      <div class="space-y-2">
+        <Label>Agente</Label>
+        <Select
+          :model-value="String(localData.agentId || '')"
+          @update:model-value="(value) => {
+            localData.agentId = value
+            applyUpdate()
+          }"
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione um agente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              v-for="agent in agents"
+              :key="agent.id"
+              :value="agent.id"
+            >
+              {{ agent.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p v-if="!agents.length" class="text-xs text-muted-foreground">
+          Crie agentes em WhatsApp → Agentes IA.
+        </p>
+      </div>
+      <div class="flex items-center justify-between rounded-lg border px-3 py-2">
+        <div>
+          <p class="text-sm font-medium">
+            Enviar resposta no chat
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          @click="() => {
+            localData.sendReply = localData.sendReply === false
+            applyUpdate()
+          }"
+        >
+          {{ localData.sendReply !== false ? 'Sim' : 'Não' }}
         </Button>
       </div>
     </template>

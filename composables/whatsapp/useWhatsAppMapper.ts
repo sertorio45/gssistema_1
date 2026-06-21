@@ -1,4 +1,5 @@
 import type {
+  WhatsAppAgent,
   WhatsAppCampaign,
   WhatsAppCampaignAudienceFilter,
   WhatsAppCampaignRecipient,
@@ -95,6 +96,45 @@ export function mapFlowExecutionRow(row: Record<string, any>): WhatsAppFlowExecu
     startedAt: row.started_at ?? row.created_at,
     completedAt: row.completed_at ?? null,
     context: row.context ?? {},
+  }
+}
+
+export function mapAgentRow(row: Record<string, any>): WhatsAppAgent {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    name: row.name,
+    description: row.description ?? null,
+    avatar: row.avatar ?? null,
+    llmProvider: (row.llm_provider || 'ollama') as WhatsAppAgent['llmProvider'],
+    model: row.model,
+    systemPrompt: row.system_prompt,
+    temperature: Number(row.temperature ?? 0.7),
+    maxTokens: Number(row.max_tokens ?? 1024),
+    isActive: row.is_active ?? true,
+    handoffRules: row.handoff_rules ?? {},
+    knowledgeBase: row.knowledge_base ?? [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    tools: Array.isArray(row.whatsapp_agent_tool)
+      ? row.whatsapp_agent_tool.map(mapAgentToolRow)
+      : undefined,
+  }
+}
+
+export function mapAgentToolRow(row: Record<string, any>): import('~/types/whatsapp').WhatsAppAgentTool {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    agentId: row.agent_id,
+    name: row.name,
+    type: row.type,
+    config: row.config ?? {},
+    mcpServer: row.mcp_server ?? null,
+    mcpToolName: row.mcp_tool_name ?? null,
+    isEnabled: row.is_enabled ?? true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }
 }
 

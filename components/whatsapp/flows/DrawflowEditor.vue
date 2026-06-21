@@ -232,6 +232,14 @@ defineExpose({
   border-color: rgb(249 115 22 / 0.45);
 }
 
+:deep(.wf-node-action) {
+  border-color: rgb(100 116 139 / 0.45);
+}
+
+:deep(.wf-node-ai) {
+  border-color: rgb(99 102 241 / 0.45);
+}
+
 :deep(.wf-node__title) {
   display: flex;
   align-items: center;

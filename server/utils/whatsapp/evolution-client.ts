@@ -104,6 +104,28 @@ export async function evolutionSendText(
   })
 }
 
+export async function evolutionSendMedia(
+  config: EvolutionClientConfig,
+  payload: {
+    number: string
+    mediatype: 'image' | 'video' | 'audio' | 'document'
+    media: string
+    caption?: string
+    fileName?: string
+  },
+) {
+  return evolutionFetch(config, `/message/sendMedia/${encodeURIComponent(config.instanceName)}`, {
+    method: 'POST',
+    body: {
+      number: payload.number,
+      mediatype: payload.mediatype,
+      media: payload.media,
+      caption: payload.caption || undefined,
+      fileName: payload.fileName || undefined,
+    },
+  })
+}
+
 export function getEvolutionConfigFromIntegration(
   integration: Record<string, any>,
   instanceName: string,

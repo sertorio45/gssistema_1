@@ -39,7 +39,12 @@ export const WHATSAPP_FLOW_NODE_DEFINITIONS: WhatsAppFlowNodeDefinition[] = [
     className: 'wf-node-message',
     defaultData: {
       nodeType: 'message',
+      contentType: 'text',
       text: 'Olá! Como posso ajudar?',
+      mediaUrl: '',
+      mediaType: 'image',
+      mediaCaption: '',
+      fileName: '',
     },
   },
   {
@@ -59,7 +64,7 @@ export const WHATSAPP_FLOW_NODE_DEFINITIONS: WhatsAppFlowNodeDefinition[] = [
   {
     type: 'delay',
     label: 'Aguardar',
-    description: 'Pausa antes do próximo passo (até 10s)',
+    description: 'Até 10s imediato; acima agenda retomada',
     icon: 'i-lucide-timer',
     inputs: 1,
     outputs: 1,
@@ -67,6 +72,34 @@ export const WHATSAPP_FLOW_NODE_DEFINITIONS: WhatsAppFlowNodeDefinition[] = [
     defaultData: {
       nodeType: 'delay',
       seconds: 2,
+    },
+  },
+  {
+    type: 'action',
+    label: 'Ação',
+    description: 'Marca lida, resolve, bloqueia contato etc.',
+    icon: 'i-lucide-settings-2',
+    inputs: 1,
+    outputs: 1,
+    className: 'wf-node-action',
+    defaultData: {
+      nodeType: 'action',
+      actionType: 'mark_read',
+      priority: 1,
+    },
+  },
+  {
+    type: 'ai_agent',
+    label: 'Agente IA',
+    description: 'Responde com agente configurado (OpenAI)',
+    icon: 'i-lucide-bot',
+    inputs: 1,
+    outputs: 1,
+    className: 'wf-node-ai',
+    defaultData: {
+      nodeType: 'ai_agent',
+      agentId: '',
+      sendReply: true,
     },
   },
   {
@@ -131,7 +164,7 @@ export const WHATSAPP_FLOW_NODE_DEFINITIONS: WhatsAppFlowNodeDefinition[] = [
 
 export const WHATSAPP_FLOW_NODE_MAP = Object.fromEntries(
   WHATSAPP_FLOW_NODE_DEFINITIONS.map(def => [def.type, def]),
-) as Record<WhatsAppFlowNodeType, WhatsAppFlowNodeDefinition>
+) as Partial<Record<WhatsAppFlowNodeType, WhatsAppFlowNodeDefinition>>
 
 export const WHATSAPP_FLOW_VARIABLES = [
   { key: '{{phone}}', label: 'Telefone' },
@@ -154,11 +187,14 @@ export function buildDrawflowNodeHtml(def: WhatsAppFlowNodeDefinition, data: Rec
   }
 
   if (nodeType === 'message') {
-    const text = String(data.text || '...').slice(0, 60)
+    const isMedia = data.contentType === 'media'
+    const preview = isMedia
+      ? String(data.mediaType || 'mídia')
+      : String(data.text || '...').slice(0, 60)
     return `
       <div class="wf-node">
         <div class="wf-node__title"><span class="i-lucide-message-square"></span> Mensagem</div>
-        <div class="wf-node__body">${text}</div>
+        <div class="wf-node__body">${preview}</div>
       </div>
     `
   }
@@ -218,6 +254,24 @@ export function buildDrawflowNodeHtml(def: WhatsAppFlowNodeDefinition, data: Rec
     `
   }
 
+  if (nodeType === 'action') {
+    return `
+      <div class="wf-node">
+        <div class="wf-node__title"><span class="i-lucide-settings-2"></span> Ação</div>
+        <div class="wf-node__body">${String(data.actionType || 'mark_read')}</div>
+      </div>
+    `
+  }
+
+  if (nodeType === 'ai_agent') {
+    return `
+      <div class="wf-node">
+        <div class="wf-node__title"><span class="i-lucide-bot"></span> Agente IA</div>
+        <div class="wf-node__body">${String(data.agentId || 'Selecionar agente').slice(0, 24)}</div>
+      </div>
+    `
+  }
+
   return `
     <div class="wf-node">
       <div class="wf-node__title">${def.label}</div>
@@ -226,7 +280,7 @@ export function buildDrawflowNodeHtml(def: WhatsAppFlowNodeDefinition, data: Rec
 }
 
 export function createDefaultDrawflowCanvas(): DrawflowExport {
-  const def = WHATSAPP_FLOW_NODE_MAP.trigger
+  const def = WHATSAPP_FLOW_NODE_MAP.trigger!
   const data = { ...def.defaultData }
 
   return {

@@ -6,6 +6,7 @@ import {
   getCloudApiConfigFromIntegration,
 } from '~/server/utils/whatsapp/cloud-api-client'
 import {
+  evolutionSendMedia,
   evolutionSendText,
   getEvolutionConfigFromIntegration,
 } from '~/server/utils/whatsapp/evolution-client'
@@ -71,4 +72,44 @@ export async function sendWhatsAppTextMessage(params: {
   }
 
   throw createError({ statusCode: 400, statusMessage: 'Unsupported provider' })
+}
+
+export async function sendWhatsAppMediaMessage(params: {
+  instance: Record<string, any>
+  integration: Record<string, any>
+  phone: string
+  remoteJid?: string
+  mediatype: 'image' | 'video' | 'audio' | 'document'
+  mediaUrl: string
+  caption?: string
+  fileName?: string
+}) {
+  const { instance, integration, phone, remoteJid } = params
+
+  if (!integration) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'WhatsApp integration not configured for this instance',
+    })
+  }
+
+  if (instance.provider !== 'evolution') {
+    throw createError({ statusCode: 400, statusMessage: 'Media messages require Evolution provider' })
+  }
+
+  const evoConfig = getEvolutionConfigFromIntegration(
+    integration,
+    getEvolutionInstanceName(instance),
+  )
+  if (!evoConfig)
+    throw createError({ statusCode: 400, statusMessage: 'Evolution API not configured' })
+
+  const recipient = resolveEvolutionNumber(phone, remoteJid)
+  return evolutionSendMedia(evoConfig, {
+    number: recipient,
+    mediatype: params.mediatype,
+    media: params.mediaUrl,
+    caption: params.caption,
+    fileName: params.fileName,
+  })
 }

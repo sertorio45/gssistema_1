@@ -185,3 +185,109 @@ export async function applyFlowHandoff(
     note: params.note || null,
   }
 }
+
+export type FlowActionType
+  = 'mark_read'
+    | 'resolve_conversation'
+    | 'set_priority'
+    | 'block_contact'
+    | 'unblock_contact'
+    | 'opt_out'
+
+export async function applyFlowAction(
+  client: SupabaseClient,
+  params: {
+    tenantId: string
+    contactId: string | null
+    conversationId: string | null
+    actionType: FlowActionType
+    priority?: number
+  },
+) {
+  const now = new Date().toISOString()
+
+  if (params.actionType === 'mark_read') {
+    if (!params.conversationId)
+      throw new Error('Conversation is required')
+
+    const { data: conversation } = await client
+      .from('whatsapp_conversation')
+      .update({ unread_count: 0, updated_at: now })
+      .eq('id', params.conversationId)
+      .eq('tenant_id', params.tenantId)
+      .select('*')
+      .single()
+
+    if (conversation)
+      await broadcastWhatsAppEvent(params.tenantId, 'conversation', conversation)
+
+    return { actionType: params.actionType }
+  }
+
+  if (params.actionType === 'resolve_conversation') {
+    if (!params.conversationId)
+      throw new Error('Conversation is required')
+
+    const { data: conversation } = await client
+      .from('whatsapp_conversation')
+      .update({ status: 'resolved', updated_at: now })
+      .eq('id', params.conversationId)
+      .eq('tenant_id', params.tenantId)
+      .select('*')
+      .single()
+
+    if (conversation)
+      await broadcastWhatsAppEvent(params.tenantId, 'conversation', conversation)
+
+    return { actionType: params.actionType, status: 'resolved' }
+  }
+
+  if (params.actionType === 'set_priority') {
+    if (!params.conversationId)
+      throw new Error('Conversation is required')
+
+    const priority = Math.min(Math.max(Number(params.priority ?? 1), 0), 5)
+    await client
+      .from('whatsapp_conversation')
+      .update({ priority, updated_at: now })
+      .eq('id', params.conversationId)
+      .eq('tenant_id', params.tenantId)
+
+    return { actionType: params.actionType, priority }
+  }
+
+  if (!params.contactId)
+    throw new Error('Contact is required')
+
+  if (params.actionType === 'block_contact') {
+    await client
+      .from('whatsapp_contact')
+      .update({ blocked: true, updated_at: now })
+      .eq('id', params.contactId)
+      .eq('tenant_id', params.tenantId)
+
+    return { actionType: params.actionType, blocked: true }
+  }
+
+  if (params.actionType === 'unblock_contact') {
+    await client
+      .from('whatsapp_contact')
+      .update({ blocked: false, updated_at: now })
+      .eq('id', params.contactId)
+      .eq('tenant_id', params.tenantId)
+
+    return { actionType: params.actionType, blocked: false }
+  }
+
+  if (params.actionType === 'opt_out') {
+    await client
+      .from('whatsapp_contact')
+      .update({ opt_in: false, updated_at: now })
+      .eq('id', params.contactId)
+      .eq('tenant_id', params.tenantId)
+
+    return { actionType: params.actionType, optIn: false }
+  }
+
+  throw new Error('Unsupported action type')
+}

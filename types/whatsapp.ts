@@ -36,6 +36,7 @@ export type WhatsAppFlowNodeType =
   | 'crm_update'
 export type WhatsAppFlowStatus = 'draft' | 'active' | 'paused' | 'archived'
 export type WhatsAppAgentToolType = 'mcp' | 'internal' | 'api'
+export type WhatsAppLlmProvider = 'ollama' | 'openai'
 
 export interface WhatsAppInstance {
   id: string
@@ -359,6 +360,7 @@ export interface WhatsAppAgent {
   name: string
   description?: string | null
   avatar?: string | null
+  llmProvider: WhatsAppLlmProvider
   model: string
   systemPrompt: string
   temperature: number
@@ -368,6 +370,7 @@ export interface WhatsAppAgent {
   knowledgeBase: unknown[]
   createdAt: string
   updatedAt: string
+  tools?: WhatsAppAgentTool[]
 }
 
 export interface WhatsAppAgentTool {
@@ -427,6 +430,63 @@ export interface WhatsAppDashboardAnalytics {
   conversationsByStatus: WhatsAppConversationsByStatus[]
   recentActivity: WhatsAppRecentActivity[]
   periodDays: number
+}
+
+export interface WhatsAppCampaignReportStat {
+  id: string
+  name: string
+  status: string
+  sent: number
+  failed: number
+  pending: number
+  total: number
+}
+
+export interface WhatsAppFlowReportStat {
+  total: number
+  completed: number
+  failed: number
+  waiting: number
+  running: number
+}
+
+export interface WhatsAppAgentUsageStat {
+  agentId: string
+  agentName: string
+  sessions: number
+  tokensUsed: number
+}
+
+export interface WhatsAppReportsAnalytics extends WhatsAppDashboardAnalytics {
+  campaigns: WhatsAppCampaignReportStat[]
+  flows: WhatsAppFlowReportStat
+  agents: {
+    totalSessions: number
+    totalTokens: number
+    topAgents: WhatsAppAgentUsageStat[]
+  }
+}
+
+export interface WhatsAppGeneralSettings {
+  welcome_message: string
+  auto_resolve_hours: number
+  default_priority: number
+  business_hours_enabled: boolean
+  business_hours_start: string
+  business_hours_end: string
+  business_hours_timezone: string
+  notify_new_conversation: boolean
+}
+
+export interface WhatsAppLlmSettings {
+  default_provider: WhatsAppLlmProvider
+  default_model: string
+}
+
+export interface WhatsAppModuleSettings {
+  general: WhatsAppGeneralSettings
+  llm: WhatsAppLlmSettings
+  ollamaConfigured: boolean
 }
 
 export interface WhatsAppInstanceIntegrationView {
