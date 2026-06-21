@@ -448,7 +448,7 @@ async function executeNode(
     }
     catch (error: any) {
       await log('ai_agent', {}, error?.message || 'Agent failed')
-      return null
+      throw error
     }
   }
 

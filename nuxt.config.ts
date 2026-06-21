@@ -56,6 +56,14 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2024-12-14',
 
+  runtimeConfig: {
+    // Server-only — mapeado automaticamente por NUXT_* na Vercel
+    ollamaBaseUrl: process.env.OLLAMA_BASE_URL || 'https://ollama.gsstudio.com.br',
+    ollamaDefaultModel: process.env.OLLAMA_DEFAULT_MODEL || 'qwen',
+    ollamaCfAccessClientId: process.env.OLLAMA_CF_ACCESS_CLIENT_ID || '',
+    ollamaCfAccessClientSecret: process.env.OLLAMA_CF_ACCESS_CLIENT_SECRET || '',
+  },
+
   supabase: {
     redirectOptions: {
       login: '/login',

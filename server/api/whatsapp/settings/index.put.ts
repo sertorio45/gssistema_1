@@ -6,7 +6,7 @@ import {
   saveWhatsAppGeneralSettings,
   saveWhatsAppLlmSettings,
 } from '~/server/utils/whatsapp/settings-service'
-import { getOllamaConfig } from '~/server/utils/whatsapp/ollama-client'
+import { getOllamaConfigStatus } from '~/server/utils/whatsapp/ollama-client'
 import { resolveWhatsAppTenantContext } from '~/server/utils/whatsapp/context'
 import type { WhatsAppGeneralSettings, WhatsAppLlmSettings } from '~/types/whatsapp'
 
@@ -27,12 +27,13 @@ export default defineEventHandler(async (event) => {
     await saveWhatsAppLlmSettings(client, tenantId, body.llm)
 
   const settings = await getWhatsAppModuleSettings(client, tenantId)
-  const ollamaConfig = getOllamaConfig()
+  const ollamaStatus = getOllamaConfigStatus()
 
   return {
     data: {
       ...settings,
-      ollamaConfigured: Boolean(ollamaConfig.baseUrl && ollamaConfig.cfAccessClientId),
+      ollamaConfigured: ollamaStatus.ready,
+      ollamaStatus,
     },
   }
 })

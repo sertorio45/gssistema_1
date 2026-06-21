@@ -175,10 +175,33 @@ async function handleTestOllama() {
           </div>
         </CardHeader>
         <CardContent class="space-y-4">
-          <p class="text-sm text-muted-foreground">
-            Credenciais Cloudflare Access e URL do Ollama ficam no servidor (.env).
-            Endpoint padrão: <code class="text-xs">https://ollama.gsstudio.com.br</code>
-          </p>
+          <div
+            v-if="settings?.ollamaStatus"
+            class="rounded-lg border p-3 text-sm space-y-1"
+            :class="settings.ollamaStatus.ready ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'"
+          >
+            <p><strong>Ambiente:</strong> {{ settings.ollamaStatus.runtime }}</p>
+            <p><strong>URL:</strong> {{ settings.ollamaStatus.baseUrl }}</p>
+            <p><strong>Client ID:</strong> {{ settings.ollamaStatus.hasClientId ? 'Configurado' : 'Ausente' }}</p>
+            <p><strong>Client Secret:</strong> {{ settings.ollamaStatus.hasClientSecret ? 'Configurado' : 'Ausente' }}</p>
+            <p class="text-muted-foreground">
+              {{ settings.ollamaStatus.hint }}
+            </p>
+          </div>
+
+          <div class="rounded-lg border border-dashed p-3 text-xs text-muted-foreground space-y-2">
+            <p class="font-medium text-foreground">
+              Vercel — não use bypass por IP
+            </p>
+            <p>Funções serverless saem por IPs dinâmicos. Use <strong>Service Token</strong> do Cloudflare Access:</p>
+            <ol class="list-decimal pl-4 space-y-1">
+              <li>Zero Trust → Access → Service Auth → Create Service Token</li>
+              <li>No app do Ollama, política: Include → Service Token</li>
+              <li>Vercel → Settings → Environment Variables (Production):</li>
+            </ol>
+            <code class="block rounded bg-muted p-2 text-[11px]">OLLAMA_CF_ACCESS_CLIENT_ID<br>OLLAMA_CF_ACCESS_CLIENT_SECRET<br>OLLAMA_BASE_URL</code>
+            <p>Depois: <strong>Redeploy</strong> obrigatório.</p>
+          </div>
 
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="space-y-2">
