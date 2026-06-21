@@ -83,6 +83,50 @@ export const WHATSAPP_FLOW_NODE_DEFINITIONS: WhatsAppFlowNodeDefinition[] = [
       method: 'POST',
     },
   },
+  {
+    type: 'tag',
+    label: 'Etiqueta',
+    description: 'Adiciona ou remove etiqueta do contato/conversa',
+    icon: 'i-lucide-tag',
+    inputs: 1,
+    outputs: 1,
+    className: 'wf-node-tag',
+    defaultData: {
+      nodeType: 'tag',
+      tagName: '',
+      action: 'add',
+      target: 'contact',
+    },
+  },
+  {
+    type: 'crm_update',
+    label: 'Sincronizar CRM',
+    description: 'Vincula ou cria contato no CRM',
+    icon: 'i-lucide-user-round-cog',
+    inputs: 1,
+    outputs: 1,
+    className: 'wf-node-crm',
+    defaultData: {
+      nodeType: 'crm_update',
+      createIfMissing: true,
+    },
+  },
+  {
+    type: 'handoff',
+    label: 'Transferir humano',
+    description: 'Encaminha conversa para atendimento humano',
+    icon: 'i-lucide-user-check',
+    inputs: 1,
+    outputs: 1,
+    className: 'wf-node-handoff',
+    defaultData: {
+      nodeType: 'handoff',
+      status: 'pending',
+      assignToUserId: '',
+      stopFlow: true,
+      note: '',
+    },
+  },
 ]
 
 export const WHATSAPP_FLOW_NODE_MAP = Object.fromEntries(
@@ -142,6 +186,34 @@ export function buildDrawflowNodeHtml(def: WhatsAppFlowNodeDefinition, data: Rec
       <div class="wf-node">
         <div class="wf-node__title"><span class="i-lucide-globe"></span> Webhook</div>
         <div class="wf-node__body">${String(data.method || 'POST')} ${String(data.url || 'URL').slice(0, 28)}</div>
+      </div>
+    `
+  }
+
+  if (nodeType === 'tag') {
+    const actionLabel = data.action === 'remove' ? 'Remover' : 'Adicionar'
+    return `
+      <div class="wf-node">
+        <div class="wf-node__title"><span class="i-lucide-tag"></span> Etiqueta</div>
+        <div class="wf-node__body">${actionLabel}: ${String(data.tagName || '...').slice(0, 24)}</div>
+      </div>
+    `
+  }
+
+  if (nodeType === 'crm_update') {
+    return `
+      <div class="wf-node">
+        <div class="wf-node__title"><span class="i-lucide-user-round-cog"></span> CRM</div>
+        <div class="wf-node__body">${data.createIfMissing ? 'Criar se ausente' : 'Somente vincular'}</div>
+      </div>
+    `
+  }
+
+  if (nodeType === 'handoff') {
+    return `
+      <div class="wf-node">
+        <div class="wf-node__title"><span class="i-lucide-user-check"></span> Handoff</div>
+        <div class="wf-node__body">Status: ${String(data.status || 'pending')}</div>
       </div>
     `
   }

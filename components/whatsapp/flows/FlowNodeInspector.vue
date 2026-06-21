@@ -231,5 +231,145 @@ function insertVariable(key: string) {
         </Select>
       </div>
     </template>
+
+    <template v-else-if="nodeType === 'tag'">
+      <div class="space-y-2">
+        <Label>Nome da etiqueta</Label>
+        <Input
+          :model-value="String(localData.tagName || '')"
+          placeholder="Ex: lead-quente"
+          @update:model-value="(value) => {
+            localData.tagName = value
+          }"
+          @blur="applyUpdate"
+        />
+      </div>
+      <div class="space-y-2">
+        <Label>Ação</Label>
+        <Select
+          :model-value="String(localData.action || 'add')"
+          @update:model-value="(value) => {
+            localData.action = value
+            applyUpdate()
+          }"
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="add">
+              Adicionar
+            </SelectItem>
+            <SelectItem value="remove">
+              Remover
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div class="space-y-2">
+        <Label>Aplicar em</Label>
+        <Select
+          :model-value="String(localData.target || 'contact')"
+          @update:model-value="(value) => {
+            localData.target = value
+            applyUpdate()
+          }"
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="contact">
+              Contato WhatsApp
+            </SelectItem>
+            <SelectItem value="conversation">
+              Conversa
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </template>
+
+    <template v-else-if="nodeType === 'crm_update'">
+      <div class="flex items-center justify-between rounded-lg border px-3 py-2">
+        <div>
+          <p class="text-sm font-medium">
+            Criar contato no CRM
+          </p>
+          <p class="text-xs text-muted-foreground">
+            Se não existir vínculo por telefone
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          @click="() => {
+            localData.createIfMissing = !localData.createIfMissing
+            applyUpdate()
+          }"
+        >
+          {{ localData.createIfMissing ? 'Sim' : 'Não' }}
+        </Button>
+      </div>
+    </template>
+
+    <template v-else-if="nodeType === 'handoff'">
+      <div class="space-y-2">
+        <Label>Status da conversa</Label>
+        <Select
+          :model-value="String(localData.status || 'pending')"
+          @update:model-value="(value) => {
+            localData.status = value
+            applyUpdate()
+          }"
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">
+              Pendente
+            </SelectItem>
+            <SelectItem value="open">
+              Aberta
+            </SelectItem>
+            <SelectItem value="resolved">
+              Resolvida
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div class="space-y-2">
+        <Label>ID do atendente (opcional)</Label>
+        <Input
+          :model-value="String(localData.assignToUserId || '')"
+          placeholder="UUID do usuário"
+          @update:model-value="(value) => {
+            localData.assignToUserId = value
+          }"
+          @blur="applyUpdate"
+        />
+      </div>
+      <div class="flex items-center justify-between rounded-lg border px-3 py-2">
+        <div>
+          <p class="text-sm font-medium">
+            Encerrar automação
+          </p>
+          <p class="text-xs text-muted-foreground">
+            Para o flow após transferir
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          @click="() => {
+            localData.stopFlow = localData.stopFlow === false
+            applyUpdate()
+          }"
+        >
+          {{ localData.stopFlow !== false ? 'Sim' : 'Não' }}
+        </Button>
+      </div>
+    </template>
   </div>
 </template>

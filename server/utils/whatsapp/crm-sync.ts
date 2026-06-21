@@ -1,9 +1,7 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createError } from 'h3'
 
-import { mapContactRow } from '~/composables/whatsapp/useWhatsAppMapper'
 import { normalizePhone } from '~/server/utils/whatsapp/contact-utils'
-import { resolveWhatsAppTenantContext } from '~/server/utils/whatsapp/context'
 
 interface SyncCrmOptions {
   createIfMissing?: boolean
@@ -11,7 +9,7 @@ interface SyncCrmOptions {
 }
 
 export async function syncWhatsAppContactToCrm(
-  client: ReturnType<typeof serverSupabaseServiceRole>,
+  client: SupabaseClient,
   tenantId: string,
   whatsappContact: Record<string, any>,
   options: SyncCrmOptions = {},

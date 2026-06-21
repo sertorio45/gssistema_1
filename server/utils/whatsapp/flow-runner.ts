@@ -8,6 +8,7 @@ import {
   getDrawflowNodes,
 } from '~/server/utils/whatsapp/flow-canvas'
 import { sendWhatsAppTextMessage } from '~/server/utils/whatsapp/message-sender'
+import { applyFlowCrmUpdate, applyFlowHandoff, applyFlowTag } from '~/server/utils/whatsapp/flow-actions'
 import { loadInstanceWithIntegrationByClient } from '~/server/utils/whatsapp/instance-loader'
 import { broadcastWhatsAppEvent } from '~/server/utils/whatsapp/realtime-broadcast'
 
@@ -221,6 +222,89 @@ async function executeNode(
     }
     catch (error: any) {
       await log('webhook', {}, error?.message || 'Webhook failed')
+      return null
+    }
+  }
+
+  if (nodeType === 'tag') {
+    const tagName = String(node.data?.tagName || '').trim()
+    const action = String(node.data?.action || 'add') === 'remove' ? 'remove' : 'add'
+    const target = String(node.data?.target || 'contact') === 'conversation' ? 'conversation' : 'contact'
+
+    if (!tagName) {
+      await log('tag', { skipped: true }, 'Tag name not configured')
+      return 'output_1'
+    }
+
+    if (ctx.isTest) {
+      await log('tag', { tagName, action, target, testMode: true })
+      return 'output_1'
+    }
+
+    try {
+      const result = await applyFlowTag(client, {
+        tenantId: ctx.tenantId,
+        contactId: ctx.contactId,
+        conversationId: ctx.conversationId,
+        tagName,
+        action,
+        target,
+      })
+      await log('tag', result)
+      return 'output_1'
+    }
+    catch (error: any) {
+      await log('tag', {}, error?.message || 'Tag action failed')
+      return null
+    }
+  }
+
+  if (nodeType === 'crm_update') {
+    const createIfMissing = node.data?.createIfMissing !== false
+
+    if (ctx.isTest) {
+      await log('crm_update', { createIfMissing, testMode: true })
+      return 'output_1'
+    }
+
+    try {
+      const result = await applyFlowCrmUpdate(client, {
+        tenantId: ctx.tenantId,
+        contactId: ctx.contactId,
+        createIfMissing,
+      })
+      await log('crm_update', result)
+      return 'output_1'
+    }
+    catch (error: any) {
+      await log('crm_update', {}, error?.message || 'CRM sync failed')
+      return null
+    }
+  }
+
+  if (nodeType === 'handoff') {
+    const status = String(node.data?.status || 'pending') as 'open' | 'pending' | 'resolved' | 'spam'
+    const assignToUserId = node.data?.assignToUserId ? String(node.data.assignToUserId) : null
+    const stopFlow = node.data?.stopFlow !== false
+
+    if (ctx.isTest) {
+      await log('handoff', { status, assignToUserId, stopFlow, testMode: true })
+      return stopFlow ? null : 'output_1'
+    }
+
+    try {
+      const result = await applyFlowHandoff(client, {
+        tenantId: ctx.tenantId,
+        conversationId: ctx.conversationId,
+        status,
+        assignToUserId,
+        note: node.data?.note ? String(node.data.note) : null,
+      })
+      await log('handoff', result)
+      return stopFlow ? null : 'output_1'
+    }
+    catch (error: any) {
+      await log('handoff', {}, error?.message || 'Handoff failed')
       return null
     }
   }

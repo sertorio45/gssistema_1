@@ -4,6 +4,7 @@ import type {
   SaveWhatsAppFlowCanvasPayload,
   UpdateWhatsAppFlowPayload,
   WhatsAppFlow,
+  WhatsAppFlowExecutionDetail,
   WhatsAppFlowExecutionSummary,
 } from '~/types/whatsapp'
 
@@ -97,6 +98,13 @@ export function useWhatsAppFlows() {
     })
   }
 
+  async function fetchExecutionDetail(executionId: string) {
+    return $fetch<{ data: WhatsAppFlowExecutionDetail }>(
+      `/api/whatsapp/flows/executions/${executionId}`,
+      { query: { tenant_id: tenantId.value } },
+    )
+  }
+
   return {
     flows,
     pending,
@@ -110,5 +118,6 @@ export function useWhatsAppFlows() {
     toggleFlow,
     testFlow,
     fetchFlow,
+    fetchExecutionDetail,
   }
 }

@@ -220,6 +220,18 @@ defineExpose({
   border-color: rgb(168 85 247 / 0.35);
 }
 
+:deep(.wf-node-tag) {
+  border-color: rgb(236 72 153 / 0.4);
+}
+
+:deep(.wf-node-crm) {
+  border-color: rgb(20 184 166 / 0.4);
+}
+
+:deep(.wf-node-handoff) {
+  border-color: rgb(249 115 22 / 0.45);
+}
+
 :deep(.wf-node__title) {
   display: flex;
   align-items: center;

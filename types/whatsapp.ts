@@ -291,6 +291,19 @@ export interface WhatsAppFlowExecutionSummary {
   context: Record<string, unknown>
 }
 
+export interface WhatsAppFlowExecutionLogEntry {
+  id: string
+  action: string
+  input: Record<string, unknown>
+  output: Record<string, unknown>
+  error?: string | null
+  executedAt: string
+}
+
+export interface WhatsAppFlowExecutionDetail extends WhatsAppFlowExecutionSummary {
+  logs: WhatsAppFlowExecutionLogEntry[]
+}
+
 export interface CreateWhatsAppFlowPayload {
   tenant_id?: string
   name: string

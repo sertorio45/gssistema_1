@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WhatsAppFlow } from '~/types/whatsapp'
+import type { WhatsAppFlow, WhatsAppFlowExecutionDetail } from '~/types/whatsapp'
 
 import DrawflowEditor from '~/components/whatsapp/flows/DrawflowEditor.vue'
 import FlowNodeInspector from '~/components/whatsapp/flows/FlowNodeInspector.vue'
@@ -29,11 +29,15 @@ const {
   saveCanvas,
   toggleFlow,
   testFlow,
+  fetchExecutionDetail,
 } = useWhatsAppFlows()
 
 const editorRef = ref<InstanceType<typeof DrawflowEditor> | null>(null)
 const selectedNodeId = ref<number | null>(null)
 const selectedNodeData = ref<Record<string, unknown> | null>(null)
+const selectedExecutionId = ref<string | null>(null)
+const executionDetail = ref<WhatsAppFlowExecutionDetail | null>(null)
+const executionDetailLoading = ref(false)
 const saving = ref(false)
 const actionLoading = ref(false)
 
@@ -143,6 +147,29 @@ function handleNodeUpdate(nodeId: number, nodeData: Record<string, unknown>) {
 
 function handleNodeRemove(nodeId: number) {
   editorRef.value?.removeSelectedNode(nodeId)
+}
+
+async function handleSelectExecution(executionId: string) {
+  if (selectedExecutionId.value === executionId) {
+    selectedExecutionId.value = null
+    executionDetail.value = null
+    return
+  }
+
+  selectedExecutionId.value = executionId
+  executionDetailLoading.value = true
+  try {
+    const response = await fetchExecutionDetail(executionId)
+    executionDetail.value = response.data
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao carregar execução')
+    selectedExecutionId.value = null
+    executionDetail.value = null
+  }
+  finally {
+    executionDetailLoading.value = false
+  }
 }
 </script>
 
@@ -261,10 +288,13 @@ function handleNodeRemove(nodeId: number) {
                 Nenhuma execução ainda.
               </div>
               <div v-else class="space-y-2 text-sm">
-                <div
+                <button
                   v-for="execution in recentExecutions"
                   :key="execution.id"
-                  class="rounded-lg border px-3 py-2"
+                  type="button"
+                  class="w-full rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/50"
+                  :class="{ 'border-primary bg-primary/5': selectedExecutionId === execution.id }"
+                  @click="handleSelectExecution(execution.id)"
                 >
                   <p class="font-medium capitalize">
                     {{ execution.status }}
@@ -272,8 +302,42 @@ function handleNodeRemove(nodeId: number) {
                   <p class="text-xs text-muted-foreground">
                     {{ new Date(execution.startedAt).toLocaleString('pt-BR') }}
                   </p>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card v-if="selectedExecutionId">
+            <CardHeader class="pb-2">
+              <CardTitle class="text-sm">
+                Detalhes da execução
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Skeleton v-if="executionDetailLoading" class="h-24 w-full" />
+              <div v-else-if="executionDetail?.logs?.length" class="space-y-2">
+                <div
+                  v-for="log in executionDetail.logs"
+                  :key="log.id"
+                  class="rounded-md border px-3 py-2 text-xs"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium capitalize">{{ log.action }}</span>
+                    <span class="text-muted-foreground">
+                      {{ new Date(log.executedAt).toLocaleTimeString('pt-BR') }}
+                    </span>
+                  </div>
+                  <p v-if="log.error" class="mt-1 text-destructive">
+                    {{ log.error }}
+                  </p>
+                  <p v-else-if="Object.keys(log.output || {}).length" class="mt-1 text-muted-foreground">
+                    {{ JSON.stringify(log.output) }}
+                  </p>
                 </div>
               </div>
+              <p v-else class="text-sm text-muted-foreground">
+                Nenhum log registrado.
+              </p>
             </CardContent>
           </Card>
         </div>
