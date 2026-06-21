@@ -28,6 +28,10 @@ async function upsertContact(
       tenant_id: tenantId,
       phone,
       name: name || phone,
+      tags: [],
+      custom_fields: {},
+      opt_in: true,
+      blocked: false,
     })
     .select('id')
     .single()
@@ -91,6 +95,8 @@ async function upsertConversation(
       last_message_at: params.lastMessageAt,
       unread_count: params.fromMe ? 0 : 1,
       status: 'open',
+      channel: 'whatsapp',
+      is_online: false,
     })
     .select('id')
     .single()
@@ -183,6 +189,7 @@ export async function processEvolutionWebhook(
           media_url: item.message?.imageMessage?.url || null,
           status: fromMe ? 'sent' : 'delivered',
           sent_at: timestamp,
+          metadata: {},
         })
       }
     }
@@ -266,6 +273,7 @@ export async function processCloudWebhook(
         content: text,
         status: 'delivered',
         sent_at: timestamp,
+        metadata: {},
       })
     }
 

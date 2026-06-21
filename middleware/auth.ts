@@ -1,12 +1,21 @@
-export default defineNuxtRouteMiddleware(async (to, _from) => {
-  const user = useSupabaseUser()
+export default defineNuxtRouteMiddleware((to) => {
+  const publicPages = [
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/403',
+    '/404',
+    '/401',
+    '/500',
+    '/503',
+    '/confirm',
+  ]
 
-  // Páginas públicas que não precisam de autenticação
-  const publicPages = ['/login', '/register', '/forgot-password', '/403', '/confirm']
+  if (publicPages.includes(to.path))
+    return
 
-  // Verificar se a página atual não é pública e o usuário não está autenticado
-  if (!publicPages.includes(to.path) && !user.value) {
-    // Redirecionar para a página de login com informação da rota original
+  const session = useSupabaseSession()
+  if (!session.value) {
     return navigateTo({
       path: '/login',
       query: { redirect: to.fullPath },

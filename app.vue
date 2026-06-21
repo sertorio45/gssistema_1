@@ -9,19 +9,7 @@ const color = computed(() => (colorMode.value === 'dark' ? '#09090b' : '#ffffff'
 
 const { theme, radius } = useCustomize()
 
-// Verificar autenticação do usuário
-const user = useSupabaseUser()
 const route = useRoute()
-
-// Lista de rotas públicas que não precisam de autenticação
-const publicRoutes = ['/login', '/register', '/forgot-password', '/403', '/confirm']
-
-// Redirecionar para login se não estiver autenticado e a rota não for pública
-watchEffect(() => {
-  if (!publicRoutes.includes(route.path) && !user.value) {
-    navigateTo('/login')
-  }
-})
 
 useHead({
   meta: [
