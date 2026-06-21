@@ -19,6 +19,8 @@ const config = computed(() => {
     delivered: { label: 'Entregue', variant: 'secondary' },
     read: { label: 'Lida', variant: 'outline' },
     failed: { label: 'Falhou', variant: 'destructive' },
+    pending: { label: 'Pendente', variant: 'secondary' },
+    skipped: { label: 'Ignorado', variant: 'outline' },
   }
   return map[props.status] ?? { label: props.status, variant: 'outline' as const }
 })

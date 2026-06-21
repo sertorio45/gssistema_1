@@ -1,11 +1,102 @@
 import type {
+  WhatsAppCampaign,
+  WhatsAppCampaignAudienceFilter,
+  WhatsAppCampaignRecipient,
+  WhatsAppCampaignRecipientRow,
+  WhatsAppCampaignRow,
+  WhatsAppCampaignStats,
   WhatsAppContact,
+  WhatsAppFlow,
+  WhatsAppFlowExecutionSummary,
+  WhatsAppFlowRow,
+  WhatsAppFlowTriggerConfig,
   WhatsAppContactRow,
   WhatsAppConversation,
   WhatsAppConversationRow,
   WhatsAppMessage,
   WhatsAppMessageRow,
 } from '~/types/whatsapp'
+
+export function mapCampaignRow(row: WhatsAppCampaignRow): WhatsAppCampaign {
+  const audienceFilter = (row.audience_filter || {}) as WhatsAppCampaignAudienceFilter
+  const stats = (row.stats || {}) as WhatsAppCampaignStats
+
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    instanceId: row.instance_id ?? null,
+    templateId: row.template_id ?? null,
+    name: row.name,
+    status: row.status,
+    scheduledAt: row.scheduled_at ?? null,
+    startedAt: row.started_at ?? null,
+    completedAt: row.completed_at ?? null,
+    audienceFilter: {
+      message: audienceFilter.message || '',
+      audience_type: audienceFilter.audience_type || 'all',
+      opt_in_only: audienceFilter.opt_in_only ?? true,
+      exclude_blocked: audienceFilter.exclude_blocked ?? true,
+      tags: audienceFilter.tags || [],
+      contact_ids: audienceFilter.contact_ids || [],
+    },
+    stats,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+    instanceName: row.whatsapp_instance?.name ?? null,
+  }
+}
+
+export function mapCampaignRecipientRow(row: WhatsAppCampaignRecipientRow): WhatsAppCampaignRecipient {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    campaignId: row.campaign_id,
+    contactId: row.contact_id ?? null,
+    phone: row.phone,
+    contactName: row.whatsapp_contact?.name ?? null,
+    status: row.status,
+    sentAt: row.sent_at ?? null,
+    errorMessage: row.error_message ?? null,
+    externalMessageId: row.external_message_id ?? null,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  }
+}
+
+export function mapFlowRow(row: WhatsAppFlowRow): WhatsAppFlow {
+  const triggerConfig = (row.trigger_config || {}) as WhatsAppFlowTriggerConfig
+
+  return {
+    id: row.id,
+    tenantId: row.tenant_id,
+    name: row.name,
+    description: row.description ?? null,
+    status: row.status,
+    triggerType: (row.trigger_type || 'message_received') as WhatsAppFlow['triggerType'],
+    triggerConfig: {
+      instance_ids: triggerConfig.instance_ids || [],
+      keywords: triggerConfig.keywords || [],
+      only_incoming: triggerConfig.only_incoming ?? true,
+    },
+    viewport: (row.viewport || { zoom: 1 }) as WhatsAppFlow['viewport'],
+    version: row.version ?? 1,
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  }
+}
+
+export function mapFlowExecutionRow(row: Record<string, any>): WhatsAppFlowExecutionSummary {
+  return {
+    id: row.id,
+    flowId: row.flow_id,
+    status: row.status,
+    contactId: row.contact_id ?? null,
+    conversationId: row.conversation_id ?? null,
+    startedAt: row.started_at ?? row.created_at,
+    completedAt: row.completed_at ?? null,
+    context: row.context ?? {},
+  }
+}
 
 export function mapContactRow(row: WhatsAppContactRow): WhatsAppContact {
   return {
@@ -86,5 +177,9 @@ export function useWhatsAppMapper() {
     mapContactRow,
     mapConversationRow,
     mapMessageRow,
+    mapCampaignRow,
+    mapCampaignRecipientRow,
+    mapFlowRow,
+    mapFlowExecutionRow,
   }
 }

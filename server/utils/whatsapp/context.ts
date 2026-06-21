@@ -12,7 +12,10 @@ export async function resolveWhatsAppTenantContext(event: any, requestedTenantId
 }
 
 export function getPublicWebhookBaseUrl(event: any): string {
-  const configured = process.env.NUXT_PUBLIC_SITE_URL || process.env.SITE_URL
+  const configured
+    = process.env.NUXT_PUBLIC_SITE_URL
+      || process.env.SITE_URL
+      || process.env.NUXT_PUBLIC_API_URL
   if (configured)
     return configured.replace(/\/$/, '')
 

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { EvolutionRemoteInstanceView, WhatsAppProvider } from '~/types/whatsapp'
+import type { WhatsAppProvider } from '~/types/whatsapp'
+
+import { WHATSAPP_CLOUD_API_ENABLED } from '~/constants/whatsapp'
 
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
@@ -88,6 +90,11 @@ function formatRemoteLabel(item: EvolutionRemoteInstanceView) {
 }
 
 async function handleSubmit() {
+  if (provider.value === 'cloud_api') {
+    toast.message('WhatsApp Cloud API oficial estará disponível em breve.')
+    return
+  }
+
   if (!name.value.trim()) {
     toast.error('Informe o nome da instância')
     return
@@ -155,8 +162,14 @@ async function handleSubmit() {
             <TabsTrigger value="evolution">
               Evolution API
             </TabsTrigger>
-            <TabsTrigger value="cloud_api">
+            <TabsTrigger value="cloud_api" :disabled="!WHATSAPP_CLOUD_API_ENABLED">
               Cloud API
+              <span
+                v-if="!WHATSAPP_CLOUD_API_ENABLED"
+                class="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              >
+                Em breve
+              </span>
             </TabsTrigger>
           </TabsList>
 
@@ -231,17 +244,13 @@ async function handleSubmit() {
           </TabsContent>
 
           <TabsContent value="cloud_api" class="mt-4 space-y-3">
-            <div class="space-y-2">
-              <Label for="cloud-phone">Phone Number ID</Label>
-              <Input id="cloud-phone" v-model="cloudPhoneId" placeholder="ID do número na Meta" />
-            </div>
-            <div class="space-y-2">
-              <Label for="cloud-business">Business Account ID (opcional)</Label>
-              <Input id="cloud-business" v-model="cloudBusinessId" />
-            </div>
-            <div class="space-y-2">
-              <Label for="cloud-token">Access Token</Label>
-              <Input id="cloud-token" v-model="cloudAccessToken" type="password" autocomplete="off" />
+            <div class="rounded-lg border border-dashed bg-muted/30 px-4 py-6 text-center">
+              <p class="text-sm font-medium">
+                WhatsApp Cloud API (Meta)
+              </p>
+              <p class="mt-2 text-sm text-muted-foreground">
+                Integração com a API oficial ficará disponível em breve. Por enquanto, use Evolution API.
+              </p>
             </div>
           </TabsContent>
         </Tabs>
@@ -256,7 +265,7 @@ async function handleSubmit() {
         <Button variant="outline" @click="open = false">
           Cancelar
         </Button>
-        <Button :disabled="saving" @click="handleSubmit">
+        <Button :disabled="saving || provider === 'cloud_api'" @click="handleSubmit">
           {{ saving ? 'Salvando...' : (provider === 'evolution' && evolutionMode === 'link' ? 'Vincular instância' : 'Criar instância') }}
         </Button>
       </DialogFooter>

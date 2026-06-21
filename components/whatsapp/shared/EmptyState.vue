@@ -3,10 +3,12 @@ withDefaults(defineProps<{
   title?: string
   description?: string
   icon?: string
+  comingSoon?: boolean
 }>(), {
   title: 'Em breve',
   description: 'Esta funcionalidade está sendo implementada.',
   icon: 'i-lucide-construction',
+  comingSoon: false,
 })
 </script>
 
@@ -15,6 +17,12 @@ withDefaults(defineProps<{
     <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
       <span :class="icon" class="h-6 w-6" />
     </div>
+    <span
+      v-if="comingSoon"
+      class="mb-3 rounded-full border bg-background px-3 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+    >
+      Em breve
+    </span>
     <h3 class="text-lg font-medium">
       {{ title }}
     </h3>

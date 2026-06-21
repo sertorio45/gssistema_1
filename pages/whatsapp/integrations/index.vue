@@ -10,7 +10,7 @@ import { toast } from 'vue-sonner'
 definePageMeta({
   middleware: ['auth'],
   title: 'Integrações WhatsApp',
-  description: 'Evolution API e WhatsApp Cloud API',
+  description: 'Conecte instâncias via Evolution API',
 })
 
 const {
@@ -150,7 +150,7 @@ async function handleDelete(id: string) {
   <div>
     <WhatsAppPageHeader
       title="Integrações"
-      description="Conecte Evolution API ou WhatsApp Cloud API oficial."
+      description="Conecte e gerencie instâncias WhatsApp via Evolution API."
     >
       <template #actions>
         <Button @click="setupOpen = true">
@@ -164,7 +164,8 @@ async function handleDelete(id: string) {
       <span class="i-lucide-info h-4 w-4" />
       <AlertTitle>Webhooks automáticos</AlertTitle>
       <AlertDescription>
-        Ao criar uma instância Evolution, o webhook é registrado automaticamente. Para Cloud API, configure a URL e o verify token no painel da Meta.
+        Ao criar uma instância Evolution, o webhook é registrado automaticamente.
+        WhatsApp Cloud API (Meta) estará disponível em breve.
       </AlertDescription>
     </Alert>
 

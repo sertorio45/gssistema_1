@@ -10,7 +10,12 @@ definePageMeta({
 
 <template>
   <div>
-    <WhatsAppPageHeader title="Novo template" />
-    <EmptyState icon="i-lucide-file-text" />
+    <WhatsAppPageHeader title="Novo template" description="WhatsApp Cloud API · Em breve" />
+    <EmptyState
+      coming-soon
+      title="Em breve"
+      description="Criação e sync de templates Meta ficará disponível quando a Cloud API oficial for habilitada."
+      icon="i-lucide-file-text"
+    />
   </div>
 </template>

@@ -2,9 +2,61 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { mapEvolutionConnectionState } from '~/server/utils/whatsapp/evolution-client'
 import { broadcastWhatsAppEvent } from '~/server/utils/whatsapp/realtime-broadcast'
+import { dispatchWhatsAppFlows } from '~/server/utils/whatsapp/flow-dispatcher'
 
 function normalizePhone(jid: string): string {
   return jid.replace(/@.*/, '').replace(/\D/g, '')
+}
+
+function normalizeEvolutionEventName(raw: unknown): string {
+  return String(raw || '')
+    .toLowerCase()
+    .replace(/_/g, '.')
+    .replace(/-/g, '.')
+}
+
+function extractEvolutionMessages(payload: Record<string, any>): Record<string, any>[] {
+  const data = payload.data
+  if (!data)
+    return []
+  if (Array.isArray(data))
+    return data.filter(Boolean)
+  if (Array.isArray(data.messages))
+    return data.messages.filter(Boolean)
+  if (data.key || data.message)
+    return [data]
+  return []
+}
+
+function extractMessageText(message: Record<string, any> | undefined): string {
+  if (!message)
+    return ''
+
+  const nested
+    = message.ephemeralMessage?.message
+      || message.viewOnceMessage?.message
+      || message.documentWithCaptionMessage?.message
+
+  const target = nested || message
+
+  return String(
+    target.conversation
+    || target.extendedTextMessage?.text
+    || target.imageMessage?.caption
+    || target.videoMessage?.caption
+    || target.buttonsResponseMessage?.selectedDisplayText
+    || '',
+  )
+}
+
+function resolveMessageRemoteJid(key: Record<string, any>): string {
+  return String(key.remoteJidAlt || key.remoteJid || '')
+}
+
+function shouldIgnoreEvolutionJid(remoteJid: string): boolean {
+  if (!remoteJid)
+    return true
+  return remoteJid.includes('status@broadcast') || remoteJid.endsWith('@broadcast')
 }
 
 async function upsertContact(
@@ -125,7 +177,7 @@ export async function processEvolutionWebhook(
 ) {
   const tenantId = instance.tenant_id as string
   const instanceId = instance.id as string
-  const event = String(payload.event || '').toLowerCase()
+  const event = normalizeEvolutionEventName(payload.event || payload.type)
 
   if (event === 'connection.update') {
     const mapped = mapEvolutionConnectionState(payload.data || payload)
@@ -143,15 +195,17 @@ export async function processEvolutionWebhook(
     return { handled: true, type: 'connection' }
   }
 
-  if (event === 'messages.upsert' || event === 'messages_upsert') {
-    const data = payload.data
-    const messages = Array.isArray(data) ? data : [data]
+  if (event === 'messages.upsert') {
+    const messages = extractEvolutionMessages(payload)
 
     for (const item of messages) {
       if (!item?.key)
         continue
 
-      const remoteJid = String(item.key.remoteJid || '')
+      const remoteJid = resolveMessageRemoteJid(item.key)
+      if (shouldIgnoreEvolutionJid(remoteJid))
+        continue
+
       const fromMe = Boolean(item.key.fromMe)
       const phone = normalizePhone(remoteJid)
       const pushName = String(item.pushName || phone)
@@ -160,11 +214,7 @@ export async function processEvolutionWebhook(
         ? new Date(Number(item.messageTimestamp) * 1000).toISOString()
         : new Date().toISOString()
 
-      const text
-        = item.message?.conversation
-          || item.message?.extendedTextMessage?.text
-          || item.message?.imageMessage?.caption
-          || ''
+      const text = extractMessageText(item.message)
 
       const contactId = await upsertContact(client, tenantId, phone, pushName)
       const conversationId = await upsertConversation(client, {
@@ -205,6 +255,50 @@ export async function processEvolutionWebhook(
 
         if (inserted) {
           await broadcastWhatsAppEvent(tenantId, 'message', inserted)
+
+          if (!fromMe) {
+            try {
+              await dispatchWhatsAppFlows(client, {
+                tenantId,
+                instanceId,
+                contactId,
+                conversationId,
+                remoteJid,
+                messageId: inserted.id as string,
+                messageContent: text,
+                messageType: String(item.messageType || 'text'),
+                fromMe,
+                sentAt: timestamp,
+                contactPhone: phone,
+                contactName: pushName,
+              })
+            }
+            catch (err: any) {
+              console.error('[WhatsApp] Flow dispatch failed:', err?.message || err)
+            }
+          }
+        }
+      }
+      else if (!fromMe) {
+        // Message already stored (duplicate webhook) — still attempt flow dispatch.
+        try {
+          await dispatchWhatsAppFlows(client, {
+            tenantId,
+            instanceId,
+            contactId,
+            conversationId,
+            remoteJid,
+            messageId: existingMsg.id as string,
+            messageContent: text,
+            messageType: String(item.messageType || 'text'),
+            fromMe,
+            sentAt: timestamp,
+            contactPhone: phone,
+            contactName: pushName,
+          })
+        }
+        catch (err: any) {
+          console.error('[WhatsApp] Flow dispatch failed (existing message):', err?.message || err)
         }
       }
     }
@@ -212,7 +306,7 @@ export async function processEvolutionWebhook(
     return { handled: true, type: 'message' }
   }
 
-  if (event === 'messages.update' || event === 'messages_update') {
+  if (event === 'messages.update') {
     const updates = Array.isArray(payload.data) ? payload.data : [payload.data]
     for (const item of updates) {
       const messageId = String(item?.key?.id || '')

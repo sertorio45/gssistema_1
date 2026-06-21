@@ -1,9 +1,10 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createError } from 'h3'
 
-export async function loadInstanceWithIntegration(event: any, instanceId: string) {
-  const client = serverSupabaseServiceRole(event)
-
+export async function loadInstanceWithIntegrationByClient(
+  client: SupabaseClient,
+  instanceId: string,
+) {
   const { data: instance, error } = await client
     .from('whatsapp_instance')
     .select('*')
@@ -21,6 +22,12 @@ export async function loadInstanceWithIntegration(event: any, instanceId: string
     .maybeSingle()
 
   return { client, instance, integration }
+}
+
+export async function loadInstanceWithIntegration(event: any, instanceId: string) {
+  const { serverSupabaseServiceRole } = await import('#supabase/server')
+  const client = serverSupabaseServiceRole(event)
+  return loadInstanceWithIntegrationByClient(client, instanceId)
 }
 
 export function getEvolutionInstanceName(instance: Record<string, any>): string {

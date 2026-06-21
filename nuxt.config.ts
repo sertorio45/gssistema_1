@@ -15,7 +15,7 @@ export default defineNuxtConfig({
     '@nuxt/image',
   ],
 
-  css: ['@unocss/reset/tailwind.css'],
+  css: ['@unocss/reset/tailwind.css', 'drawflow/dist/drawflow.min.css', '~/assets/css/drawflow-overrides.css'],
 
   colorMode: {
     classSuffix: '',
@@ -40,6 +40,7 @@ export default defineNuxtConfig({
     // Inbox usa realtime e componentes client-only; evita erro de vnode no SSR.
     '/whatsapp/conversations': { ssr: false },
     '/whatsapp/conversations/**': { ssr: false },
+    '/whatsapp/flows/**': { ssr: false },
   },
 
   imports: {

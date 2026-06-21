@@ -5,6 +5,7 @@ import ConnectionStatus from '~/components/whatsapp/integrations/ConnectionStatu
 import QrCodeDisplay from '~/components/whatsapp/integrations/QrCodeDisplay.vue'
 import WebhookUrlCopy from '~/components/whatsapp/integrations/WebhookUrlCopy.vue'
 import WhatsAppPageHeader from '~/components/whatsapp/shared/WhatsAppPageHeader.vue'
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
@@ -189,6 +190,14 @@ async function handleTest() {
     </div>
 
     <div v-else-if="instance" class="grid gap-6 lg:grid-cols-2">
+      <Alert v-if="instance.provider === 'cloud_api'" class="lg:col-span-2">
+        <span class="i-lucide-clock h-4 w-4" />
+        <AlertTitle>WhatsApp Cloud API · Em breve</AlertTitle>
+        <AlertDescription>
+          Esta instância usa a API oficial da Meta, que está em standby. Para operação imediata, crie uma instância Evolution API.
+        </AlertDescription>
+      </Alert>
+
       <Card>
         <CardHeader>
           <CardTitle>Status da conexão</CardTitle>
@@ -231,17 +240,27 @@ async function handleTest() {
               Gerar QR Code
             </Button>
             <Button
-              v-if="instance.status === 'connected' || instance.status === 'connecting'"
+              v-if="instance.provider === 'evolution' && (instance.status === 'connected' || instance.status === 'connecting')"
               variant="outline"
               :disabled="actionLoading"
               @click="handleDisconnect"
             >
               Desconectar
             </Button>
-            <Button variant="outline" :disabled="actionLoading" @click="handleSync">
+            <Button
+              v-if="instance.provider === 'evolution'"
+              variant="outline"
+              :disabled="actionLoading"
+              @click="handleSync"
+            >
               Sincronizar
             </Button>
-            <Button variant="outline" :disabled="actionLoading" @click="handleTest">
+            <Button
+              v-if="instance.provider === 'evolution'"
+              variant="outline"
+              :disabled="actionLoading"
+              @click="handleTest"
+            >
               Testar conexão
             </Button>
           </div>

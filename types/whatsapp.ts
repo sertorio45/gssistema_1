@@ -1,5 +1,7 @@
 // WhatsApp module domain types (UI layer — camelCase)
 
+import type { DrawflowExport } from '~/types/drawflow'
+
 export type WhatsAppProvider = 'evolution' | 'cloud_api'
 export type WhatsAppInstanceStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 export type WhatsAppConversationStatus = 'open' | 'pending' | 'resolved' | 'spam'
@@ -192,10 +194,61 @@ export interface WhatsAppCampaign {
   scheduledAt?: string | null
   startedAt?: string | null
   completedAt?: string | null
-  audienceFilter: Record<string, unknown>
-  stats: Record<string, unknown>
+  audienceFilter: WhatsAppCampaignAudienceFilter
+  stats: WhatsAppCampaignStats
   createdAt: string
   updatedAt: string
+  instanceName?: string | null
+}
+
+export type WhatsAppCampaignRecipientStatus = 'pending' | 'sent' | 'failed' | 'skipped'
+
+export interface WhatsAppCampaignAudienceFilter {
+  message: string
+  audience_type?: 'all' | 'tags' | 'selected'
+  opt_in_only?: boolean
+  exclude_blocked?: boolean
+  tags?: string[]
+  contact_ids?: string[]
+}
+
+export interface WhatsAppCampaignStats {
+  total?: number
+  sent?: number
+  failed?: number
+  pending?: number
+  skipped?: number
+}
+
+export interface WhatsAppCampaignRecipient {
+  id: string
+  tenantId: string
+  campaignId: string
+  contactId?: string | null
+  phone: string
+  contactName?: string | null
+  status: WhatsAppCampaignRecipientStatus | string
+  sentAt?: string | null
+  errorMessage?: string | null
+  externalMessageId?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateWhatsAppCampaignPayload {
+  tenant_id?: string
+  name: string
+  instance_id: string
+  audience_filter: WhatsAppCampaignAudienceFilter
+  scheduled_at?: string | null
+}
+
+export interface UpdateWhatsAppCampaignPayload {
+  tenant_id?: string
+  name?: string
+  instance_id?: string
+  audience_filter?: WhatsAppCampaignAudienceFilter
+  scheduled_at?: string | null
 }
 
 export interface WhatsAppFlow {
@@ -204,12 +257,61 @@ export interface WhatsAppFlow {
   name: string
   description?: string | null
   status: WhatsAppFlowStatus
-  triggerType: string
-  triggerConfig: Record<string, unknown>
-  viewport: { x: number, y: number, zoom: number }
+  triggerType: WhatsAppFlowTriggerType
+  triggerConfig: WhatsAppFlowTriggerConfig
+  viewport: WhatsAppFlowViewport
   version: number
   createdAt: string
   updatedAt: string
+  executionsCount?: number
+  lastTriggeredAt?: string | null
+}
+
+export type WhatsAppFlowTriggerType = 'message_received' | 'manual' | 'keyword'
+
+export interface WhatsAppFlowTriggerConfig {
+  instance_ids?: string[]
+  keywords?: string[]
+  only_incoming?: boolean
+}
+
+export interface WhatsAppFlowViewport {
+  zoom?: number
+  drawflow?: DrawflowExport['drawflow']
+}
+
+export interface WhatsAppFlowExecutionSummary {
+  id: string
+  flowId: string
+  status: string
+  contactId?: string | null
+  conversationId?: string | null
+  startedAt: string
+  completedAt?: string | null
+  context: Record<string, unknown>
+}
+
+export interface CreateWhatsAppFlowPayload {
+  tenant_id?: string
+  name: string
+  description?: string
+  trigger_type?: WhatsAppFlowTriggerType
+  trigger_config?: WhatsAppFlowTriggerConfig
+}
+
+export interface UpdateWhatsAppFlowPayload {
+  tenant_id?: string
+  name?: string
+  description?: string | null
+  trigger_type?: WhatsAppFlowTriggerType
+  trigger_config?: WhatsAppFlowTriggerConfig
+  status?: WhatsAppFlowStatus
+}
+
+export interface SaveWhatsAppFlowCanvasPayload {
+  tenant_id?: string
+  canvas: DrawflowExport
+  zoom?: number
 }
 
 export interface WhatsAppFlowNode {
@@ -471,4 +573,63 @@ export interface WhatsAppMessageRow {
   metadata?: Record<string, unknown>
   created_at?: string
   updated_at?: string
+}
+
+export interface WhatsAppCampaignRow {
+  id: string
+  tenant_id: string
+  instance_id?: string | null
+  template_id?: string | null
+  name: string
+  status: WhatsAppCampaignStatus
+  scheduled_at?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  audience_filter?: WhatsAppCampaignAudienceFilter | Record<string, unknown>
+  stats?: WhatsAppCampaignStats | Record<string, unknown>
+  created_at?: string
+  updated_at?: string
+  whatsapp_instance?: { name?: string | null } | null
+}
+
+export interface WhatsAppCampaignRecipientRow {
+  id: string
+  tenant_id: string
+  campaign_id: string
+  contact_id?: string | null
+  phone: string
+  status: string
+  sent_at?: string | null
+  error_message?: string | null
+  external_message_id?: string | null
+  created_at?: string
+  updated_at?: string
+  whatsapp_contact?: { name?: string | null } | null
+}
+
+export interface WhatsAppFlowRow {
+  id: string
+  tenant_id: string
+  name: string
+  description?: string | null
+  status: WhatsAppFlowStatus
+  trigger_type: string
+  trigger_config?: WhatsAppFlowTriggerConfig | Record<string, unknown>
+  viewport?: { x: number, y: number, zoom: number }
+  version?: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface WhatsAppFlowExecutionRow {
+  id: string
+  tenant_id: string
+  flow_id: string
+  contact_id?: string | null
+  conversation_id?: string | null
+  status: string
+  context?: Record<string, unknown>
+  started_at?: string
+  completed_at?: string | null
+  created_at?: string
 }

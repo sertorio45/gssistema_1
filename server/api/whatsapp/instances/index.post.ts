@@ -9,6 +9,7 @@ import {
   resolveWhatsAppTenantContext,
   sanitizeInstanceRow,
 } from '~/server/utils/whatsapp/context'
+import { WHATSAPP_CLOUD_API_ENABLED } from '~/constants/whatsapp'
 import {
   evolutionCreateInstance,
   evolutionSetWebhook,
@@ -46,6 +47,13 @@ export default defineEventHandler(async (event) => {
 
   if (!['evolution', 'cloud_api'].includes(body.provider)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid provider' })
+  }
+
+  if (body.provider === 'cloud_api' && !WHATSAPP_CLOUD_API_ENABLED) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: 'WhatsApp Cloud API oficial estará disponível em breve.',
+    })
   }
 
   const linkExisting = body.provider === 'evolution' && Boolean(body.link_existing)

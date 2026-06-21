@@ -63,6 +63,7 @@
     "@vueuse/integrations": "^13.3.0",
     "chart.js": "^4.4.9",
     "defu": "6.1.2",
+    "drawflow": "^0.0.60",
     "embla-carousel": "^8.5.2",
     "embla-carousel-vue": "^8.5.2",
     "jwt-decode": "^4.0.0",

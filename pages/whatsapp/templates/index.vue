@@ -12,19 +12,24 @@ definePageMeta({
 
 <template>
   <div>
-    <WhatsAppPageHeader title="Templates" description="Gerencie templates aprovados pela Meta.">
+    <WhatsAppPageHeader
+      title="Templates"
+      description="Templates aprovados pela Meta (WhatsApp Cloud API)."
+    >
       <template #actions>
-        <NuxtLink to="/whatsapp/templates/new">
-          <Button disabled>
-            Novo template
-          </Button>
-        </NuxtLink>
+        <Button disabled>
+          Novo template
+          <span class="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase">
+            Em breve
+          </span>
+        </Button>
       </template>
     </WhatsAppPageHeader>
 
     <EmptyState
-      title="Templates em construção"
-      description="Sync com Cloud API será implementado na Fase 6."
+      coming-soon
+      title="Templates em breve"
+      description="A sincronização de templates depende da WhatsApp Cloud API oficial, que está em standby. Disparos via Evolution API seguem disponíveis nas conversas."
       icon="i-lucide-file-text"
     />
   </div>

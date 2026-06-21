@@ -23,9 +23,13 @@ const emit = defineEmits<{
   open: []
 }>()
 
-const providerLabel = computed(() =>
-  props.instance.provider === 'cloud_api' ? 'Cloud API' : 'Evolution API',
-)
+const providerLabel = computed(() => {
+  if (props.instance.provider === 'cloud_api')
+    return 'Cloud API (Meta) · Em breve'
+  return 'Evolution API'
+})
+
+const isCloudStandby = computed(() => props.instance.provider === 'cloud_api')
 </script>
 
 <template>
@@ -39,6 +43,9 @@ const providerLabel = computed(() =>
           <Badge v-if="instance.isDefault" variant="secondary">
             Padrão
           </Badge>
+          <Badge v-if="isCloudStandby" variant="outline">
+            Em breve
+          </Badge>
         </div>
         <p class="text-sm text-muted-foreground">
           {{ providerLabel }}
@@ -48,6 +55,9 @@ const providerLabel = computed(() =>
     </CardHeader>
 
     <CardContent class="space-y-4">
+      <p v-if="isCloudStandby" class="rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+        Integração Cloud API oficial em standby. Use Evolution API para operação atual.
+      </p>
       <WebhookUrlCopy
         v-if="webhookUrl"
         :url="webhookUrl"
@@ -64,7 +74,7 @@ const providerLabel = computed(() =>
         Configurar
       </Button>
       <Button
-        v-if="instance.provider === 'evolution' && instance.status !== 'connected'"
+        v-if="!isCloudStandby && instance.provider === 'evolution' && instance.status !== 'connected'"
         size="sm"
         :disabled="actionLoading"
         @click="emit('connect')"
@@ -72,7 +82,7 @@ const providerLabel = computed(() =>
         Conectar
       </Button>
       <Button
-        v-if="instance.status === 'connected' || instance.status === 'connecting'"
+        v-if="!isCloudStandby && (instance.status === 'connected' || instance.status === 'connecting')"
         variant="outline"
         size="sm"
         :disabled="actionLoading"
@@ -81,6 +91,7 @@ const providerLabel = computed(() =>
         Desconectar
       </Button>
       <Button
+        v-if="!isCloudStandby"
         variant="outline"
         size="sm"
         :disabled="actionLoading"
@@ -89,6 +100,7 @@ const providerLabel = computed(() =>
         Sincronizar
       </Button>
       <Button
+        v-if="!isCloudStandby"
         variant="outline"
         size="sm"
         :disabled="actionLoading"
