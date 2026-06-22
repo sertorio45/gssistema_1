@@ -1,8 +1,10 @@
 export default defineNuxtRouteMiddleware((to) => {
   const publicPages = [
     '/login',
+    '/login-basic',
     '/register',
     '/forgot-password',
+    '/reset-password',
     '/403',
     '/404',
     '/401',

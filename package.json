@@ -1,9 +1,9 @@
 {
-  "name": "nuxt-shadcn-dashboard",
+  "name": "blimber-hub",
   "type": "module",
   "version": "0.2.6",
   "packageManager": "pnpm@9.5.0+sha512.140036830124618d624a2187b50d04289d5a087f326c9edfc0ccd733d76c4f52c3a313d4fc148794a2a9d81553016004e6742e8cf850670268a7387fc220c903",
-  "description": "Shadcn Dashboard built with Nuxt",
+  "description": "Blimber - Hub de soluções — plataforma SaaS multi-tenant (CRM, WhatsApp, CMS)",
   "author": "Dian Pratama <dianpratama2@gmail.com>",
   "license": "MIT",
   "homepage": "https://dashboard.dianprata.com/",

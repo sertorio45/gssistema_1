@@ -1,7 +1,24 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { APP_DESCRIPTION, APP_FULL_NAME, APP_NAME } from './constants/app'
+
 export default defineNuxtConfig({
   devtools: { enabled: false },
   ssr: true,
+
+  app: {
+    head: {
+      title: APP_FULL_NAME,
+      titleTemplate: `%s · ${APP_NAME}`,
+      htmlAttrs: { lang: 'pt-BR' },
+      meta: [
+        { charset: 'utf-8' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'description', content: APP_DESCRIPTION },
+        { name: 'application-name', content: APP_FULL_NAME },
+      ],
+      link: [{ rel: 'icon', href: '/favicon.ico' }],
+    },
+  },
 
   modules: [
     '@unocss/nuxt',
@@ -71,6 +88,12 @@ export default defineNuxtConfig({
       login: '/login',
       callback: '/confirm',
       exclude: [
+        '/login',
+        '/login-basic',
+        '/register',
+        '/forgot-password',
+        '/reset-password',
+        '/confirm',
         '/403',
         '/404',
         '/401',

@@ -168,6 +168,61 @@ export function useAuth() {
   // Função para obter o role atual
   const currentRole = computed(() => userRole.value)
 
+  // Solicita e-mail de recuperação de senha
+  const resetPassword = async (email: string) => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const redirectTo = import.meta.client
+        ? `${window.location.origin}/reset-password`
+        : undefined
+
+      const { error: resetError } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      })
+
+      if (resetError) {
+        error.value = resetError.message
+        return { success: false, error: resetError.message }
+      }
+
+      return { success: true }
+    }
+    catch (err: any) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
+  // Define nova senha após o link de recuperação
+  const updatePassword = async (password: string) => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const { error: updateError } = await client.auth.updateUser({ password })
+
+      if (updateError) {
+        error.value = updateError.message
+        return { success: false, error: updateError.message }
+      }
+
+      await client.auth.signOut()
+      return { success: true }
+    }
+    catch (err: any) {
+      error.value = err.message
+      return { success: false, error: err.message }
+    }
+    finally {
+      loading.value = false
+    }
+  }
+
   // Função para verificar a sessão atual
   const checkSession = async () => {
     const { data } = await client.auth.getSession()
@@ -180,6 +235,8 @@ export function useAuth() {
   return {
     login,
     logout,
+    resetPassword,
+    updatePassword,
     isAuthenticated,
     currentUser,
     currentRole,

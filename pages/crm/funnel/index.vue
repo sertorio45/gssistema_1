@@ -48,7 +48,7 @@ import { useTenantPage } from '~/composables/useTenantPage'
 
 // SEO Meta
 useSeoMeta({
-  title: 'CRM Funil - SIEM SISTEMAS',
+  title: 'CRM Funil',
   description: 'Gerencie seu funil de vendas e leads com eficiência.',
 })
 

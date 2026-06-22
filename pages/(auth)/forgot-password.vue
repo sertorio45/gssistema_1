@@ -1,56 +1,34 @@
 <script setup lang="ts">
-import { useAuth } from '~/composables/useAuth'
+import Auth from '~/components/layout/Auth.vue'
 
 definePageMeta({
   layout: 'blank',
   middleware: ['guest'],
 })
 
-const router = useRouter()
-const { user, checkSession } = useAuth()
-
-// Verificar se o usuário já está autenticado ao carregar a página
-onMounted(async () => {
-  await checkSession()
-
-  if (user.value) {
-    const redirectTo = localStorage.getItem('redirectTo') || '/'
-    localStorage.removeItem('redirectTo')
-    router.push(redirectTo)
-  }
+useSeoMeta({
+  title: 'Recuperar senha',
 })
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center gap-6 bg-muted p-6 min-h-svh md:p-10">
-    <div class="max-w-sm w-full flex flex-col gap-6">
-      <NuxtLink to="#" class="flex items-center self-center gap-2 font-medium">
-        <div class="h-6 w-6 flex items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Icon name="i-lucide-gallery-vertical-end" class-name="size-4" />
-        </div>
-        Acme Inc.
-      </NuxtLink>
-      <Card>
-        <CardHeader class="text-center">
-          <CardTitle class="text-xl">
-            Forgot Password
-          </CardTitle>
-          <CardDescription> Enter your email below to reset your password </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div class="grid mx-auto max-w-sm gap-6">
-            <AuthForgotPassword />
-            <p class="text-center text-sm text-muted-foreground">
-              Already have an account?
-              <NuxtLink to="/login" class="underline underline-offset-4 hover:text-primary">
-                Login
-              </NuxtLink>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+  <Auth reverse>
+    <div class="grid mx-auto max-w-sm gap-6">
+      <div class="grid gap-2 text-center">
+        <h1 class="text-2xl font-semibold tracking-tight">
+          Recuperar senha
+        </h1>
+        <p class="text-balance text-sm text-muted-foreground">
+          Informe seu e-mail para receber o link de redefinição
+        </p>
+      </div>
+      <AuthForgotPassword />
+      <p class="text-center text-sm text-muted-foreground">
+        Lembrou sua senha?
+        <NuxtLink to="/login" class="underline underline-offset-4 hover:text-primary">
+          Voltar ao login
+        </NuxtLink>
+      </p>
     </div>
-  </div>
+  </Auth>
 </template>
-
-<style scoped></style>

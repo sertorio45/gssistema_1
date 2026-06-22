@@ -5,7 +5,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Usuários - Configurações',
+  title: 'Usuários',
   description: 'Gerencie os usuários da sua empresa no CRM e WhatsApp.',
 })
 </script>

@@ -7,6 +7,11 @@ definePageMeta({
   middleware: ['guest'],
 })
 
+useSeoMeta({
+  title: 'Entrar',
+  description: 'Acesse sua conta no Blimber - Hub de soluções.',
+})
+
 const router = useRouter()
 
 // Verificar se o usuário já está autenticado ao carregar a página
@@ -24,10 +29,10 @@ const router = useRouter()
     <div class="grid mx-auto max-w-sm gap-6">
       <div class="grid gap-2 text-center">
         <h1 class="text-2xl font-semibold tracking-tight">
-          Welcome back
+          Seja bem-vindo de volta
         </h1>
         <p class="text-balance text-sm text-muted-foreground">
-          Enter your credentials to login
+          Digite suas credenciais para entrar
         </p>
       </div>
       <SignIn />

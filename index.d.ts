@@ -1,5 +1,10 @@
 declare module 'nuxt/schema' {
   interface AppConfigInput {
+    app?: {
+      name?: string
+      tagline?: string
+      fullName?: string
+    }
     /** Sidebar configuration */
     sidebar: {
       collapsible: 'offcanvas' | 'icon' | 'none'

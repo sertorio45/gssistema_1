@@ -1,4 +1,4 @@
-# GS Sistema — Documentação Completa
+# Blimber — Hub de soluções
 
 > **Stack:** Nuxt 3 · Vue 3 · TypeScript · Shadcn/ui · Supabase · UnoCSS · TanStack Table · Lucide Icons
 
@@ -6,7 +6,7 @@
 
 ## 1. Visão Geral
 
-O **GS Sistema** é uma plataforma SaaS e ERP multi-tenant para gerenciamento de agências. Unifica um CRM completo, autenticação robusta via Supabase e suporte nativo a múltiplos tenants, construído sobre Nuxt 3 com componentes modernos Shadcn/ui.
+O **Blimber** é uma plataforma SaaS e ERP multi-tenant (**Hub de soluções**) para gestão de empresas e agências. Unifica CRM, WhatsApp, artigos e autenticação via Supabase, com suporte nativo a múltiplos tenants, construído sobre Nuxt 3 com Shadcn/ui.
 
 | Camada | Tecnologia |
 |---|---|

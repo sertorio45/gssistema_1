@@ -1,4 +1,9 @@
 export default defineAppConfig({
+  app: {
+    name: 'Blimber',
+    tagline: 'Hub de soluções',
+    fullName: 'Blimber - Hub de soluções',
+  },
   icon: {
     size: '', // default <Icon> size applied
     class: '', // default <Icon> class applied

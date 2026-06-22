@@ -5,6 +5,8 @@ import { nextTick, onMounted, ref, watch } from 'vue'
 
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { APP_FULL_NAME } from '~/constants/app'
+
 const colorMode = useColorMode()
 
 const logoLight = '/logotipo.svg'
@@ -60,7 +62,7 @@ watch(
       <template v-if="isReady">
         <NuxtImg
           :src="logoSrc"
-          alt="Logo"
+          :alt="APP_FULL_NAME"
           class="px-2 py-3"
           width="190px"
           loading="eager"

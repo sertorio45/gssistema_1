@@ -63,22 +63,22 @@ async function onSubmit(event: Event) {
     </div>
     <div class="grid gap-2">
       <div class="flex items-center">
-        <Label for="password"> Password </Label>
+        <Label for="password"> Senha </Label>
         <NuxtLink to="/forgot-password" class="ml-auto inline-block text-sm underline">
-          Forgot your password?
+          Esqueceu sua senha?
         </NuxtLink>
       </div>
       <PasswordInput id="password" v-model="password" placeholder="Digite sua senha" />
     </div>
     <Button type="submit" class="w-full" :disabled="loading">
       <Loader2 v-if="loading" class="mr-2 h-4 w-4 animate-spin" />
-      Login
+      Entrar
     </Button>
   </form>
   <div class="mt-4 text-center text-sm text-muted-foreground">
-    Don't have an account?
+    Não tem uma conta?
     <NuxtLink to="/register" class="underline">
-      Sign up
+      Cadastre-se
     </NuxtLink>
   </div>
 </template>

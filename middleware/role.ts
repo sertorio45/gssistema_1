@@ -8,7 +8,7 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
   }
 
   // Rotas públicas que não precisam de autenticação/role
-  const publicPages = ['/login', '/register', '/forgot-password', '/403', '/404', '/confirm']
+  const publicPages = ['/login', '/login-basic', '/register', '/forgot-password', '/reset-password', '/403', '/404', '/confirm']
 
   try {
     // Obter o token da sessão

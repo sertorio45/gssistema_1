@@ -1,51 +1,30 @@
 <script setup lang="ts">
+import Auth from '~/components/layout/Auth.vue'
+
 definePageMeta({
   layout: 'blank',
   middleware: ['guest'],
 })
-
-const router = useRouter()
-const { user, checkSession } = useSupabase()
-
-// Verificar se o usuário já está autenticado ao carregar a página
-onMounted(async () => {
-  await checkSession()
-
-  if (user.value) {
-    const redirectTo = localStorage.getItem('redirectTo') || '/'
-    localStorage.removeItem('redirectTo')
-    router.push(redirectTo)
-  }
-})
 </script>
 
 <template>
-  <LayoutAuth>
+  <Auth reverse>
     <div class="grid mx-auto max-w-sm gap-6">
       <div class="flex flex-col text-center space-y-2">
         <h1 class="text-2xl font-semibold tracking-tight">
-          Create an account
+          Criar conta
         </h1>
         <p class="text-sm text-muted-foreground">
-          Enter your email below to create your account
+          Informe seus dados para criar sua conta
         </p>
       </div>
       <AuthSignUp />
       <p class="text-center text-sm text-muted-foreground">
-        Already have an account?
+        Já tem uma conta?
         <NuxtLink to="/login" class="underline underline-offset-4 hover:text-primary">
-          Login
+          Entrar
         </NuxtLink>
       </p>
-      <p class="px-8 text-center text-sm text-muted-foreground">
-        By clicking continue, you agree to our
-        <a href="/terms" class="underline underline-offset-4 hover:text-primary"> Terms of Service </a>
-        and
-        <a href="/privacy" class="underline underline-offset-4 hover:text-primary"> Privacy Policy </a>
-        .
-      </p>
     </div>
-  </LayoutAuth>
+  </Auth>
 </template>
-
-<style scoped></style>

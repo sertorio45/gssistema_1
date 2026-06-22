@@ -2,6 +2,7 @@
 import { ConfigProvider } from 'radix-vue'
 
 import { Sonner } from '@/components/ui/sonner'
+import { APP_DESCRIPTION, APP_FULL_NAME } from '~/constants/app'
 
 const colorMode = useColorMode()
 
@@ -13,35 +14,22 @@ const route = useRoute()
 
 useHead({
   meta: [
-    { charset: 'utf-8' },
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' },
     { key: 'theme-color', name: 'theme-color', content: color },
   ],
-  link: [{ rel: 'icon', href: '/favicon.ico' }],
   script: [{ src: '/tinymce/tinymce.min.js' }],
-  htmlAttrs: {
-    lang: 'en',
-  },
   bodyAttrs: {
     class: computed(() => `theme-${theme.value}`),
     style: computed(() => `--radius: ${radius.value}rem;`),
   },
 })
 
-const title = 'Nuxt Shadcn UI - Dashboard Template'
-const description
-  = 'This dashboard, built with Nuxt, Shadcn UI, and UnoCSS. It includes a dark mode toggle and is optimized for performance and data efficiency.'
-
 useSeoMeta({
-  title,
-  description,
-  ogTitle: title,
-  ogDescription: description,
-  ogUrl: 'https://dashboard.dianprata.com',
-  ogImage: 'https://nuxt-shadcn-dashboard.vercel.app/social-card.png',
-  twitterTitle: title,
-  twitterDescription: description,
-  twitterImage: 'https://nuxt-shadcn-dashboard.vercel.app/social-card.png',
+  title: APP_FULL_NAME,
+  description: APP_DESCRIPTION,
+  ogTitle: APP_FULL_NAME,
+  ogDescription: APP_DESCRIPTION,
+  twitterTitle: APP_FULL_NAME,
+  twitterDescription: APP_DESCRIPTION,
   twitterCard: 'summary_large_image',
 })
 
