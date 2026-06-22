@@ -2,6 +2,7 @@
 import { dashboardKPI, leads, meetings } from '~/data/crm-mock'
 
 definePageMeta({
+  middleware: ['auth'],
   title: 'Relatórios',
   description: 'Análises e relatórios dos dados do seu CRM',
 })
@@ -168,7 +169,7 @@ function formatCurrency(value: number) {
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Pipeline Ativo
+            Funil Ativo
           </CardTitle>
           <Icon name="lucide:activity" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>

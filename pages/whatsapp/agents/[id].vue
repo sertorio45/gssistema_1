@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WhatsAppLlmProvider } from '~/types/whatsapp'
 
+import AgentModelSelect from '~/components/whatsapp/agents/AgentModelSelect.vue'
 import WhatsAppPageHeader from '~/components/whatsapp/shared/WhatsAppPageHeader.vue'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -199,7 +200,11 @@ const internalTools = [
               </div>
               <div class="space-y-2">
                 <Label for="model">Modelo</Label>
-                <Input id="model" v-model="form.model" />
+                <AgentModelSelect
+                  id="model"
+                  v-model="form.model"
+                  :provider="form.llm_provider"
+                />
               </div>
             </div>
 

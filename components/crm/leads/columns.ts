@@ -139,7 +139,12 @@ export const columns: ColumnDef<any>[] = [
   {
     accessorKey: 'assigned_to',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Responsável' }),
-    cell: ({ row }) => h('span', row.getValue('assigned_to') || row.original.assignedTo || 'Não atribuído'),
+    cell: ({ row, table }) => {
+      const userId = row.getValue('assigned_to') || row.original.assignedTo
+      const getMemberName = (table.options.meta as { getMemberName?: (id?: string | null) => string })?.getMemberName
+      const label = getMemberName ? getMemberName(userId as string | null) : (userId || 'Não atribuído')
+      return h('span', label)
+    },
   },
   {
     accessorKey: 'created_at',

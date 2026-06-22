@@ -1,24 +1,30 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 import { defineEventHandler, readBody } from 'h3'
+
+import {
+  canAccessTenantModule,
+  isWrongTenantForScopedUser,
+  resolveTenantApiAuth,
+} from '~/server/utils/tenant-access'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
     return { status: 401, message: 'Unauthorized' }
 
-  const body = await readBody(event) as { tenant_id: string; name: string }
+  const body = await readBody(event) as { tenant_id: string, name: string }
   if (!body.tenant_id)
     return { status: 400, message: 'Tenant ID is required' }
   if (!body.name || String(body.name).trim() === '')
     return { status: 400, message: 'Name is required' }
 
-  const tenantRoles = user.app_metadata?.tenant_roles || {}
-  const tenantId = event.context.auth?.tenantId as string | undefined
-  const role = tenantId && tenantRoles[tenantId]
-    ? tenantRoles[tenantId]
-    : (user.user_metadata?.role as string) || (user.app_metadata?.role as string)
+  const { role, tenantId } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
 
-  if (role === 'cliente' && body.tenant_id !== tenantId)
+  if (!canAccessTenantModule(role))
+    return { status: 403, message: 'Forbidden' }
+
+  if (isWrongTenantForScopedUser(role, tenantId, body.tenant_id))
     return { status: 403, message: 'Forbidden' }
 
   const client = await serverSupabaseServiceRole(event)

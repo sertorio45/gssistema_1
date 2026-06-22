@@ -57,7 +57,13 @@ export default defineEventHandler(async (event) => {
   const isUuid = (v: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 
-  let role: string | null = tenantId && tenantRoles[tenantId] ? tenantRoles[tenantId] : null
+  let role: string | null = null
+  if (isStaffUser(user)) {
+    role = resolveStaffRole(user)
+  }
+  else if (tenantId && tenantRoles[tenantId]) {
+    role = tenantRoles[tenantId]
+  }
   if (!role && tenantId && isUuid(tenantId)) {
     const { data: row } = await service.from('tenant').select('slug').eq('id', tenantId).maybeSingle()
     if (row?.slug && tenantRoles[row.slug])
@@ -66,12 +72,9 @@ export default defineEventHandler(async (event) => {
   if (!role) {
     role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
   }
-  if (!role && isStaffUser(user)) {
-    role = resolveStaffRole(user)
-  }
 
-  // Admin/funcionário: acesso total (a lógica de compra por módulo é para `cliente`)
-  if (role !== 'cliente')
+  // Administração da plataforma (Superadministrador / Funcionário): todos os módulos
+  if (role !== 'cliente' && role !== 'atendente')
     return
 
   if (!tenantId) {

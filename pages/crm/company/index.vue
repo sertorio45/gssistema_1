@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Company } from '~/types/crm'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { toast } from 'vue-sonner'
 
@@ -24,17 +24,15 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
+  middleware: ['auth'],
   title: 'Empresas',
   description: 'Gerencie empresas e prospects',
 })
 
-// Composables
-const { tenantId, listTenants, setCurrentTenantById, setTenantFromJWT, tenants } = useTenant()
-const { currentRole } = useAuth()
+const { tenantId, whenTenantReady } = useTenantPage()
 
 const companiesData = ref<Company[]>([])
 const isLoading = ref(false)
@@ -114,43 +112,16 @@ function handleLimitChange(newLimit: number) {
   fetchCompanies()
 }
 
-onMounted(async () => {
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-    await fetchCompanies()
-  }
+whenTenantReady(() => {
+  fetchCompanies()
 })
 
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-    await fetchCompanies()
-  }
+watch(tenantId, (val) => {
+  if (!val)
+    return
+  isFormOpen.value = false
+  editingCompany.value = undefined
 })
-
-watch(
-  tenantId,
-  (val) => {
-    if (val) {
-      fetchCompanies()
-    }
-    isFormOpen.value = false
-    editingCompany.value = undefined
-  },
-  { immediate: true },
-)
 
 function showMultiDeleteConfirmation() {
   showMultiDeleteDialog.value = true

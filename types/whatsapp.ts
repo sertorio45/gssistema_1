@@ -28,6 +28,7 @@ export type WhatsAppFlowNodeType =
   | 'message'
   | 'condition'
   | 'delay'
+  | 'wait_reply'
   | 'action'
   | 'ai_agent'
   | 'handoff'
@@ -131,8 +132,21 @@ export interface WhatsAppConversation {
   channel: string
   isOnline: boolean
   profilePicture?: string | null
+  activeAgentId?: string | null
+  activeAgentName?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface WhatsAppConversationLead {
+  id: string
+  name: string
+  value: number
+  serviceName: string | null
+  stageName: string | null
+  funnelName: string | null
+  status: string
+  priority: string
 }
 
 export interface WhatsAppMessage {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { salesStageColumns } from '~/components/crm/config/salesStageColumns'
 import SalesStageForm from '~/components/crm/config/SalesStageForm.vue'
@@ -18,12 +18,15 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { toast } from '~/components/ui/toast'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { isTenantScopedRole } from '~/constants/roles'
+import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
-const { tenantId, setTenantFromJWT, tenants, setCurrentTenantById, listTenants } = useTenant()
-const { currentRole } = useAuth()
+definePageMeta({
+  middleware: ['auth'],
+})
+
+const { tenantId, currentRole, whenTenantReady } = useTenantPage()
 const selectedItems = ref<any[]>([])
 const showDialog = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
@@ -50,7 +53,7 @@ const filteredStages = computed(() => {
 
   const all = stagesArray.value
   const defaults = all.filter((item: any) => item.is_default === true)
-  if (currentRole.value === 'cliente') {
+  if (isTenantScopedRole(currentRole.value)) {
     return all.filter((item: any) => item.is_default === true || item.tenant_id === tenantId.value)
   }
   const ids = new Set(defaults.map((i: any) => i.id))
@@ -215,43 +218,16 @@ async function fetchSalesStages() {
   }
 }
 
-onMounted(async () => {
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-    await refreshStages()
-  }
+whenTenantReady(() => {
+  refreshStages()
 })
 
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-    await refreshStages()
-  }
+watch(tenantId, (val) => {
+  if (val)
+    refreshStages()
+  showDialog.value = false
+  formModel.value = { name: '', order: 1, color: '#cccccc', description: '', is_default: false }
 })
-
-watch(
-  tenantId,
-  (val) => {
-    if (val) {
-      refreshStages()
-    }
-    showDialog.value = false
-    formModel.value = { name: '', order: 1, color: '#cccccc', description: '', is_default: false }
-  },
-  { immediate: true },
-)
 </script>
 
 <template>
@@ -262,7 +238,7 @@ watch(
           Estágios de Vendas
         </h1>
         <p class="text-muted-foreground">
-          Gerencie todos os estágios de vendas do seu pipeline CRM.
+          Gerencie todos os estágios de vendas do seu funil CRM.
         </p>
       </div>
       <Button class="bg-primary hover:bg-primary/90" @click="handleCreate">

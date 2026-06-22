@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WhatsAppLlmProvider } from '~/types/whatsapp'
 
+import AgentModelSelect from '~/components/whatsapp/agents/AgentModelSelect.vue'
 import WhatsAppPageHeader from '~/components/whatsapp/shared/WhatsAppPageHeader.vue'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -29,10 +30,6 @@ const form = reactive({
   llm_provider: 'ollama' as WhatsAppLlmProvider,
   model: 'qwen',
   system_prompt: 'Você é um assistente de atendimento prestativo e objetivo. Responda sempre em português.',
-})
-
-watch(() => form.llm_provider, (provider) => {
-  form.model = provider === 'ollama' ? 'qwen' : 'gpt-4o-mini'
 })
 
 async function handleSubmit() {
@@ -94,7 +91,11 @@ async function handleSubmit() {
 
         <div class="space-y-2">
           <Label for="model">Modelo</Label>
-          <Input id="model" v-model="form.model" placeholder="qwen" />
+          <AgentModelSelect
+            id="model"
+            v-model="form.model"
+            :provider="form.llm_provider"
+          />
         </div>
       </div>
 

@@ -45,6 +45,15 @@ const inboxStore = useWhatsAppInboxStore()
       <button
         type="button"
         class="flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors"
+        :class="inboxStore.filters.assignedToMe ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'"
+        @click="inboxStore.setFilters({ assignedToMe: !inboxStore.filters.assignedToMe })"
+      >
+        <span class="i-lucide-user-check h-3.5 w-3.5" />
+        Minhas
+      </button>
+      <button
+        type="button"
+        class="flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors"
         :class="inboxStore.filters.unreadOnly ? 'border-primary bg-primary/10 text-primary' : 'text-muted-foreground'"
         @click="inboxStore.setFilters({ unreadOnly: !inboxStore.filters.unreadOnly })"
       >

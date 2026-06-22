@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { columns } from '~/components/articles/columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
@@ -7,37 +7,24 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { isStaffRole } from '~/constants/roles'
+import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
-const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
-const { currentRole } = useAuth()
+definePageMeta({
+  middleware: ['auth'],
+})
+
+const { tenantId, currentRole, whenTenantReady } = useTenantPage()
+const isStaff = computed(() => isStaffRole(currentRole.value))
 
 const showDeleteDialog = ref(false)
 const articleToDelete = ref<any | null>(null)
 const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
-// Debug: logar tenantId e articlesRaw
-watch(
-  tenantId,
-  (val) => {
-    console.warn('[DEBUG] tenantId do cliente:', val)
-  },
-  { immediate: true },
-)
-
 const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch<any[]>('/api/articles')
 const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id')
-
-watch(
-  articlesRaw,
-  (val) => {
-    console.warn('[DEBUG] articlesRaw:', val)
-  },
-  { immediate: true },
-)
 
 function handleDeleteClick(article: any) {
   articleToDelete.value = article
@@ -77,30 +64,8 @@ function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-onMounted(async () => {
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-    refreshArticles()
-  }
-})
-
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-    refreshArticles()
-  }
+whenTenantReady(() => {
+  refreshArticles()
 })
 
 watch(tenantId, () => {
@@ -156,13 +121,13 @@ watch(tenantId, () => {
         </template>
       </DataTable>
       <div
-        v-if="articles.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')"
+        v-if="articles.length === 0 && tenantId && isStaff"
         class="p-6 text-center text-muted-foreground"
       >
         No articles found for this tenant.
       </div>
       <div
-        v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')"
+        v-else-if="!tenantId && isStaff"
         class="p-6 text-center text-muted-foreground"
       >
         Select a tenant to view articles.

@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Stepper, StepperDescription, StepperItem, StepperSeparator, StepperTitle, StepperTrigger } from '@/components/ui/stepper'
+import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
@@ -18,14 +19,19 @@ import CardTitle from '~/components/ui/card/CardTitle.vue'
 import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
+import { formatLeadValueInput, parseLeadValueInput } from '~/composables/crm/useCrmLeadValue'
+import { applyCrmLeadAutofill } from '~/composables/crm/useCrmLeadAutofill'
+import type { CrmLeadLookupResult } from '~/types/crm'
 import { useTenant } from '~/composables/useTenant'
 
 const props = withDefaults(
   defineProps<{
+    defaultFunnelId?: string | null
+    /** @deprecated use defaultFunnelId */
     defaultPipelineId?: string | null
     defaultSalesStageId?: string | null
   }>(),
-  { defaultPipelineId: null, defaultSalesStageId: null },
+  { defaultFunnelId: null, defaultPipelineId: null, defaultSalesStageId: null },
 )
 
 // Define emits
@@ -59,7 +65,7 @@ const { data: salesStages, pending: salesStagesPending, error: salesStagesError 
 })
 
 // Buscar pipeline ativo para usar como default
-const { data: activePipelines, pending: pipelinesPending, error: pipelinesError } = await useLazyFetch<any[]>('/api/crm/pipeline', {
+const { data: activePipelines, pending: pipelinesPending, error: pipelinesError } = await useLazyFetch<any[]>('/api/crm/funnel', {
   query: computed(() => ({ tenant_id: tenantId.value })),
   watch: [tenantId],
   default: () => [],
@@ -157,29 +163,16 @@ const meetingForm = ref({
 
 const loading = ref(false)
 
-function formatLeadValueInput(value: string | number): string {
-  const digits = String(value ?? '').replace(/\D/g, '')
-  const cents = Number(digits || '0') / 100
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(cents)
-}
-
-function parseLeadValueInput(value: string): number {
-  const normalized = value
-    .replace(/[R$\s]/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 function handleLeadValueInput(event: Event) {
   const input = event.target as HTMLInputElement
   leadForm.value.value = formatLeadValueInput(input.value)
+}
+
+function handleLeadAutofill(match: CrmLeadLookupResult, scope: 'lead' | 'contact' = 'lead') {
+  applyCrmLeadAutofill(match, { leadForm, contactForm, companyForm }, {
+    leadSources: leadSources.value || [],
+    fillLeadFields: scope === 'lead',
+  })
 }
 
 // Função para recarregar dados
@@ -245,23 +238,22 @@ function getSourceEnumValue(sourceId: string | null): 'website' | 'referral' | '
 }
 
 // Função para buscar o pipeline ativo (fallback quando não vem por prop)
-function getActivePipelineId(): string | null {
-  if (props.defaultPipelineId)
-    return props.defaultPipelineId
+function getActiveFunnelId(): string | null {
+  if (props.defaultFunnelId || props.defaultPipelineId)
+    return props.defaultFunnelId || props.defaultPipelineId || null
   if (!activePipelines.value || activePipelines.value.length === 0)
     return null
-  const activePipeline = activePipelines.value.find(p => p.is_active === true)
-  return activePipeline ? activePipeline.id : null
+  const activeFunnel = activePipelines.value.find(p => p.is_active === true)
+  return activeFunnel ? activeFunnel.id : null
 }
 
-// Estágio "Novo" = primeiro estágio do pipeline (menor order). Usado quando defaultSalesStageId não é passado.
-function getFirstStageIdForPipeline(pipelineId: string | null): string | null {
-  if (!pipelineId || !salesStages.value?.length)
+function getFirstStageIdForFunnel(funnelId: string | null): string | null {
+  if (!funnelId || !salesStages.value?.length)
     return null
-  const pipelineStages = salesStages.value
-    .filter((s: any) => s.pipeline_id === pipelineId)
+  const funnelStages = salesStages.value
+    .filter((s: any) => s.funnel_id === funnelId)
     .sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0))
-  return pipelineStages[0]?.id ?? null
+  return funnelStages[0]?.id ?? null
 }
 
 async function submitLead() {
@@ -277,8 +269,8 @@ async function submitLead() {
       throw new Error('Preencha todos os campos obrigatórios')
     }
 
-    const pipelineId = getActivePipelineId()
-    const salesStageId = props.defaultSalesStageId ?? getFirstStageIdForPipeline(pipelineId)
+    const funnelId = getActiveFunnelId()
+    const salesStageId = props.defaultSalesStageId ?? getFirstStageIdForFunnel(funnelId)
 
     // 1. Cria o Lead (sales_stage_id = estágio "Novo" ou o estágio clicado no Kanban)
     const leadData = {
@@ -286,7 +278,7 @@ async function submitLead() {
       source: getSourceEnumValue(leadForm.value.source),
       source_id: leadForm.value.source || null,
       sales_stage_id: salesStageId,
-      pipeline_id: pipelineId,
+      funnel_id: funnelId,
       status: 'new' as any,
       priority: (leadForm.value.priority as any) || 'medium',
       value: parseLeadValueInput(leadForm.value.value),
@@ -547,7 +539,13 @@ async function submitLead() {
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div class="space-y-2">
                 <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
-                <Input id="lead-name" v-model="leadForm.name" placeholder="Nome do lead" required />
+                <LeadNameAutofillInput
+                  v-model="leadForm.name"
+                  input-id="lead-name"
+                  placeholder="Nome do lead"
+                  required
+                  @autofill="handleLeadAutofill"
+                />
               </div>
               <div class="space-y-2">
                 <Label for="lead-priority">Prioridade</Label>
@@ -610,7 +608,14 @@ async function submitLead() {
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
               <div class="space-y-2">
                 <Label for="contact-name">Nome do contato <span class="text-destructive">*</span></Label>
-                <Input id="contact-name" v-model="contactForm.name" placeholder="Nome do contato" required />
+                <LeadNameAutofillInput
+                  v-model="contactForm.name"
+                  input-id="contact-name"
+                  placeholder="Nome do contato"
+                  search-field="contact"
+                  required
+                  @autofill="handleLeadAutofill"
+                />
               </div>
               <div class="space-y-2">
                 <Label for="contact-email">Email <span class="text-destructive">*</span></Label>

@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
       next_follow_up: body.next_follow_up,
       tags: body.tags,
       tenant_id: tenantId,
-      pipeline_id: body.pipeline_id ?? null,
+      funnel_id: body.funnel_id ?? null,
       sales_stage_id: body.sales_stage_id ?? null,
     }
     if (!leadToInsert.name) {

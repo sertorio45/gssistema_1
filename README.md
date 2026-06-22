@@ -160,11 +160,49 @@ data/
 
 ---
 
-## 4. Sistema de Autenticação
+## 4. Autenticação, RBAC e Módulos
 
-Autenticação via Supabase Auth com login por e-mail/senha, recuperação de senha e gerenciamento automático de sessão.
+Autenticação via Supabase Auth com controle de acesso por **perfil (role)**, **tenant** e **módulos contratados**.
 
-### 4.1 Variáveis de Ambiente
+### 4.1 Perfis de acesso
+
+Os slugs abaixo são os valores no banco (`app_role`). Os rótulos na interface estão em `constants/roles.ts`.
+
+| Slug | Nome na UI | Tenant | Seletor de empresa | Módulos | Gestão de usuários |
+|---|---|---|---|---|---|
+| `admin` | Superadministrador | Qualquer | Sim | Todos | `/admin/users` — qualquer perfil |
+| `funcionario` | Funcionário | Qualquer | Sim | Todos | `/admin/users` — `cliente` e `atendente` |
+| `cliente` | Administrador | Apenas o vinculado | Não | Conforme `tenant_modules` | `/settings/team` — apenas `atendente` |
+| `atendente` | Atendente | Apenas o vinculado | Não | Conforme `tenant_modules` | Sem permissão |
+
+**Onde cada perfil é armazenado:**
+
+| Tipo | Armazenamento | Tabela / campo |
+|---|---|---|
+| Staff global (`admin`, `funcionario`) | Role global | `auth.users.app_metadata.role` |
+| Usuário de tenant (`cliente`, `atendente`) | Vínculo por empresa | `user_tenant_role` + espelho em `app_metadata.tenant_roles` (JWT) |
+
+> Staff **não** deve ter registro em `user_tenant_role`. Após alterar `app_metadata` no Supabase, o usuário precisa fazer **logout/login** para renovar o JWT.
+
+### 4.2 Áreas do sistema
+
+| Área | Rotas | Quem acessa |
+|---|---|---|
+| Administração da agência | `/admin/users`, `/admin/tenants` | Superadministrador e Funcionário |
+| Equipe do tenant | `/settings/team` | Administrador do tenant ou staff com tenant selecionado |
+| Módulos operacionais | `/crm`, `/whatsapp`, `/articles`, etc. | Conforme perfil e módulos do tenant |
+
+### 4.3 Resolução de role
+
+Ordem de prioridade (frontend e API):
+
+1. `app_metadata.role` global → `admin` ou `funcionario` (staff)
+2. `app_metadata.tenant_roles[tenant_id]` → `cliente` ou `atendente`
+3. Implementação: `utils/resolve-user-role.ts`, `server/utils/tenant-role.ts`
+
+O middleware `role` e o composable `useAuth` usam `resolveRoleFromSession`, que **prioriza o role global de staff** antes de `tenant_roles`.
+
+### 4.4 Variáveis de ambiente
 
 ```env
 SUPABASE_URL=
@@ -172,238 +210,181 @@ SUPABASE_KEY=
 SUPABASE_SERVICE_KEY=   # apenas backend
 ```
 
-### 4.2 Middlewares
+### 4.5 Middlewares
 
 | Middleware | Função |
 |---|---|
 | `auth` | Verifica autenticação; redireciona para `/login` se não autenticado |
-| `role` | 
+| `role` | Compara `to.meta.requiredRoles` com a role resolvida do JWT; redireciona para `/403` |
+| `tenant` / `tenant-check` | Garante contexto de tenant em rotas que dependem de empresa |
 | `guest` | Impede autenticados de acessar páginas de visitante |
 
 **Rotas públicas:** `/login` · `/register` · `/forgot-password` · `/403` · `/confirm`
 
-### 4.3 Rotas de Autenticação
+**Exemplos de `definePageMeta`:**
 
-| Rota | Descrição |
-|---|---|
-| `/login` | Página de login principal |
-| `/register` | Registro de novos usuários |
-| `/forgot-password` | Recuperação de senha |
-| `/403` | Acesso negado |
-| `/401` | Não autorizado |
+```ts
+// Página autenticada qualquer perfil
+definePageMeta({ middleware: ['auth'] })
 
-### 4.4 Composable `useAuth`
+// Página da agência (staff)
+definePageMeta({
+  middleware: ['auth', 'role'],
+  requiredRoles: ['admin', 'funcionario'],
+})
+
+// Página de equipe do tenant
+definePageMeta({
+  middleware: ['auth', 'tenant', 'role'],
+  requiredRoles: ['admin', 'funcionario', 'cliente'],
+})
+
+// Página de domínio com tenant
+definePageMeta({ middleware: ['auth', 'tenant'] })
+```
+
+### 4.6 Composable `useAuth`
 
 ```ts
 const {
-  login,           // Login com email/senha
-  logout,          // Logout do usuário
-  isAuthenticated, // Estado de autenticação
-  currentUser,     // Dados do usuário atual
-  currentRole,     // Role do usuário atual
-  checkSession,    // Verifica sessão atual
-  loading,         // Estado de carregamento
-  error,           // Erros de autenticação
-  hasRole,         // Verifica se tem role específica
-  hasAnyRole,      // Verifica se tem alguma das roles
-  updateUserRole,  // Atualiza role do usuário
+  login,
+  logout,
+  isAuthenticated,
+  currentUser,
+  currentRole,     // role resolvida (staff global ou tenant)
+  checkSession,
+  hasRole,
+  hasAnyRole,
+  updateUserRole,
 } = useAuth()
 ```
 
-## 4.5 Mini tutorial: autenticar e criar novas páginas com permissão
+Composables relacionados: `useTenant` (seletor e isolamento de empresa), `useModule` (seletor de módulo), `useRole`.
 
-O projeto controla acesso por **middlewares Nuxt**:
-- `auth` (autenticação via Supabase Auth)
-- `role` (bloqueia/desbloqueia com base em `to.meta.requiredRoles` e no JWT)
-- `tenant` / `tenant-check` (contexto/validação de tenant para rotas que dependem de tenant selecionado)
+### 4.7 Módulos (`tenant_modules`)
 
-### Passo 1: Autentique a página
-```ts
-definePageMeta({
-  middleware: ['auth'],
-})
-```
+O pacote **Blimber completo** usa um único registro `module_name = 'all'`. A função `is_tenant_module_active(tenant_id, module_name)` retorna `true` quando o tenant tem o módulo específico **ou** o pacote `all`.
 
-Páginas públicas comuns: `/login`, `/register`, `/forgot-password`, `/403`, `/404` e `/confirm`.
+**Módulos registrados no frontend** (`constants/modules.ts`):
 
-### Passo 2: Crie a permissão por role (a “permissão que foi criada”)
-```ts
-definePageMeta({
-  middleware: ['auth', 'role'],
-  requiredRoles: ['admin'], // ou ['admin', 'funcionario', 'cliente']
-})
-```
+| `module_name` (DB) | Título na UI | Base path |
+|---|---|---|
+| `crm` | CRM | `/crm` |
+| `article` | Articles | `/articles` |
+| `marketing` | Marketing | `/crm/marketing` |
+| `whatsapp` | WhatsApp | `/whatsapp` |
 
-Como funciona o middleware `role`:
-- ele decodifica o JWT e lê `app_metadata.tenant_roles`
-- determina a role do *tenant atual* (ou o primeiro tenant do JWT)
-- se a role não estiver em `requiredRoles`, redireciona para `/403`
+| Perfil | Comportamento no frontend | Validação na API |
+|---|---|---|
+| Superadministrador / Funcionário | Todos os módulos em `MODULE_META` | Bypass em `module-access.ts` |
+| Administrador / Atendente | Módulos do tenant (`all` expande todos acima) | `is_tenant_module_active()` |
 
-### Passo 3: Página de domínio (ex.: CRM/Articles) com tenant
-O padrão observado nas páginas CRM/Articles é:
-```ts
-definePageMeta({
-  middleware: ['auth', 'tenant'],
-})
-```
+O composable `useModule` expande `module_name = 'all'` para todos os módulos de `MODULE_META`.
 
-E, quando a rota for admin-only:
-```ts
-definePageMeta({
-  middleware: ['auth', 'role', 'tenant-check'],
-  requiredRoles: ['admin'],
-})
-```
+**Habilitar pacote completo para um tenant:**
 
-### Exemplo pronto: rota admin-only
-```ts
-definePageMeta({
-  middleware: ['auth', 'role'],
-  requiredRoles: ['admin'],
-  title: 'Admin - Something',
-})
-```
-
-### Passo 4: Criar novos módulos
-
-O sistema de módulos é controlado por `tenant_modules` e refletido no frontend pelo seletor de módulo.
-
-#### 4.1 Banco (Supabase): habilitar o módulo para o tenant
-
-- Edite/insira um registro em `public.tenant_modules`.
-- O campo `module_name` deve ser exatamente o identificador que o frontend espera (ver `constants/modules.ts`).
-- Garanta `is_active = true`.
-- Existe uma constraint `UNIQUE(tenant_id, module_name)` para evitar duplicatas.
-
-Exemplo (habilitar um módulo para um tenant por `tenant.slug`):
 ```sql
 INSERT INTO public.tenant_modules (tenant_id, module_name, is_active, activated_at)
-SELECT
-  t.id,
-  'seu_module_name',
-  true,
-  now()
+SELECT t.id, 'all', true, now()
 FROM public.tenant t
 WHERE t.slug = 'seu-tenant-slug'
-ON CONFLICT (tenant_id, module_name) DO NOTHING;
+ON CONFLICT (tenant_id, module_name) DO UPDATE
+  SET is_active = true, activated_at = now();
 ```
 
-#### 4.2 Frontend: registrar o módulo no seletor
+Novos tenants criados em `/admin/users` recebem `module_name = 'all'` automaticamente via `seedTenantAllModules`.
 
-Abra `constants/modules.ts` e adicione um item em `MODULE_META`:
-```ts
-export const MODULE_META: Record<string, ModuleMeta> = {
-  // tenant_modules.module_name (DB) = key do objeto abaixo
-  seu_module_name: {
-    slug: 'um-slug-para-ui',
-    title: 'Nome do Módulo no menu',
-    icon: 'lucide:...',
-    basePath: '/caminho-base',
-    defaultPath: '/caminho-inicial-do-módulo',
-  },
-}
-```
+**Adicionar um novo módulo ao sistema:**
 
-- `tenant_modules.module_name` deve bater com a **key** (`seu_module_name`).
-- `defaultPath` define para onde o usuário vai quando seleciona o módulo (por ex. `/crm/dashboard`).
+1. Registrar em `constants/modules.ts` (`MODULE_META`)
+2. Adicionar menu em `constants/menus.ts` (grupo com `title` igual ao do módulo)
+3. Proteger APIs em `server/middleware/module-access.ts`
+4. Habilitar no tenant via `tenant_modules` (ou manter `all`)
 
-#### 4.3 Frontend: adicionar o menu do módulo
+### 4.8 Isolamento de tenant
 
-Abra `constants/menus.ts` e crie um grupo em `navMenu`:
-- O grupo deve ter `title` **igual** ao `MODULE_META[seu_module_name].title`.
-- Dentro de `children`, adicione os links (`link`) para as páginas do módulo.
+| Perfil | Como o tenant é definido | Seletor na sidebar |
+|---|---|---|
+| Superadministrador / Funcionário | Escolha livre; persiste em `localStorage` | Sim (`TenantDropdown`) |
+| Administrador / Atendente | Fixo via JWT (`tenant_roles`); `useTenant.bootstrapTenantContext()` | Não |
 
-Quando o módulo estiver selecionado, a sidebar mostra os itens do `children` em lista plana (sem submenus).
+- Staff lista tenants via `GET /api/admin/tenants` (service role).
+- Usuários de tenant consultam apenas o próprio via `user_has_tenant_access` (RLS).
+- Tentativas de acessar outro tenant retornam `403 Forbidden`.
 
-#### 4.4 Isolamento de dados por tenant
+### 4.9 Referência do banco
 
-Todos os endpoints da API filtram dados pelo **tenant selecionado** (`tenant_id`), independentemente do role do usuário:
+**Enum `public.app_role`:** `admin`, `funcionario`, `cliente`, `atendente`.
 
-- **Admin / Funcionário:** veem apenas os dados do tenant ativo (recebido via query `tenant_id` ou extraído do JWT). Podem trocar de tenant pela UI para ver dados de outros tenants.
-- **Cliente:** veem apenas os dados do próprio tenant. Tentativas de acessar dados de outro tenant retornam `403 Forbidden`.
+**Tabelas:**
 
-O frontend sempre envia `tenant_id` nas chamadas de API via composable `useCurrentTenant`.
+| Tabela | Função |
+|---|---|
+| `tenant` | Empresas/clientes da plataforma |
+| `tenant_modules` | Módulos habilitados (`all` = pacote Blimber) |
+| `user_tenant_role` | Vínculo usuário ↔ tenant ↔ role (somente `cliente` ou `atendente`) |
 
-#### 4.5 Acesso ao módulo para `cliente`
+**Funções RPC:**
 
-Mesmo que o módulo seja mostrado no frontend, o backend valida o acesso.
-
-- Para role `cliente`, o middleware `server/middleware/module-access.ts` bloqueia requests do prefixo `/api/crm` e `/api/articles` quando o tenant não possui o módulo ativo em `public.tenant_modules`.
-- A validação é feita via função SQL `public.is_tenant_module_active(tenant_id, module_name)`.
-
-### Banco: enum, tabelas e policies (para referência)
-
-Conforme verificado via Supabase MCP:
-
-**Enum `public.app_role`:** `admin`, `cliente`, `funcionario`.
-
-**Tabelas relacionadas (permitem/limitam por tenant e role):**
-- `tenant`
-- `tenant_modules`
-- `user_tenant_role`
-
-**Exemplos de policies em `pg_policies`:**
-- `tenant`: `All all tenant` (authenticated, `cmd=ALL`)
-- `user_tenant_role`: leitura por usuário; leitura/escrita admin dentro do tenant
-- `articles`: `All All` (authenticated, `cmd=ALL`)
-- `articles_category`: `public` pode `SELECT` apenas categorias `published`
-- `crm_products`: policy `tenant_isolation` comparando `tenant_id` com `current_setting('app.tenant_id')`
+| Função | Uso |
+|---|---|
+| `user_has_tenant_access(tenant_id)` | RLS — isolamento de tenant |
+| `is_tenant_module_active(tenant_id, module_name)` | Valida módulo ou pacote `all` |
+| `user_can_manage_tenant_team(tenant_id)` | Permissão para `/settings/team` |
 
 ---
 
 ## 5. Sistema de Usuários
 
-### 5.1 Níveis de Acesso
+Duas áreas distintas — **agência** (staff) e **tenant** (cliente):
 
-| Role | Acesso |
+| Área | Rotas | Quem acessa |
+|---|---|---|
+| Administração da agência | `/admin/users`, `/admin/tenants` | Superadministrador e Funcionário |
+| Equipe do tenant | `/settings/team` | Administrador do tenant ou staff com tenant selecionado |
+
+### 5.1 Quem cria qual perfil
+
+| Criador | Rota | Perfis que pode criar |
+|---|---|---|
+| Superadministrador | `/admin/users` | `admin`, `funcionario`, `cliente`, `atendente` |
+| Funcionário | `/admin/users` | `cliente`, `atendente` |
+| Administrador (cliente) | `/settings/team` | `atendente` |
+| Staff com tenant selecionado | `/settings/team` | `cliente`, `atendente` |
+
+Validação no backend:
+- Agência → `server/utils/admin-auth.ts` → `assertAdminCanAssignRole`
+- Equipe → `server/utils/tenant-team.ts` → `resolveAssignableRoles`
+
+### 5.2 Arquivos principais
+
+| Arquivo | Função |
 |---|---|
-| `admin` | Total ao sistema, dados filtrados pelo tenant selecionado |
-| `funcionario` | Funcionalidades operacionais, dados filtrados pelo tenant selecionado |
-| `cliente` | Funcionalidades básicas, restrito ao próprio tenant |
+| `constants/roles.ts` | Slugs, labels e helpers (`isStaffRole`, `isTenantScopedRole`) |
+| `utils/resolve-user-role.ts` | Resolução de role a partir do JWT |
+| `server/utils/admin-auth.ts` | Guards das APIs `/api/admin/*` |
+| `server/utils/tenant-team.ts` | CRUD de equipe + sync JWT |
+| `components/users/UserForm.vue` | Formulário com roles dinâmicas |
+| `components/tenant/TeamManagementPanel.vue` | Painel em `/settings/team` |
 
-### 5.2 Estrutura do Usuário
+### 5.3 APIs
 
-```ts
-interface User {
-  id: string
-  email: string
-  role: 'admin' | 'funcionario' | 'cliente'
-  user_metadata?: { name: string }
-  created_at: string
-  updated_at: string
-}
-```
-
-### 5.3 API de Usuários
-
-> Todos os endpoints requerem role `admin`.
+**Agência** (`requireStaffUser` — `admin` ou `funcionario`):
 
 | Método | Endpoint | Descrição |
 |---|---|---|
-| `GET` | `/api/admin/users` | Lista todos os usuários |
-| `POST` | `/api/admin/users` | Cria novo usuário |
+| `GET` | `/api/admin/users` | Lista usuários |
+| `POST` | `/api/admin/users` | Cria usuário |
 | `PUT` | `/api/admin/users/[id]` | Atualiza email/senha |
 | `DELETE` | `/api/admin/users/[id]` | Remove usuário |
+| `GET` | `/api/admin/tenants` | Lista tenants |
 
-### 5.4 Tabelas do Banco
+**Equipe do tenant:**
 
-**`auth.users`** — gerenciada automaticamente pelo Supabase Auth.
-
-**`user_roles`** — armazena roles dos usuários:
-
-```sql
-CREATE TABLE user_roles (
-  user_id UUID REFERENCES auth.users(id),
-  role    TEXT NOT NULL DEFAULT 'cliente',
-  PRIMARY KEY (user_id)
-);
-```
-
-### 5.5 Componentes de Usuário
-
-- **`UserForm.vue`** — formulário com validação de força de senha e geração automática
-- **`CreateUserDialog.vue`** — modal de criação
-- **`EditUserDialog.vue`** — modal de edição
+| Método | Endpoint | Descrição |
+|---|---|---|
+| `GET/POST` | `/api/crm/team` | Listar / criar membros |
+| `PUT/DELETE` | `/api/crm/team/[id]` | Atualizar / remover membro |
 
 ---
 
@@ -413,30 +394,46 @@ Suporte completo a múltiplos tenants com isolamento de dados via Row Level Secu
 
 ### 6.1 Estrutura
 
-- Cada usuário está associado a um tenant específico
-- Todas as tabelas principais possuem coluna `tenant_id`
-- Políticas RLS aplicam restrições automaticamente
+- Usuários de tenant possuem vínculo em `user_tenant_role`
+- Staff global opera em qualquer tenant via seletor na UI
+- Tabelas de domínio possuem coluna `tenant_id` com RLS
 
-### 6.2 Políticas de Segurança (RLS)
+### 6.2 Sidebar e menus
 
-| Role | Permissão |
+| Seção no menu | Visível para |
 |---|---|
-| `admin` / `funcionario` | ALL nos dados do tenant selecionado |
-| `cliente` | ALL apenas nos próprios dados dentro do tenant |
-| Público | SELECT apenas em dados marcados como públicos |
+| Seletor de módulo | Todos (módulos filtrados por perfil) |
+| Seletor de empresa | Superadministrador e Funcionário |
+| Administração (`/admin/*`) | Superadministrador e Funcionário |
+| Minha empresa → Usuários (`/settings/team`) | Staff e Administrador do tenant |
+| Itens de módulo (CRM, WhatsApp, etc.) | Conforme role e módulos ativos |
 
-### 6.3 Criar Novo Tenant
+Configuração em `constants/menus.ts` (`navMenu`, `navMenuAdmin`, `navMenuTenant`).
+
+### 6.3 Políticas de Segurança (RLS)
+
+| Tabela | Comportamento |
+|---|---|
+| `tenant` | SELECT via `user_has_tenant_access(id)`; staff gerencia com role global |
+| `tenant_modules` | SELECT via `user_has_tenant_access(tenant_id)`; staff gerencia |
+| `user_tenant_role` | `user_can_manage_tenant_team` para gestão; leitura própria + equipe |
+| Demais tabelas de domínio | `tenant_isolation` via `app.tenant_id` ou `user_has_tenant_access` |
+
+A função `user_has_tenant_access` concede acesso global **apenas** quando `app_metadata.role` é `admin` ou `funcionario` — valores em `tenant_roles` não elevam permissão.
+
+### 6.4 Criar novo tenant
+
+Via `/admin/users` (criar empresa + administrador) ou `createAdminTenant` + `seedTenantAllModules` no backend.
 
 ```sql
-SELECT * FROM public.create_tenant_with_admin(
-  'Nome do Tenant',
-  'slug-do-tenant',
-  'email@exemplo.com',
-  'senha-segura'
-);
+INSERT INTO public.tenant (name, slug, is_active) VALUES ('Empresa', 'empresa', true);
+
+INSERT INTO public.tenant_modules (tenant_id, module_name, is_active, activated_at)
+SELECT id, 'all', true, now() FROM public.tenant WHERE slug = 'empresa'
+ON CONFLICT (tenant_id, module_name) DO NOTHING;
 ```
 
-### 6.4 Adicionar Multi-Tenant a Novas Tabelas
+### 6.5 Adicionar multi-tenant a novas tabelas
 
 ```sql
 SELECT public.add_tenant_id_to_table('nome_da_tabela');
@@ -451,15 +448,13 @@ definePageMeta({
 })
 ```
 
-### 6.5 Migrações
+### 6.6 Migrações
 
 ```bash
 npx supabase login
 npx supabase db push
 npx supabase migration list
 ```
-
----
 
 ## 7. Próximos Passos
 
@@ -485,13 +480,13 @@ npx supabase migration list
 
 ## 8. Padrões de Código
 
-- ✅ **Frontend em inglês** — variáveis e textos de interface
+- ✅ **UI em português** — labels, mensagens e textos visíveis ao usuário
+- ✅ **Código em inglês** — variáveis, funções, tipos e nomes de arquivos
 - ✅ **Organização modular** — estrutura por domínio de negócio
 - ✅ **DataTable obrigatório** — todas as listagens usam o componente genérico
-- ✅ **Componentes reutilizáveis** — princípio DRY
 - ✅ **TypeScript strict** — tipagem completa
 - ✅ **SSR** — server-side rendering habilitado
-- ✅ **Cache** — otimização de performance
+- ✅ **Cache** — `useAsyncData` com chave única por módulo
 
 ---
 
@@ -501,34 +496,24 @@ MIT
 
 ---
 
-## 9. Dashboard Module (Google + Meta)
+## 9. Módulo Marketing (Google + Meta)
 
-Módulo novo de analytics de mídia paga com integração backend-first para Google Ads e Meta Ads.
+Analytics de mídia paga com integração backend-first para Google Ads e Meta Ads.
 
 ### 9.1 Rotas
 
-- `/dashboard` — visão principal com KPIs e gráficos padrão (Shadcn/Unovis)
-- `/dashboard/integrations` — cadastro de integrações (Google + Meta)
-- `/dashboard/reports` — central de relatórios
-- `/dashboard/reports/whatsapp` — envio de relatório via WhatsApp
+- `/crm/marketing` — visão principal com KPIs e campanhas
+- Integrações OAuth via `/api/marketing/oauth/*`
 
-### 9.2 Banco (prefixo `dashboard_`)
+### 9.2 Banco
 
-Tabelas criadas:
+Tabelas com prefixo `marketing_`:
 
-- `dashboard_integrations` — credenciais e parâmetros de integração por tenant
-- `dashboard_campaign_cache` — cache dos resultados agregados de campanhas
-- `dashboard_report_logs` — fila/log de relatórios enviados para WhatsApp
+- `marketing_integrations` — credenciais por tenant
+- `marketing_campaign_cache` — cache de resultados agregados
 
-### 9.3 Segurança de chaves
+### 9.3 Regras de módulo
 
-- Chaves/tokens são processadas apenas no backend (`server/api/dashboard/*`)
-- Valores sensíveis são armazenados criptografados no banco
-- API de listagem retorna apenas status/máscara das chaves
-
-### 9.4 Regras de módulo e menu
-
-- Módulo registrado em `constants/modules.ts` como `dashboard`
-- Menu do módulo registrado em `constants/menus.ts`
-- Controle de acesso para clientes no middleware `server/middleware/module-access.ts` com prefixo `/api/dashboard`
-- Ativação para tenants via `tenant_modules.module_name = 'dashboard'`
+- Registrado em `constants/modules.ts` como `marketing`
+- API protegida em `server/middleware/module-access.ts` com prefixo `/api/marketing`
+- Ativo quando `tenant_modules.module_name = 'marketing'` **ou** `all`

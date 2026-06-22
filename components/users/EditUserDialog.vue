@@ -127,6 +127,8 @@ defineExpose({
           password: '',
           user_metadata: { name: '' },
           email_confirm: true,
+          role: 'cliente',
+          tenant: { tenantMode: 'existing', tenant_id: '', new_tenant_name: '' },
         }"
         :is-editing="true"
       />

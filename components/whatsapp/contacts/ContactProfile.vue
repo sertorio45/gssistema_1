@@ -33,8 +33,16 @@ function formatPhone(phone: string) {
 async function handleSync(createIfMissing = true) {
   syncing.value = true
   try {
-    await syncToCrm(props.contact.id, { createIfMissing })
-    toast.success('Contato sincronizado com o CRM')
+    const response = await syncToCrm(props.contact.id, { createIfMissing })
+    if (response.leadCreated) {
+      toast.success('Contato e lead criados no funil')
+    }
+    else if (response.lead) {
+      toast.success('Contato sincronizado e lead vinculado ao funil')
+    }
+    else {
+      toast.success('Contato sincronizado com o CRM')
+    }
     emit('refreshed')
   }
   catch (error: any) {

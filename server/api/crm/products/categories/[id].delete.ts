@@ -1,5 +1,12 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+
 import { defineEventHandler, getQuery, getRouterParam } from 'h3'
+
+import {
+  canAccessTenantModule,
+  isWrongTenantForScopedUser,
+  resolveTenantApiAuth,
+} from '~/server/utils/tenant-access'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -11,16 +18,16 @@ export default defineEventHandler(async (event) => {
     return { status: 400, message: 'ID is required' }
 
   const query = getQuery(event)
-  const tenantId = (query.tenant_id as string) || (event.context.auth?.tenantId as string)
-  if (!tenantId)
+  const { role, tenantId } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
+  const requestedTenantId = (query.tenant_id as string) || tenantId
+
+  if (!requestedTenantId)
     return { status: 400, message: 'Tenant ID is required' }
 
-  const tenantRoles = user.app_metadata?.tenant_roles || {}
-  const role = tenantId && tenantRoles[tenantId]
-    ? tenantRoles[tenantId]
-    : (user.user_metadata?.role as string) || (user.app_metadata?.role as string)
+  if (!canAccessTenantModule(role))
+    return { status: 403, message: 'Forbidden' }
 
-  if (role === 'cliente' && tenantId !== event.context.auth?.tenantId)
+  if (isWrongTenantForScopedUser(role, tenantId, requestedTenantId))
     return { status: 403, message: 'Forbidden' }
 
   const client = await serverSupabaseServiceRole(event)
@@ -28,7 +35,7 @@ export default defineEventHandler(async (event) => {
     .from('crm_products_category')
     .delete()
     .eq('id', id)
-    .eq('tenant_id', tenantId)
+    .eq('tenant_id', requestedTenantId)
 
   if (error)
     return { status: 400, message: error.message }

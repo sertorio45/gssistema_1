@@ -1,11 +1,18 @@
 <script setup lang="ts">
-import { Layers, ListChecks, Package, Plug, Settings } from 'lucide-vue-next'
+import { Layers, ListChecks, Package, Plug, Settings, Users } from 'lucide-vue-next'
 
 import Card from '@/components/ui/card/Card.vue'
 import CardContent from '@/components/ui/card/CardContent.vue'
+import { useAuth } from '~/composables/useAuth'
+
+const { currentRole } = useAuth()
+
+const canManageTeam = computed(
+  () => ['admin', 'funcionario', 'cliente'].includes(currentRole.value || ''),
+)
 
 /** Layout inspirado em padrão 21st.dev: cards horizontais, grid 3 colunas, paleta neutra. */
-const configCards = [
+const configCards = computed(() => [
   {
     title: 'Origens',
     description: 'Cadastre e edite as origens dos leads.',
@@ -19,10 +26,10 @@ const configCards = [
     to: '/crm/config/sales-stages',
   },
   {
-    title: 'Pipelines',
-    description: 'Monte fluxos de pipeline por tipo de negócio.',
+    title: 'Funis',
+    description: 'Monte funis de vendas por tipo de negócio.',
     icon: Layers,
-    to: '/crm/config/pipeline',
+    to: '/crm/config/funnel',
   },
   {
     title: 'Produtos',
@@ -30,13 +37,21 @@ const configCards = [
     icon: Package,
     to: '/crm/config/products',
   },
+  ...(canManageTeam.value
+    ? [{
+    title: 'Usuários',
+    description: 'Atendentes e administradores da sua empresa.',
+        icon: Users,
+        to: '/settings/team',
+      }]
+    : []),
   {
     title: 'Integrações',
     description: 'Google Ads, Analytics e Meta.',
     icon: Plug,
     to: '/crm/marketing/integrations',
   },
-]
+])
 </script>
 
 <template>
@@ -46,7 +61,7 @@ const configCards = [
         Configurações do CRM
       </h1>
       <p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        Origens, pipelines, produtos e integrações em um só lugar.
+        Origens, funis, produtos e integrações em um só lugar.
       </p>
     </header>
 

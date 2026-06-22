@@ -7,7 +7,7 @@ import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
   middleware: ['auth', 'role'],
-  requiredRoles: ['admin', 'funcionario', 'cliente'],
+  requiredRoles: ['admin', 'funcionario', 'cliente', 'atendente'],
 })
 
 interface CategoryForm {

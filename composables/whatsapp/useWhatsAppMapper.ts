@@ -159,7 +159,17 @@ export function mapContactRow(row: WhatsAppContactRow): WhatsAppContact {
   }
 }
 
-export function mapConversationRow(row: WhatsAppConversationRow): WhatsAppConversation {
+export function mapConversationRow(
+  row: WhatsAppConversationRow,
+  activeAgent?: { agentId: string, agentName: string | null } | null,
+): WhatsAppConversation {
+  const agentFields = activeAgent === undefined
+    ? {}
+    : {
+        activeAgentId: activeAgent?.agentId ?? null,
+        activeAgentName: activeAgent?.agentName ?? null,
+      }
+
   return {
     id: row.id,
     tenantId: row.tenant_id,
@@ -179,6 +189,7 @@ export function mapConversationRow(row: WhatsAppConversationRow): WhatsAppConver
     channel: row.channel ?? 'whatsapp',
     isOnline: row.is_online,
     profilePicture: row.profile_picture ?? null,
+    ...agentFields,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? new Date().toISOString(),
   }

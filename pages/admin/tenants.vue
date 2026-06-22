@@ -28,7 +28,7 @@ import { useToast } from '~/components/ui/toast'
 
 definePageMeta({
   middleware: ['auth', 'role'],
-  requiredRoles: ['admin'],
+  requiredRoles: ['admin', 'funcionario'],
 })
 
 const { toast } = useToast()
@@ -68,8 +68,8 @@ async function loadData() {
   catch (error: any) {
     console.error('Error loading data:', error)
     toast({
-      title: 'Error',
-      description: error.message || 'Failed to load data',
+      title: 'Erro',
+      description: error.message || 'Não foi possível carregar as empresas',
       variant: 'destructive',
     })
   }
@@ -98,8 +98,8 @@ async function deleteTenant() {
     }
 
     toast({
-      title: 'Success',
-      description: 'Tenant deleted successfully',
+      title: 'Sucesso',
+      description: 'Empresa excluída com sucesso',
     })
 
     // Close confirmation and reload data
@@ -110,8 +110,8 @@ async function deleteTenant() {
   catch (error: any) {
     console.error('Error deleting tenant:', error)
     toast({
-      title: 'Error',
-      description: error?.message || 'Failed to delete tenant',
+      title: 'Erro',
+      description: error?.message || 'Não foi possível excluir a empresa',
       variant: 'destructive',
     })
   }
@@ -147,8 +147,8 @@ async function createTenant() {
     }
 
     toast({
-      title: 'Success',
-      description: 'Tenant created successfully',
+      title: 'Sucesso',
+      description: 'Empresa criada com sucesso',
     })
 
     showCreateDialog.value = false
@@ -159,8 +159,8 @@ async function createTenant() {
   catch (error: any) {
     console.error('Error creating tenant:', error)
     toast({
-      title: 'Error',
-      description: error?.message || 'Failed to create tenant',
+      title: 'Erro',
+      description: error?.message || 'Não foi possível criar a empresa',
       variant: 'destructive',
     })
   }
@@ -198,8 +198,8 @@ async function updateTenant() {
     }
 
     toast({
-      title: 'Success',
-      description: 'Tenant updated successfully',
+      title: 'Sucesso',
+      description: 'Empresa atualizada com sucesso',
     })
 
     showEditDialog.value = false
@@ -211,8 +211,8 @@ async function updateTenant() {
   catch (error: any) {
     console.error('Error updating tenant:', error)
     toast({
-      title: 'Error',
-      description: error?.message || 'Failed to update tenant',
+      title: 'Erro',
+      description: error?.message || 'Não foi possível atualizar a empresa',
       variant: 'destructive',
     })
   }
@@ -249,14 +249,14 @@ async function handleMultiDeleteConfirm() {
 
   if (allSuccess) {
     toast({
-      title: 'Success',
-      description: `${itemIds.length} tenants deleted successfully!`,
+      title: 'Sucesso',
+      description: `${itemIds.length} empresa(s) excluída(s) com sucesso`,
     })
   }
   else {
     toast({
-      title: 'Warning',
-      description: 'Some tenants could not be deleted.',
+      title: 'Aviso',
+      description: 'Algumas empresas não puderam ser excluídas',
       variant: 'destructive',
     })
   }
@@ -283,15 +283,15 @@ onMounted(() => {
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          Tenant Management
+          Empresas (tenants)
         </h1>
         <p class="text-muted-foreground">
-          Manage system tenants
+          Gerencie as empresas clientes do sistema
         </p>
       </div>
       <Button class="bg-primary hover:bg-primary/90" @click="showCreateDialog = true">
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-        New Tenant
+        Nova empresa
       </Button>
     </div>
 
@@ -329,11 +329,10 @@ onMounted(() => {
       <AlertDialogContent class="sm:max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle class="text-xl">
-            Create New Tenant
+            Nova empresa
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Fill in the information below to create a new tenant. Tenants are used to separate data between different
-            organizations.
+            Preencha as informações abaixo para cadastrar uma nova empresa. Cada empresa isola os dados de CRM, WhatsApp e demais módulos.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -343,33 +342,33 @@ onMounted(() => {
               class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               for="name"
             >
-              Name <span class="text-destructive">*</span>
+              Nome <span class="text-destructive">*</span>
             </label>
-            <Input id="name" v-model="formData.name" placeholder="Enter tenant name" auto-focus />
+            <Input id="name" v-model="formData.name" placeholder="Nome da empresa" auto-focus />
             <p class="text-sm text-muted-foreground">
-              The name will be displayed in the user interface.
+              Nome exibido na interface do sistema.
             </p>
           </div>
 
           <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
             <div class="space-y-0.5">
-              <label class="text-sm font-medium leading-none" for="tenant-active">Active</label>
+              <label class="text-sm font-medium leading-none" for="tenant-active">Ativa</label>
               <p class="text-sm text-muted-foreground">
-                Determines if the tenant is active in the system.
+                Define se a empresa está ativa no sistema.
               </p>
             </div>
             <Switch id="tenant-active" :checked="isTenantActive" @update:checked="isTenantActive = $event" />
           </div>
 
           <div v-if="formData.name" class="space-y-2">
-            <label class="text-sm font-medium leading-none">Slug</label>
+            <label class="text-sm font-medium leading-none">Identificador (slug)</label>
             <div
               class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
             >
               {{ generateSlug(formData.name) }}
             </div>
             <p class="text-sm text-muted-foreground">
-              Unique identifier used in URLs and internal references.
+              Identificador único usado em URLs e referências internas.
             </p>
           </div>
         </div>
@@ -377,7 +376,7 @@ onMounted(() => {
           <AlertDialogCancel
             @click="showCreateDialog = false; resetForm()"
           >
-            Cancel
+            Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -385,7 +384,7 @@ onMounted(() => {
             @click="createTenant"
           >
             <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-            Create Tenant
+            Criar empresa
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -396,9 +395,11 @@ onMounted(() => {
       <AlertDialogContent class="sm:max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle class="text-xl">
-            Edit Tenant
+            Editar empresa
           </AlertDialogTitle>
-          <AlertDialogDescription> Update the selected tenant information. </AlertDialogDescription>
+          <AlertDialogDescription>
+            Atualize as informações da empresa selecionada.
+          </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div class="py-4 space-y-6">
@@ -407,30 +408,30 @@ onMounted(() => {
               class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               for="edit-name"
             >
-              Name <span class="text-destructive">*</span>
+              Nome <span class="text-destructive">*</span>
             </label>
-            <Input id="edit-name" v-model="formData.name" placeholder="Enter tenant name" auto-focus />
+            <Input id="edit-name" v-model="formData.name" placeholder="Nome da empresa" auto-focus />
           </div>
 
           <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
             <div class="space-y-0.5">
-              <label class="text-sm font-medium leading-none" for="edit-tenant-active">Active</label>
+              <label class="text-sm font-medium leading-none" for="edit-tenant-active">Ativa</label>
               <p class="text-sm text-muted-foreground">
-                Determines if the tenant is active in the system.
+                Define se a empresa está ativa no sistema.
               </p>
             </div>
             <Switch id="edit-tenant-active" :checked="isTenantActive" @update:checked="isTenantActive = $event" />
           </div>
 
           <div v-if="editingTenant" class="space-y-2">
-            <label class="text-sm font-medium leading-none">Slug</label>
+            <label class="text-sm font-medium leading-none">Identificador (slug)</label>
             <div
               class="h-10 w-full flex items-center border border-input rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
             >
               {{ editingTenant.slug }}
             </div>
             <p class="text-sm text-muted-foreground">
-              The slug cannot be changed after creation.
+              O identificador não pode ser alterado após a criação.
             </p>
           </div>
         </div>
@@ -442,7 +443,7 @@ onMounted(() => {
               resetForm();
             "
           >
-            Cancel
+            Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -450,7 +451,7 @@ onMounted(() => {
             @click="updateTenant"
           >
             <Icon name="lucide:save" class="mr-2 h-4 w-4" />
-            Save Changes
+            Salvar alterações
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -460,22 +461,23 @@ onMounted(() => {
     <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the tenant
-            <span class="font-medium">{{ selectedTenant?.name }}</span> and remove its data from the system.
+            Esta ação não pode ser desfeita. A empresa
+            <span class="font-medium">{{ selectedTenant?.name }}</span>
+            será excluída permanentemente do sistema.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel @click="isDeleteAlertOpen = false">
-            Cancel
+            Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             @click="deleteTenant"
           >
             <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-            Delete
+            Excluir
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -485,22 +487,23 @@ onMounted(() => {
     <AlertDialog :open="showMultiDeleteDialog" @update:open="showMultiDeleteDialog = $event">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Multiple Tenants</AlertDialogTitle>
+          <AlertDialogTitle>Excluir várias empresas</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete <span class="font-medium">{{ selectedItems.length }}</span> tenants? This
-            action cannot be undone.
+            Tem certeza que deseja excluir
+            <span class="font-medium">{{ selectedItems.length }}</span>
+            empresa(s)? Esta ação não pode ser desfeita.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel @click="showMultiDeleteDialog = false">
-            Cancel
+            Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             @click="handleMultiDeleteConfirm"
           >
             <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-            Delete {{ selectedItems.length }} Tenants
+            Excluir {{ selectedItems.length }} empresa(s)
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

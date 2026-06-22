@@ -24,30 +24,15 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     }
 
     // Decodificar o JWT para obter as informações da role
-    const decodedToken = decodeJWT(session.access_token)
-
-    // Buscar role do tenant atual
-    const tenantRoles = decodedToken?.app_metadata?.tenant_roles || {}
     let tenantId = null
     try {
       const { useTenantStore } = await import('~/stores/tenant')
       tenantId = useTenantStore().tenantId
     }
     catch {}
-    let userRole = null
-    if (tenantId && tenantRoles[tenantId]) {
-      userRole = tenantRoles[tenantId]
-    }
-    else {
-      const firstTenant = Object.keys(tenantRoles)[0]
-      if (firstTenant) {
-        userRole = tenantRoles[firstTenant]
-        tenantId = firstTenant
-      }
-    }
-    // Log para debug
-    // eslint-disable-next-line no-console
-    console.log('[middleware/role] tenantId:', tenantId, 'userRole:', userRole)
+
+    const { resolveRoleFromSession } = await import('~/utils/resolve-user-role')
+    const userRole = await resolveRoleFromSession(client, tenantId)
 
     const requiredRoles = Array.isArray(to.meta.requiredRoles) ? to.meta.requiredRoles : [to.meta.requiredRoles]
 
@@ -72,31 +57,3 @@ export default defineNuxtRouteMiddleware(async (to, _from) => {
     }
   }
 })
-
-/**
- * Decodifica um token JWT sem verificar a assinatura
- * @param token JWT token
- * @returns payload decodificado ou null se inválido
- */
-function decodeJWT(token: string) {
-  try {
-    const base64Url = token.split('.')[1]
-    if (!base64Url)
-      return null
-
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => {
-          return `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
-        })
-        .join(''),
-    )
-    return JSON.parse(jsonPayload)
-  }
-  catch (e) {
-    console.error('Erro ao decodificar JWT:', e)
-    return null
-  }
-}

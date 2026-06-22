@@ -50,7 +50,10 @@ export default defineEventHandler(async (event) => {
       }
     }
     let role: string | null = null
-    if (tenantId && tenantRoles[tenantId]) {
+    if (isStaffUser(user)) {
+      role = resolveStaffRole(user)
+    }
+    else if (tenantId && tenantRoles[tenantId]) {
       role = tenantRoles[tenantId]
     }
     if (!role && tenantId && isUuid(tenantId)) {
@@ -61,9 +64,6 @@ export default defineEventHandler(async (event) => {
     if (!role) {
       role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
     }
-    if (!role && isStaffUser(user)) {
-      role = resolveStaffRole(user)
-    }
     // Adicionar essas informações ao evento para que estejam disponíveis nos handlers
     event.context.auth = {
       userId: user.id,
@@ -71,8 +71,8 @@ export default defineEventHandler(async (event) => {
       tenantId,
     }
     // Se usuário tem role 'cliente', verificamos se possuem tenantId
-    if (role === 'cliente' && !tenantId) {
-      console.warn(`Cliente sem tenantId definido: ${user.id}`)
+    if ((role === 'cliente' || role === 'atendente') && !tenantId) {
+      console.warn(`Usuário ${role} sem tenantId definido: ${user.id}`)
     }
   }
   catch (error) {

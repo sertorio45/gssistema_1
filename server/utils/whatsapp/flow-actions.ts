@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { syncWhatsAppContactToCrm } from '~/server/utils/whatsapp/crm-sync'
+import { syncWhatsAppContactToCrmWithLead } from '~/server/utils/whatsapp/crm-sync'
 import { broadcastWhatsAppEvent } from '~/server/utils/whatsapp/realtime-broadcast'
 
 async function ensureWhatsAppTag(
@@ -106,6 +106,7 @@ export async function applyFlowCrmUpdate(
   params: {
     tenantId: string
     contactId: string | null
+    conversationId?: string | null
     createIfMissing: boolean
   },
 ) {
@@ -122,16 +123,47 @@ export async function applyFlowCrmUpdate(
   if (error || !contact)
     throw new Error('WhatsApp contact not found')
 
-  const crmContact = await syncWhatsAppContactToCrm(
+  let existingLeadId: string | null = null
+  if (params.conversationId) {
+    const { data: conversation } = await client
+      .from('whatsapp_conversation')
+      .select('lead_id')
+      .eq('id', params.conversationId)
+      .eq('tenant_id', params.tenantId)
+      .maybeSingle()
+
+    existingLeadId = conversation?.lead_id as string | null
+  }
+
+  const crmContact = await syncWhatsAppContactToCrmWithLead(
     client,
     params.tenantId,
     contact,
-    { createIfMissing: params.createIfMissing },
+    {
+      createIfMissing: params.createIfMissing,
+      conversationId: params.conversationId,
+      existingLeadId,
+    },
   )
 
+  if (params.conversationId && crmContact.lead?.id) {
+    await client
+      .from('whatsapp_conversation')
+      .update({
+        crm_contact_id: crmContact.crmContact.id,
+        lead_id: crmContact.lead.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', params.conversationId)
+      .eq('tenant_id', params.tenantId)
+  }
+
   return {
-    crmContactId: crmContact.id,
-    crmContactName: crmContact.name,
+    crmContactId: crmContact.crmContact.id,
+    crmContactName: crmContact.crmContact.name,
+    leadId: crmContact.lead?.id ?? null,
+    leadName: crmContact.lead?.name ?? null,
+    leadCreated: crmContact.leadCreated,
   }
 }
 

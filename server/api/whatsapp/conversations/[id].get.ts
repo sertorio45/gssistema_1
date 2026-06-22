@@ -1,6 +1,7 @@
 import { createError, getQuery } from 'h3'
 
 import { mapConversationRow } from '~/composables/whatsapp/useWhatsAppMapper'
+import { loadActiveAgentsForConversations } from '~/server/utils/whatsapp/conversation-agent-meta'
 import { resolveWhatsAppTenantContext } from '~/server/utils/whatsapp/context'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
@@ -26,5 +27,9 @@ export default defineEventHandler(async (event) => {
   if (!data)
     throw createError({ statusCode: 404, statusMessage: 'Conversation not found' })
 
-  return { data: mapConversationRow(data as any) }
+  const activeAgents = await loadActiveAgentsForConversations(client, tenantId, [data.id as string])
+
+  return {
+    data: mapConversationRow(data as any, activeAgents.get(data.id as string) ?? null),
+  }
 })

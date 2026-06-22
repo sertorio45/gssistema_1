@@ -16,6 +16,9 @@ export interface Lead {
   lastContact?: string
   nextFollowUp?: string
   tags: string[]
+  /** Linked WhatsApp conversation when status is open or pending */
+  whatsapp_conversation_id?: string | null
+  whatsapp_conversation_status?: string | null
   tenant_id: string
   /** Set when lead is moved to stage won or lost */
   closed_at?: string
@@ -115,6 +118,27 @@ export interface LeadSource {
   updated_at: string
 }
 
+export interface CrmLeadLookupResult {
+  id: string
+  match_type: 'lead' | 'contact'
+  name: string
+  lead_id: string | null
+  contact_name: string | null
+  email: string | null
+  phone: string | null
+  position: string | null
+  contact_notes: string | null
+  source: string | null
+  priority: string | null
+  value: number | null
+  lead_notes: string | null
+  company_name: string | null
+  company_industry: string | null
+  company_size: string | null
+  company_website: string | null
+  company_address: string | null
+}
+
 // @deprecated — use types/whatsapp.ts
 export type {
   WhatsAppMessage,
@@ -131,7 +155,7 @@ export interface SalesStage {
   color: string
   description?: string
   tenant_id?: string
-  pipeline_id?: string
+  funnel_id?: string
   is_default: boolean
 }
 

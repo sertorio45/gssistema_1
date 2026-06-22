@@ -11,15 +11,16 @@ import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useTenant } from '~/composables/useTenant'
+import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
+  middleware: ['auth'],
   title: 'Contatos',
   description: 'Gerencie seus contatos de negócios',
 })
 
 const supabase = useSupabaseClient()
-const { tenantId } = useTenant()
+const { tenantId } = useTenantPage()
 
 const selectedContact = ref<Contact | null>(null)
 const isDialogOpen = ref(false)

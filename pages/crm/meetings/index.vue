@@ -18,14 +18,15 @@ import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useTenant } from '~/composables/useTenant'
+import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
+  middleware: ['auth'],
   title: 'Reuniões',
   description: 'Gerencie suas reuniões e compromissos',
 })
 
-const { tenantId } = useTenant()
+const { tenantId } = useTenantPage()
 
 const meetingsData = ref<Meeting[]>([])
 const selectedMeeting = ref<Meeting | null>(null)

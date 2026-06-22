@@ -1,4 +1,5 @@
 import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
+import { isWrongTenantForScopedUser } from '~/server/utils/tenant-access'
 
 import { defineEventHandler, getRouterParam } from 'h3'
 
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const { tenantId, role } = event.context.auth || {}
 
   const { data: article } = await client.from('articles').select('tenant_id').eq('id', id).single()
-  if (!article || (role === 'cliente' && article.tenant_id !== tenantId)) {
+  if (!article || (isWrongTenantForScopedUser(role, tenantId, article.tenant_id))) {
     return { status: 403, message: 'Forbidden' }
   }
 

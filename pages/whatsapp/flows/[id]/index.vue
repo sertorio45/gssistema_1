@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import type { WhatsAppFlow, WhatsAppFlowExecutionDetail } from '~/types/whatsapp'
 
-import DrawflowEditor from '~/components/whatsapp/flows/DrawflowEditor.vue'
+import FlowEditor from '~/components/whatsapp/flows/FlowEditor.vue'
+import FlowEditorToolbar from '~/components/whatsapp/flows/FlowEditorToolbar.vue'
+import FlowExecutionPanel from '~/components/whatsapp/flows/FlowExecutionPanel.vue'
 import FlowNodeInspector from '~/components/whatsapp/flows/FlowNodeInspector.vue'
-import FlowStatusBadge from '~/components/whatsapp/flows/FlowStatusBadge.vue'
-import WhatsAppPageHeader from '~/components/whatsapp/shared/WhatsAppPageHeader.vue'
+import FlowNodePalette from '~/components/whatsapp/flows/FlowNodePalette.vue'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
-import { Button } from '~/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
-import {
-  WHATSAPP_FLOW_NODE_DEFINITIONS,
-} from '~/constants/whatsapp-flow-nodes'
 import type { WhatsAppFlowNodeType } from '~/types/whatsapp'
 import { toast } from 'vue-sonner'
 
@@ -32,7 +28,7 @@ const {
   fetchExecutionDetail,
 } = useWhatsAppFlows()
 
-const editorRef = ref<InstanceType<typeof DrawflowEditor> | null>(null)
+const editorRef = ref<InstanceType<typeof FlowEditor> | null>(null)
 const selectedNodeId = ref<number | null>(null)
 const selectedNodeData = ref<Record<string, unknown> | null>(null)
 const selectedExecutionId = ref<string | null>(null)
@@ -131,6 +127,14 @@ async function handleTest() {
   }
 }
 
+function handleOrganizeFlow() {
+  const organized = editorRef.value?.autoLayout()
+  if (organized)
+    toast.success('Blocos organizados')
+  else
+    toast.info('Adicione blocos ao canvas para organizar')
+}
+
 function handleAddNode(type: WhatsAppFlowNodeType) {
   editorRef.value?.addNode(type)
 }
@@ -147,6 +151,8 @@ function handleNodeUpdate(nodeId: number, nodeData: Record<string, unknown>) {
 
 function handleNodeRemove(nodeId: number) {
   editorRef.value?.removeSelectedNode(nodeId)
+  selectedNodeId.value = null
+  selectedNodeData.value = null
 }
 
 async function handleSelectExecution(executionId: string) {
@@ -174,102 +180,55 @@ async function handleSelectExecution(executionId: string) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <WhatsAppPageHeader
-      :title="flow?.name || 'Editor'"
-      description="Arraste blocos, conecte etapas e publique automações no chat."
-    >
-      <template #actions>
-        <div class="flex flex-wrap gap-2">
-          <NuxtLink to="/whatsapp/flows">
-            <Button variant="outline">
-              Voltar
-            </Button>
-          </NuxtLink>
-          <Button variant="outline" :disabled="actionLoading" @click="handleTest">
-            Testar
-          </Button>
-          <Button variant="outline" :disabled="saving" @click="handleSaveCanvas">
-            {{ saving ? 'Salvando...' : 'Salvar' }}
-          </Button>
-          <Button :disabled="actionLoading || !flow" @click="handleToggle">
-            {{ flow?.status === 'active' ? 'Pausar' : 'Ativar' }}
-          </Button>
-        </div>
-      </template>
-    </WhatsAppPageHeader>
-
-    <Skeleton v-if="pending" class="h-[70vh] w-full rounded-xl" />
+  <div class="space-y-4">
+    <Skeleton v-if="pending" class="h-[78vh] w-full rounded-xl" />
 
     <template v-else-if="flow">
-      <div class="flex flex-wrap items-center gap-3">
-        <FlowStatusBadge :status="flow.status" />
-        <span class="text-sm text-muted-foreground">v{{ flow.version }}</span>
-      </div>
+      <FlowEditorToolbar
+        :flow="flow"
+        :saving="saving"
+        :action-loading="actionLoading"
+        @back="navigateTo('/whatsapp/flows')"
+        @save="handleSaveCanvas"
+        @organize="handleOrganizeFlow"
+        @test="handleTest"
+        @toggle="handleToggle"
+      />
 
-      <Alert v-if="flow.status !== 'active'">
-        <span class="i-lucide-info h-4 w-4" />
+      <Alert v-if="flow.status !== 'active'" class="border-amber-500/30 bg-amber-500/5">
+        <span class="i-lucide-info h-4 w-4 text-amber-600" />
         <AlertTitle>Flow inativo</AlertTitle>
         <AlertDescription>
-          Conecte o gatilho ao bloco de mensagem, clique em <strong>Salvar</strong> e depois em <strong>Ativar</strong>.
-          O flow só responde a mensagens <strong>recebidas</strong> de outras pessoas (não às que você envia pelo WhatsApp conectado).
+          Conecte o gatilho ao próximo bloco, clique em <strong>Salvar</strong> e depois em <strong>Ativar</strong>.
+          O flow só responde a mensagens recebidas de outras pessoas.
         </AlertDescription>
       </Alert>
 
-      <div class="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_300px]">
-        <Card class="h-fit xl:sticky xl:top-4">
-          <CardHeader class="pb-3">
-            <CardTitle class="text-sm">
-              Blocos
-            </CardTitle>
-          </CardHeader>
-          <CardContent class="space-y-2">
-            <Button
-              v-for="def in WHATSAPP_FLOW_NODE_DEFINITIONS"
-              :key="def.type"
-              variant="outline"
-              class="h-auto w-full justify-start whitespace-normal py-2 text-left"
-              @click="handleAddNode(def.type)"
-            >
-              <span :class="[def.icon, 'mr-2 h-4 w-4 shrink-0']" />
-              <span>
-                <span class="block text-sm font-medium">{{ def.label }}</span>
-                <span class="block text-xs text-muted-foreground">{{ def.description }}</span>
-              </span>
-            </Button>
-            <div class="flex gap-2 pt-2">
-              <Button variant="ghost" size="sm" @click="editorRef?.zoomOut()">
-                −
-              </Button>
-              <Button variant="ghost" size="sm" @click="editorRef?.zoomIn()">
-                +
-              </Button>
-              <Button variant="ghost" size="sm" @click="editorRef?.resetZoom?.()">
-                Reset
-              </Button>
-            </div>
-            <p class="pt-2 text-xs text-muted-foreground">
-              Conecte arrastando do ponto <strong>azul</strong> (saída) até o ponto de entrada do próximo bloco. Arraste o fundo para mover o canvas.
-            </p>
-          </CardContent>
-        </Card>
+      <div class="grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)_320px]">
+        <FlowNodePalette
+          @add-node="handleAddNode"
+          @organize="handleOrganizeFlow"
+          @zoom-in="editorRef?.zoomIn()"
+          @zoom-out="editorRef?.zoomOut()"
+          @reset-zoom="editorRef?.resetZoom?.()"
+        />
 
-        <div class="min-h-[70vh] overflow-hidden rounded-xl border">
+        <div class="min-h-[72vh] overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm ring-1 ring-border/40">
           <ClientOnly>
-            <DrawflowEditor
+            <FlowEditor
               ref="editorRef"
               :canvas="canvas"
               @node-selected="handleNodeSelected"
             />
             <template #fallback>
-              <div class="flex h-[70vh] min-h-[560px] items-center justify-center text-sm text-muted-foreground">
+              <div class="flex h-[72vh] min-h-[560px] items-center justify-center text-sm text-muted-foreground">
                 Carregando editor...
               </div>
             </template>
           </ClientOnly>
         </div>
 
-        <div class="space-y-4 xl:sticky xl:top-4">
+        <div class="space-y-4">
           <FlowNodeInspector
             :node-id="selectedNodeId"
             :node-data="selectedNodeData"
@@ -277,69 +236,13 @@ async function handleSelectExecution(executionId: string) {
             @remove="handleNodeRemove"
           />
 
-          <Card>
-            <CardHeader class="pb-2">
-              <CardTitle class="text-sm">
-                Execuções recentes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div v-if="!recentExecutions.length" class="py-4 text-sm text-muted-foreground">
-                Nenhuma execução ainda.
-              </div>
-              <div v-else class="space-y-2 text-sm">
-                <button
-                  v-for="execution in recentExecutions"
-                  :key="execution.id"
-                  type="button"
-                  class="w-full rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/50"
-                  :class="{ 'border-primary bg-primary/5': selectedExecutionId === execution.id }"
-                  @click="handleSelectExecution(execution.id)"
-                >
-                  <p class="font-medium capitalize">
-                    {{ execution.status }}
-                  </p>
-                  <p class="text-xs text-muted-foreground">
-                    {{ new Date(execution.startedAt).toLocaleString('pt-BR') }}
-                  </p>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card v-if="selectedExecutionId">
-            <CardHeader class="pb-2">
-              <CardTitle class="text-sm">
-                Detalhes da execução
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Skeleton v-if="executionDetailLoading" class="h-24 w-full" />
-              <div v-else-if="executionDetail?.logs?.length" class="space-y-2">
-                <div
-                  v-for="log in executionDetail.logs"
-                  :key="log.id"
-                  class="rounded-md border px-3 py-2 text-xs"
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="font-medium capitalize">{{ log.action }}</span>
-                    <span class="text-muted-foreground">
-                      {{ new Date(log.executedAt).toLocaleTimeString('pt-BR') }}
-                    </span>
-                  </div>
-                  <p v-if="log.error" class="mt-1 text-destructive">
-                    {{ log.error }}
-                  </p>
-                  <p v-else-if="Object.keys(log.output || {}).length" class="mt-1 text-muted-foreground">
-                    {{ JSON.stringify(log.output) }}
-                  </p>
-                </div>
-              </div>
-              <p v-else class="text-sm text-muted-foreground">
-                Nenhum log registrado.
-              </p>
-            </CardContent>
-          </Card>
+          <FlowExecutionPanel
+            :executions="recentExecutions"
+            :selected-execution-id="selectedExecutionId"
+            :execution-detail="executionDetail"
+            :loading-detail="executionDetailLoading"
+            @select-execution="handleSelectExecution"
+          />
         </div>
       </div>
     </template>

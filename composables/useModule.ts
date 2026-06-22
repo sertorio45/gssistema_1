@@ -1,7 +1,7 @@
 import { useSupabaseClient } from '#imports'
 
 import { createSharedComposable } from '@vueuse/core'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
@@ -67,7 +67,20 @@ async function fetchTenantModules(tenantId: string | null) {
     tenantModules.value = []
     return []
   }
-  tenantModules.value = data ?? []
+
+  const rows = data ?? []
+  const hasAllBundle = rows.some(row => row.module_name === 'all' && row.is_active)
+
+  if (hasAllBundle) {
+    tenantModules.value = Object.keys(MODULE_META).map(module_name => ({
+      id: `all-${module_name}`,
+      module_name,
+      is_active: true,
+    }))
+    return tenantModules.value
+  }
+
+  tenantModules.value = rows
   return tenantModules.value
 }
 

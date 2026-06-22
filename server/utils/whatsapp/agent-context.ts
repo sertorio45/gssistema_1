@@ -25,7 +25,7 @@ const MEDIA_LABELS: Record<string, string> = {
   interactive: 'Mensagem interativa',
 }
 
-function formatMessageContent(row: {
+export function formatWhatsAppMessageForAgent(row: {
   content?: string | null
   message_type?: string | null
   file_name?: string | null
@@ -106,7 +106,7 @@ export async function loadConversationHistoryForAgent(
     if (params.excludeMessageId && row.id === params.excludeMessageId)
       continue
 
-    const content = formatMessageContent(row)
+    const content = formatWhatsAppMessageForAgent(row)
     if (!content)
       continue
 

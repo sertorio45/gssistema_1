@@ -15,7 +15,10 @@ export default defineNuxtConfig({
     '@nuxt/image',
   ],
 
-  css: ['@unocss/reset/tailwind.css', 'drawflow/dist/drawflow.min.css', '~/assets/css/drawflow-overrides.css'],
+  css: [
+    '@unocss/reset/tailwind.css',
+    '~/assets/css/vue-flow-overrides.css',
+  ],
 
   colorMode: {
     classSuffix: '',

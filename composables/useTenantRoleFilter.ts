@@ -3,6 +3,7 @@
 import type { Ref } from 'vue'
 import { computed } from 'vue'
 
+import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
 
@@ -35,12 +36,12 @@ export function useTenantRoleFilter<T extends Record<string, any>>(
     }
 
     if (Array.isArray(rawData.value)) {
-      // Cliente: só vê dados do seu tenant
-      if (currentRole.value === 'cliente' && tenantId.value) {
+      // Administrador / Atendente: só vê dados do próprio tenant
+      if (isTenantScopedRole(currentRole.value) && tenantId.value) {
         return rawData.value.filter((item: T) => item[tenantKey] === tenantId.value)
       }
-      // Admin/funcionário: só vê dados do tenant selecionado
-      if ((currentRole.value === 'admin' || currentRole.value === 'funcionario') && tenantId.value) {
+      // Staff: dados do tenant selecionado
+      if (isStaffRole(currentRole.value) && tenantId.value) {
         return rawData.value.filter((item: T) => item[tenantKey] === tenantId.value)
       }
       // Se não houver tenant selecionado, retorna vazio

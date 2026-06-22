@@ -1,13 +1,32 @@
 <script setup lang="ts">
 import { Switch } from '~/components/ui/switch'
+import { Label } from '~/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
+import AdminUserTenantSection, { type AdminTenantFormState } from '~/components/users/AdminUserTenantSection.vue'
+import {
+  ROLE_LABELS,
+  STAFF_ROLES,
+  TENANT_SCOPED_ROLES,
+  isTenantScopedRole,
+  type AppRoleSlug,
+} from '~/constants/roles'
+import { useAuth } from '~/composables/useAuth'
 
-interface UserForm {
+export interface UserFormData {
   email: string
   password: string
   user_metadata: {
     name: string
   }
   email_confirm: boolean
+  role: AppRoleSlug
+  tenant: AdminTenantFormState
 }
 
 interface PasswordStrength {
@@ -20,16 +39,22 @@ interface PasswordStrength {
 }
 
 const props = defineProps<{
-  initialForm?: UserForm
+  initialForm?: UserFormData
   isEditing?: boolean
 }>()
 
 const emit = defineEmits<{
-  (e: 'submit', form: UserForm): void
+  (e: 'submit', form: UserFormData): void
   (e: 'cancel'): void
 }>()
 
-const form = ref<UserForm>(
+const defaultTenantState = (): AdminTenantFormState => ({
+  tenantMode: 'existing',
+  tenant_id: '',
+  new_tenant_name: '',
+})
+
+const form = ref<UserFormData>(
   props.initialForm || {
     email: '',
     password: '',
@@ -37,6 +62,8 @@ const form = ref<UserForm>(
       name: '',
     },
     email_confirm: true,
+    role: 'cliente',
+    tenant: defaultTenantState(),
   },
 )
 
@@ -49,7 +76,18 @@ const passwordStrength = ref<PasswordStrength>({
   isValid: false,
 })
 
-// Verificar força da senha
+const { currentRole } = useAuth()
+
+const assignableRoles = computed<AppRoleSlug[]>(() => {
+  if (currentRole.value === 'admin')
+    return [...STAFF_ROLES, ...TENANT_SCOPED_ROLES]
+  if (currentRole.value === 'funcionario')
+    return [...TENANT_SCOPED_ROLES]
+  return [...TENANT_SCOPED_ROLES]
+})
+
+const requiresTenant = computed(() => isTenantScopedRole(form.value.role))
+
 function validatePassword(password: string) {
   passwordStrength.value = {
     hasMinLength: password.length >= 12,
@@ -68,7 +106,6 @@ function validatePassword(password: string) {
       && passwordStrength.value.hasSpecialChars
 }
 
-// Gerar senha segura
 function generateSecurePassword() {
   const upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const lowerChars = 'abcdefghijklmnopqrstuvwxyz'
@@ -96,30 +133,39 @@ function generateSecurePassword() {
   validatePassword(password)
 }
 
-function validate() {
-  // Se estiver editando, não exige senha
-  if (props.isEditing) {
-    // Se tiver senha preenchida, valida a força
-    if (form.value.password && form.value.password.trim() !== '') {
-      return form.value.email && passwordStrength.value.isValid
-    }
-    // Se não tiver senha, só valida o email
-    return form.value.email
-  }
-  // Para criação, exige todos os campos
-  return form.value.email && form.value.password && passwordStrength.value.isValid
+function validateTenant() {
+  if (!requiresTenant.value)
+    return true
+
+  if (form.value.tenant.tenantMode === 'existing')
+    return Boolean(form.value.tenant.tenant_id)
+
+  return Boolean(form.value.tenant.new_tenant_name.trim())
 }
 
-// Expor o formulário e métodos
+function validate() {
+  if (props.isEditing) {
+    if (form.value.password && form.value.password.trim() !== '')
+      return form.value.email && passwordStrength.value.isValid
+    return Boolean(form.value.email)
+  }
+
+  return Boolean(
+    form.value.email
+    && form.value.password
+    && passwordStrength.value.isValid
+    && validateTenant(),
+  )
+}
+
 defineExpose({
-  form: form.value,
+  form,
   validate,
 })
 
 function handleSubmit() {
-  if (validate()) {
+  if (validate())
     emit('submit', form.value)
-  }
 }
 
 function handleCancel() {
@@ -129,9 +175,7 @@ function handleCancel() {
 
 <template>
   <div class="grid grid-cols-1 gap-6 py-4">
-    <!-- Coluna de Campos -->
     <div class="space-y-6">
-      <!-- Informações Básicas -->
       <div>
         <h3 class="mb-3 text-sm text-muted-foreground font-medium">
           INFORMAÇÕES PESSOAIS
@@ -146,17 +190,35 @@ function handleCancel() {
             />
           </div>
           <div class="grid gap-2">
-            <Label :for="isEditing ? 'edit-email' : 'email'">Email</Label>
+            <Label :for="isEditing ? 'edit-email' : 'email'">E-mail</Label>
             <Input :id="isEditing ? 'edit-email' : 'email'" v-model="form.email" placeholder="exemplo@email.com" />
           </div>
+          <div v-if="!isEditing" class="grid gap-2">
+            <Label>Função</Label>
+            <Select v-model="form.role">
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a função" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="role in assignableRoles" :key="role" :value="role">
+                  {{ ROLE_LABELS[role] }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div class="grid gap-2">
-            <Label for="email-confirm-switch">Confirmar Email</Label>
+            <Label for="email-confirm-switch">Confirmar e-mail</Label>
             <Switch id="email-confirm-switch" v-model:checked="form.email_confirm" />
           </div>
         </div>
       </div>
 
-      <!-- Credenciais -->
+      <AdminUserTenantSection
+        v-if="!isEditing && requiresTenant"
+        v-model="form.tenant"
+        required
+      />
+
       <div>
         <h3 class="mb-3 text-sm text-muted-foreground font-medium">
           CREDENCIAIS
@@ -167,7 +229,7 @@ function handleCancel() {
               {{ isEditing ? 'Senha (deixe em branco para manter)' : 'Senha' }}
             </Label>
             <Button variant="outline" size="sm" class="h-7 px-2 py-1 text-xs" @click="generateSecurePassword">
-              Gerar Senha
+              Gerar senha
             </Button>
           </div>
           <PasswordInput
@@ -177,7 +239,6 @@ function handleCancel() {
             @input="validatePassword(form.password)"
           />
 
-          <!-- Indicador de força da senha -->
           <div v-if="form.password" class="mt-2 rounded-md bg-muted/50 p-3">
             <div class="mb-2 text-sm font-medium">
               Requisitos de senha:

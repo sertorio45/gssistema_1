@@ -5,7 +5,6 @@ import { Checkbox } from '../ui/checkbox'
 import DataTableColumnHeader from './DataTableColumnHeader.vue'
 import TenantRowActions from './TenantRowActions.vue'
 
-// Tenant interface (compatível com o formato esperado pelo DataTable)
 export interface Tenant {
   id: string
   name: string
@@ -13,7 +12,6 @@ export interface Tenant {
   is_active: boolean
   created_at: string
   updated_at: string
-  // Campos adicionais para compatibilidade com o DataTable existente
   email?: string
   role?: string
 }
@@ -25,14 +23,14 @@ export const columns: ColumnDef<any>[] = [
       h(Checkbox, {
         'checked': table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate'),
         'onUpdate:checked': (value: boolean) => table.toggleAllPageRowsSelected(!!value),
-        'ariaLabel': 'Select all',
+        'ariaLabel': 'Selecionar todos',
         'class': 'translate-y-0.5',
       }),
     cell: ({ row }: any) =>
       h(Checkbox, {
         'checked': row.getIsSelected(),
         'onUpdate:checked': (value: boolean) => row.toggleSelected(!!value),
-        'ariaLabel': 'Select row',
+        'ariaLabel': 'Selecionar linha',
         'class': 'translate-y-0.5',
       }),
     enableSorting: false,
@@ -40,12 +38,12 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Name' }),
+    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Nome' }),
     cell: ({ row }: any) => h('span', { class: 'max-w-[500px] truncate font-medium' }, row.getValue('name')),
   },
   {
     accessorKey: 'slug',
-    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Slug' }),
+    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Identificador' }),
     cell: ({ row }: any) => h('span', { class: 'max-w-[300px] truncate text-muted-foreground' }, row.getValue('slug')),
   },
   {
@@ -68,7 +66,7 @@ export const columns: ColumnDef<any>[] = [
               name: isActive ? 'lucide:check-circle' : 'lucide:x-circle',
               class: 'mr-1 h-3.5 w-3.5',
             }),
-            isActive ? 'Active' : 'Inactive',
+            isActive ? 'Ativa' : 'Inativa',
           ],
         ),
       ])
@@ -79,10 +77,10 @@ export const columns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'created_at',
-    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Creation Date' }),
+    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Criada em' }),
     cell: ({ row }: any) => {
       const date = new Date(row.getValue('created_at'))
-      const formatted = new Intl.DateTimeFormat('en-US', {
+      const formatted = new Intl.DateTimeFormat('pt-BR', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',

@@ -25,11 +25,11 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     icon: 'lucide:book-a',
     basePath: '/articles',
   },
-  analytics: {
-    slug: 'analytics',
-    title: 'Analytics',
-    icon: 'lucide:bar-chart-3',
-    basePath: '/analytics',
+  marketing: {
+    slug: 'marketing',
+    title: 'Marketing',
+    icon: 'lucide:megaphone',
+    basePath: '/crm/marketing',
   },
   whatsapp: {
     slug: 'whatsapp',

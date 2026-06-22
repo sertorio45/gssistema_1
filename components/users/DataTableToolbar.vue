@@ -30,14 +30,14 @@ const isFiltered = computed(() => props.table.getState().columnFilters.length > 
   <div class="flex items-center justify-between">
     <div class="flex flex-1 items-center space-x-2">
       <Input
-        placeholder="Filter users..."
+        placeholder="Filtrar usuários..."
         :model-value="(table.getColumn('email')?.getFilterValue() as string) ?? ''"
         class="h-8 w-[150px] lg:w-[250px]"
         @input="table.getColumn('email')?.setFilterValue($event.target.value)"
       />
 
       <Button v-if="isFiltered" variant="ghost" class="h-8 px-2 lg:px-3" @click="table.resetColumnFilters()">
-        Reset
+        Limpar
         <Icon name="lucide:x" class="ml-2 h-4 w-4" />
       </Button>
     </div>
@@ -45,11 +45,11 @@ const isFiltered = computed(() => props.table.getState().columnFilters.length > 
       <DropdownMenuTrigger as-child>
         <Button variant="outline" size="sm" class="ml-auto hidden h-8 lg:flex">
           <Icon name="lucide:settings-2" class="mr-2 h-4 w-4" />
-          View
+          Colunas
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" class="w-[150px]">
-        <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+        <DropdownMenuLabel>Exibir colunas</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
         <DropdownMenuCheckboxItem

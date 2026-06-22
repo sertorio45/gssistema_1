@@ -2,6 +2,7 @@
 import { dashboardKPI } from '~/data/crm-mock'
 
 definePageMeta({
+  middleware: ['auth'],
   title: 'Painel CRM',
   description: 'Visão geral do desempenho de vendas e métricas principais',
 })
@@ -48,7 +49,7 @@ const leadSourcesChartData = computed(() =>
   })),
 )
 
-const pipelineChartData = computed(() =>
+const funnelChartData = computed(() =>
   Object.entries(kpi.value.leadsPerStage).map(([stage, count]) => ({
     stage: stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
     count: count as number,
@@ -236,16 +237,16 @@ const recentActivity = [
         </CardContent>
       </Card>
 
-      <!-- Pipeline Overview -->
+      <!-- Funil Overview -->
       <Card class="col-span-3">
         <CardHeader>
-          <CardTitle>Pipeline de Vendas</CardTitle>
+          <CardTitle>Funil de Vendas</CardTitle>
           <CardDescription>Distribuição de leads por estágio</CardDescription>
         </CardHeader>
         <CardContent>
           <!-- Substituído por tabela simples -->
           <div class="h-[300px] overflow-auto">
-            <div v-for="item in pipelineChartData" :key="item.stage" class="mb-3">
+            <div v-for="item in funnelChartData" :key="item.stage" class="mb-3">
               <div class="mb-1 flex justify-between">
                 <span class="text-sm">{{ item.stage }}</span>
                 <span class="text-sm">{{ item.count }} leads</span>

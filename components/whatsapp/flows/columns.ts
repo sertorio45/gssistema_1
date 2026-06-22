@@ -23,15 +23,16 @@ export const columns: ColumnDef<WhatsAppFlow>[] = [
     accessorKey: 'name',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Flow' }),
     cell: ({ row, table }) =>
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'text-left font-medium hover:underline',
-          onClick: () => (table.options.meta as any)?.onOpen?.(row.original),
-        },
-        row.original.name,
-      ),
+      h('button', {
+        type: 'button',
+        class: 'max-w-[280px] text-left hover:opacity-80',
+        onClick: () => (table.options.meta as any)?.onOpen?.(row.original),
+      }, [
+        h('span', { class: 'block font-medium truncate' }, row.original.name),
+        row.original.description
+          ? h('span', { class: 'block truncate text-xs text-muted-foreground' }, row.original.description)
+          : null,
+      ]),
     enableSorting: true,
   },
   {

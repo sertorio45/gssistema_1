@@ -29,6 +29,21 @@ export interface OllamaConfigStatus {
   hint: string
 }
 
+export interface OllamaModelInfo {
+  name: string
+  size?: number
+  modifiedAt?: string
+}
+
+interface OllamaTagsResponse {
+  models?: Array<{
+    name?: string
+    model?: string
+    size?: number
+    modified_at?: string
+  }>
+}
+
 function readSecret(...keys: string[]): string | undefined {
   for (const key of keys) {
     const value = process.env[key]?.trim()
@@ -185,6 +200,52 @@ export async function ollamaGenerate(params: {
 
   const tokensUsed = Number(response.eval_count || 0) + Number(response.prompt_eval_count || 0)
   return { content, tokensUsed }
+}
+
+export async function listOllamaModels(params?: {
+  config?: OllamaConfig
+}): Promise<OllamaModelInfo[]> {
+  const config = params?.config || getOllamaConfig()
+
+  if (!config.baseUrl)
+    throw new Error('OLLAMA_BASE_URL is not configured')
+
+  if (!config.cfAccessClientId || !config.cfAccessClientSecret) {
+    throw new Error(
+      'Configure OLLAMA_CF_ACCESS_CLIENT_ID e OLLAMA_CF_ACCESS_CLIENT_SECRET no servidor.',
+    )
+  }
+
+  try {
+    const response = await $fetch<OllamaTagsResponse>(`${config.baseUrl}/api/tags`, {
+      method: 'GET',
+      headers: buildOllamaHeaders(config),
+    })
+
+    return (response.models || [])
+      .map((item) => {
+        const name = String(item.name || item.model || '').trim()
+        if (!name)
+          return null
+
+        return {
+          name,
+          size: item.size,
+          modifiedAt: item.modified_at,
+        } satisfies OllamaModelInfo
+      })
+      .filter((item): item is OllamaModelInfo => Boolean(item))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+  catch (error: any) {
+    const status = error?.statusCode || error?.response?.status
+    if (status === 403) {
+      throw new Error(
+        'Ollama retornou 403 Forbidden — verifique as credenciais CF-Access no servidor.',
+      )
+    }
+    throw error
+  }
 }
 
 export async function testOllamaConnection(params?: {

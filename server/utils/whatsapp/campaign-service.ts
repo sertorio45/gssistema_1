@@ -19,9 +19,8 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function normalizePhone(phone: string) {
-  return phone.replace(/\D/g, '')
-}
+import { findOrUpsertWhatsAppConversation, buildWhatsAppRemoteJid } from '~/server/utils/whatsapp/conversation-utils'
+import { normalizePhone } from '~/server/utils/whatsapp/contact-utils'
 
 function personalizeMessage(template: string, contact: AudienceContact) {
   return template
@@ -136,7 +135,6 @@ async function sendToRecipient(
   },
 ) {
   const phone = normalizePhone(params.contact.phone)
-  const remoteJid = `${phone}@s.whatsapp.net`
   const now = new Date().toISOString()
 
   const providerResult = await sendWhatsAppTextMessage({
@@ -151,53 +149,16 @@ async function sendToRecipient(
       || providerResult?.messages?.[0]?.id
       || null
 
-  let conversationId: string | null = null
-  const { data: existingConv } = await client
-    .from('whatsapp_conversation')
-    .select('id')
-    .eq('tenant_id', params.tenantId)
-    .eq('remote_jid', remoteJid)
-    .maybeSingle()
-
-  if (existingConv?.id) {
-    conversationId = existingConv.id
-    await client
-      .from('whatsapp_conversation')
-      .update({
-        instance_id: params.instance.id,
-        contact_id: params.contact.id,
-        contact_name: params.contact.name || phone,
-        contact_phone: phone,
-        last_message_preview: params.message.slice(0, 120),
-        last_message_at: now,
-        updated_at: now,
-      })
-      .eq('id', conversationId)
-  }
-  else {
-    const { data: createdConv } = await client
-      .from('whatsapp_conversation')
-      .insert({
-        tenant_id: params.tenantId,
-        instance_id: params.instance.id,
-        contact_id: params.contact.id,
-        remote_jid: remoteJid,
-        contact_name: params.contact.name || phone,
-        contact_phone: phone,
-        last_message_preview: params.message.slice(0, 120),
-        last_message_at: now,
-        unread_count: 0,
-        status: 'open',
-        channel: 'whatsapp',
-        is_online: false,
-      })
-      .select('*')
-      .single()
-
-    conversationId = createdConv?.id || null
-    if (createdConv)
-      await broadcastWhatsAppEvent(params.tenantId, 'conversation', createdConv)
-  }
+  const conversationId = await findOrUpsertWhatsAppConversation(client, {
+    tenantId: params.tenantId,
+    instanceId: params.instance.id,
+    contactId: params.contact.id,
+    contactPhone: phone,
+    contactName: params.contact.name || phone,
+    lastMessagePreview: params.message.slice(0, 120),
+    lastMessageAt: now,
+    fromMe: true,
+  })
 
   const { data: messageRow } = await client
     .from('whatsapp_message')
@@ -207,7 +168,7 @@ async function sendToRecipient(
       instance_id: params.instance.id,
       contact_id: params.contact.id,
       external_id: externalId,
-      remote_jid: remoteJid,
+      remote_jid: buildWhatsAppRemoteJid(phone),
       from_me: true,
       message_type: 'text',
       content: params.message,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useToast } from '~/components/ui/toast'
 import UserForm from '~/components/users/UserForm.vue'
+import { unref } from 'vue'
 
 const emit = defineEmits<{
   (e: 'userCreated'): void
@@ -21,7 +22,7 @@ async function handleSubmit(formData?: any) {
   if (!userForm?.validate()) {
     toast({
       title: 'Erro',
-      description: 'Por favor, preencha todos os campos corretamente',
+      description: 'Preencha todos os campos corretamente, incluindo a empresa quando necessário',
       variant: 'destructive',
     })
     return
@@ -30,9 +31,8 @@ async function handleSubmit(formData?: any) {
   isLoading.value = true
 
   try {
-    const form = formData || userForm.form
+    const form = formData || unref(userForm.form)
 
-    // Fazer requisição para o endpoint do backend
     const response = await fetch('/api/admin/users', {
       method: 'POST',
       headers: {
@@ -41,9 +41,11 @@ async function handleSubmit(formData?: any) {
       body: JSON.stringify({
         email: form.email,
         password: form.password,
-        user_metadata: {
-          name: form.user_metadata.name,
-        },
+        name: form.user_metadata.name,
+        role: form.role,
+        tenant_id: form.tenant.tenantMode === 'existing' ? form.tenant.tenant_id : null,
+        create_tenant: form.tenant.tenantMode === 'new',
+        tenant_name: form.tenant.tenantMode === 'new' ? form.tenant.new_tenant_name : undefined,
       }),
     })
 
@@ -85,7 +87,7 @@ defineExpose({
 
 <template>
   <Dialog :open="isOpen" @update:open="isOpen = $event">
-    <DialogContent class="sm:max-w-[800px]">
+    <DialogContent class="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Adicionar Novo Usuário</DialogTitle>
         <DialogDescription> Preencha os campos abaixo para criar um novo usuário. </DialogDescription>

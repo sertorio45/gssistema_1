@@ -1,6 +1,7 @@
 import { useSupabaseClient, useSupabaseUser } from '#imports'
 
 import { useTenant } from '~/composables/useTenant'
+import { decodeJwtPayload, resolveRoleFromSession } from '~/utils/resolve-user-role'
 
 export function useAuth() {
   const client = useSupabaseClient()
@@ -12,25 +13,7 @@ export function useAuth() {
 
   // Função para decodificar JWT
   function decodeJWT(token: string) {
-    try {
-      const base64Url = token.split('.')[1]
-      if (!base64Url) {
-        return null
-      }
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => {
-            return `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
-          })
-          .join(''),
-      )
-      return JSON.parse(jsonPayload)
-    }
-    catch {
-      return null
-    }
+    return decodeJwtPayload(token)
   }
 
   // Função para atualizar o papel do usuário
@@ -41,49 +24,24 @@ export function useAuth() {
     }
 
     try {
-      // Obter a sessão atual para extrair o token
       const {
         data: { session },
       } = await client.auth.getSession()
 
       if (session?.access_token) {
-        // Decodificar o token para extrair app_metadata.tenant_roles
-        const decoded = decodeJWT(session.access_token)
-        const tenantRoles = decoded?.app_metadata?.tenant_roles || {}
-        // Obter tenantId atual do store
         let tenantId = null
         try {
           const { useTenantStore } = await import('~/stores/tenant')
           tenantId = useTenantStore().tenantId
         }
         catch {}
-        let role = null
-        if (tenantId && tenantRoles[tenantId]) {
-          role = tenantRoles[tenantId]
-        }
-        else {
-          // Fallback: pega o primeiro role disponível
-          const firstTenant = Object.keys(tenantRoles)[0]
-          if (firstTenant) {
-            role = tenantRoles[firstTenant]
-          }
-        }
-        userRole.value = role
-        return
-      }
-      // Fallback: se não encontrar role no token, busca da tabela user_roles
-      const { data, error } = await client
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.value.id)
-        .single()
-        .throwOnError()
 
-      if (error) {
-        throw error
+        const role = await resolveRoleFromSession(client, tenantId)
+        if (role) {
+          userRole.value = role
+          return
+        }
       }
-
-      userRole.value = data?.role || null
     }
     catch (error) {
       console.error('Erro ao buscar papel do usuário:', error)
@@ -161,13 +119,8 @@ export function useAuth() {
       // Após login bem-sucedido, verifique o role do usuário
       await updateUserRole()
 
-      const { data: userData } = await client.auth.getUser()
-      const tenantIdFromJwt = userData?.user?.user_metadata?.tenant_id
-      const { setTenantId } = useTenant()
-      if (tenantIdFromJwt) {
-        setTenantId(tenantIdFromJwt)
-        // Se necessário, disparar fetchArticles()
-      }
+      const { bootstrapTenantContext } = useTenant()
+      await bootstrapTenantContext()
 
       return { success: true, data }
     }

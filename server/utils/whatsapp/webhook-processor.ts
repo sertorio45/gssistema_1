@@ -1,12 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { mapEvolutionConnectionState } from '~/server/utils/whatsapp/evolution-client'
+import { buildWhatsAppRemoteJid, findOrUpsertWhatsAppConversation, resolveEvolutionRemoteJid } from '~/server/utils/whatsapp/conversation-utils'
+import { normalizePhone } from '~/server/utils/whatsapp/contact-utils'
 import { broadcastWhatsAppEvent } from '~/server/utils/whatsapp/realtime-broadcast'
+import {
+  conversationHasActiveAgent,
+  dispatchConversationAgentReply,
+} from '~/server/utils/whatsapp/conversation-agent'
 import { dispatchWhatsAppFlows } from '~/server/utils/whatsapp/flow-dispatcher'
-
-function normalizePhone(jid: string): string {
-  return jid.replace(/@.*/, '').replace(/\D/g, '')
-}
 
 function normalizeEvolutionEventName(raw: unknown): string {
   return String(raw || '')
@@ -47,10 +49,6 @@ function extractMessageText(message: Record<string, any> | undefined): string {
     || target.buttonsResponseMessage?.selectedDisplayText
     || '',
   )
-}
-
-function resolveMessageRemoteJid(key: Record<string, any>): string {
-  return String(key.remoteJidAlt || key.remoteJid || '')
 }
 
 function shouldIgnoreEvolutionJid(remoteJid: string): boolean {
@@ -95,79 +93,35 @@ async function upsertContact(
   return created.id as string
 }
 
-async function upsertConversation(
+async function dispatchInboundAutomation(
   client: SupabaseClient,
   params: {
     tenantId: string
     instanceId: string
     contactId: string
+    conversationId: string
     remoteJid: string
-    contactName: string
-    contactPhone: string
-    lastMessagePreview: string
-    lastMessageAt: string
+    messageId: string
+    messageContent: string
+    messageType: string
     fromMe: boolean
+    sentAt?: string | null
+    contactPhone: string
+    contactName?: string | null
   },
 ) {
-  const { data: existing } = await client
-    .from('whatsapp_conversation')
-    .select('id, unread_count')
-    .eq('tenant_id', params.tenantId)
-    .eq('remote_jid', params.remoteJid)
-    .maybeSingle()
+  const hasActiveAgent = await conversationHasActiveAgent(
+    client,
+    params.tenantId,
+    params.conversationId,
+  )
 
-  if (existing?.id) {
-    const unread = params.fromMe ? (existing.unread_count ?? 0) : (existing.unread_count ?? 0) + 1
-    const { data: updated } = await client
-      .from('whatsapp_conversation')
-      .update({
-        instance_id: params.instanceId,
-        contact_id: params.contactId,
-        contact_name: params.contactName,
-        contact_phone: params.contactPhone,
-        last_message_preview: params.lastMessagePreview,
-        last_message_at: params.lastMessageAt,
-        unread_count: unread,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-      .select('*')
-      .single()
-
-    if (updated) {
-      await broadcastWhatsAppEvent(params.tenantId, 'conversation', updated)
-    }
-
-    return existing.id as string
+  if (hasActiveAgent) {
+    await dispatchConversationAgentReply(client, params)
+    return
   }
 
-  const { data: created, error } = await client
-    .from('whatsapp_conversation')
-    .insert({
-      tenant_id: params.tenantId,
-      instance_id: params.instanceId,
-      contact_id: params.contactId,
-      remote_jid: params.remoteJid,
-      contact_name: params.contactName,
-      contact_phone: params.contactPhone,
-      last_message_preview: params.lastMessagePreview,
-      last_message_at: params.lastMessageAt,
-      unread_count: params.fromMe ? 0 : 1,
-      status: 'open',
-      channel: 'whatsapp',
-      is_online: false,
-    })
-    .select('*')
-    .single()
-
-  if (error)
-    throw error
-
-  if (created) {
-    await broadcastWhatsAppEvent(params.tenantId, 'conversation', created)
-  }
-
-  return created.id as string
+  await dispatchWhatsAppFlows(client, params)
 }
 
 export async function processEvolutionWebhook(
@@ -202,7 +156,7 @@ export async function processEvolutionWebhook(
       if (!item?.key)
         continue
 
-      const remoteJid = resolveMessageRemoteJid(item.key)
+      const remoteJid = resolveEvolutionRemoteJid(item.key)
       if (shouldIgnoreEvolutionJid(remoteJid))
         continue
 
@@ -217,7 +171,7 @@ export async function processEvolutionWebhook(
       const text = extractMessageText(item.message)
 
       const contactId = await upsertContact(client, tenantId, phone, pushName)
-      const conversationId = await upsertConversation(client, {
+      const conversationId = await findOrUpsertWhatsAppConversation(client, {
         tenantId,
         instanceId,
         contactId,
@@ -258,7 +212,7 @@ export async function processEvolutionWebhook(
 
           if (!fromMe) {
             try {
-              await dispatchWhatsAppFlows(client, {
+              await dispatchInboundAutomation(client, {
                 tenantId,
                 instanceId,
                 contactId,
@@ -274,7 +228,7 @@ export async function processEvolutionWebhook(
               })
             }
             catch (err: any) {
-              console.error('[WhatsApp] Flow dispatch failed:', err?.message || err)
+              console.error('[WhatsApp] Inbound automation failed:', err?.message || err)
             }
           }
         }
@@ -282,7 +236,7 @@ export async function processEvolutionWebhook(
       else if (!fromMe) {
         // Message already stored (duplicate webhook) — still attempt flow dispatch.
         try {
-          await dispatchWhatsAppFlows(client, {
+          await dispatchInboundAutomation(client, {
             tenantId,
             instanceId,
             contactId,
@@ -298,7 +252,7 @@ export async function processEvolutionWebhook(
           })
         }
         catch (err: any) {
-          console.error('[WhatsApp] Flow dispatch failed (existing message):', err?.message || err)
+          console.error('[WhatsApp] Inbound automation failed (existing message):', err?.message || err)
         }
       }
     }
@@ -354,8 +308,8 @@ export async function processCloudWebhook(
 
   if (value.messages?.length) {
     for (const msg of value.messages) {
-      const phone = String(msg.from || '')
-      const remoteJid = `${phone}@s.whatsapp.net`
+      const phone = normalizePhone(String(msg.from || ''))
+      const remoteJid = buildWhatsAppRemoteJid(phone)
       const contactName = value.contacts?.[0]?.profile?.name || phone
       const text = msg.text?.body || msg.button?.text || ''
       const timestamp = msg.timestamp
@@ -363,7 +317,7 @@ export async function processCloudWebhook(
         : new Date().toISOString()
 
       const contactId = await upsertContact(client, tenantId, phone, contactName)
-      const conversationId = await upsertConversation(client, {
+      const conversationId = await findOrUpsertWhatsAppConversation(client, {
         tenantId,
         instanceId,
         contactId,

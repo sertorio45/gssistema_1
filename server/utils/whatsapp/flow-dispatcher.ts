@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { findDrawflowTriggerNode, getCanvasFromViewport } from '~/server/utils/whatsapp/flow-canvas'
-import { runWhatsAppFlow } from '~/server/utils/whatsapp/flow-runner'
+import {
+  resumeWaitingFlowOnInboundMessage,
+  runWhatsAppFlow,
+} from '~/server/utils/whatsapp/flow-runner'
 
 interface DispatchMessageParams {
   tenantId: string
@@ -22,6 +25,25 @@ export async function dispatchWhatsAppFlows(
   client: SupabaseClient,
   params: DispatchMessageParams,
 ) {
+  const flowInput = {
+    tenantId: params.tenantId,
+    instanceId: params.instanceId,
+    contactId: params.contactId,
+    conversationId: params.conversationId,
+    remoteJid: params.remoteJid,
+    messageId: params.messageId,
+    messageContent: params.messageContent,
+    messageType: params.messageType,
+    fromMe: params.fromMe,
+    sentAt: params.sentAt,
+    contactPhone: params.contactPhone,
+    contactName: params.contactName,
+  }
+
+  const resumed = await resumeWaitingFlowOnInboundMessage(client, flowInput)
+  if (resumed.resumed)
+    return
+
   const { data: flows } = await client
     .from('whatsapp_flow')
     .select('id, tenant_id, viewport, status')
@@ -48,20 +70,7 @@ export async function dispatchWhatsAppFlows(
       continue
 
     try {
-      const result = await runWhatsAppFlow(client, flow, {
-        tenantId: params.tenantId,
-        instanceId: params.instanceId,
-        contactId: params.contactId,
-        conversationId: params.conversationId,
-        remoteJid: params.remoteJid,
-        messageId: params.messageId,
-        messageContent: params.messageContent,
-        messageType: params.messageType,
-        fromMe: params.fromMe,
-        sentAt: params.sentAt,
-        contactPhone: params.contactPhone,
-        contactName: params.contactName,
-      })
+      const result = await runWhatsAppFlow(client, flow, flowInput)
 
       if (result?.skipped) {
         console.info(`[WhatsApp] Flow ${flow.id} skipped: ${result.reason || 'trigger mismatch'}`)

@@ -15,8 +15,10 @@ function mergeMessages(current: WhatsAppMessage[], remote: WhatsAppMessage[]) {
   for (const message of current)
     byId.set(message.id, message)
 
-  for (const message of remote)
-    byId.set(message.id, { ...byId.get(message.id), ...message })
+  for (const message of remote) {
+    const existing = byId.get(message.id)
+    byId.set(message.id, existing ? { ...existing, ...message } : message)
+  }
 
   return sortMessages(Array.from(byId.values()))
 }
@@ -49,6 +51,10 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
       data.value = value
     },
   })
+
+  const initialLoading = computed(
+    () => pending.value && messages.value.length === 0,
+  )
 
   const sending = ref(false)
   let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -94,11 +100,17 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
     }
   }
 
-  watch(conversationId, (id) => {
-    if (id)
+  watch(conversationId, (id, previousId) => {
+    if (id === previousId)
+      return
+
+    if (id) {
       startPolling()
-    else
-      stopPolling()
+      return
+    }
+
+    stopPolling()
+    data.value = []
   }, { immediate: true })
 
   onUnmounted(stopPolling)
@@ -143,6 +155,7 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
   return {
     messages,
     pending,
+    initialLoading,
     sending,
     refresh,
     appendMessage,

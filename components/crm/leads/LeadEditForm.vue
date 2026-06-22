@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useSupabaseClient } from '#imports'
+import { Icon } from '#components'
 import { computed, ref, watch } from 'vue'
 import {
   Select,
@@ -15,10 +16,16 @@ import {
 //   TabsList,
 //   TabsTrigger,
 // } from '@/components/ui/tabs'
+import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
+import TeamMemberSelect from '~/components/crm/team/TeamMemberSelect.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
+import { formatLeadValueInput, parseLeadValueInput } from '~/composables/crm/useCrmLeadValue'
+import { applyCrmLeadAutofill } from '~/composables/crm/useCrmLeadAutofill'
+import { useCrmLeadWhatsapp } from '~/composables/crm/useCrmLeadWhatsapp'
+import type { CrmLeadLookupResult } from '~/types/crm'
 import { useTenant } from '~/composables/useTenant'
 
 // Props
@@ -127,10 +134,13 @@ const leadForm = ref({
   priority: 'medium',
   value: '',
   notes: '',
+  assigned_to: null as string | null,
 })
 
 // Contact form data
 const contactId = ref<string | null>(null)
+const whatsappConversationId = ref<string | null>(null)
+const whatsappConversationStatus = ref<string | null>(null)
 const contactForm = ref({
   name: '',
   email: '',
@@ -138,6 +148,26 @@ const contactForm = ref({
   position: '',
   notes: '',
 })
+
+const {
+  isSyncingWhatsapp,
+  canOpenWhatsappConversation,
+  canSyncWhatsapp,
+  openWhatsappForLead,
+  syncWhatsappForLead,
+} = useCrmLeadWhatsapp({
+  onLeadUpdated: (_leadId, patch) => {
+    whatsappConversationId.value = patch.whatsapp_conversation_id
+    whatsappConversationStatus.value = patch.whatsapp_conversation_status
+  },
+})
+
+const leadWhatsappState = computed(() => ({
+  id: props.lead?.id as string,
+  phone: contactForm.value.phone || props.lead?.phone || null,
+  whatsapp_conversation_id: whatsappConversationId.value,
+  whatsapp_conversation_status: whatsappConversationStatus.value,
+}))
 
 async function loadLeadContact(leadId: string) {
   if (!tenantId.value)
@@ -196,29 +226,16 @@ const meetingForm = ref({
   agenda: '',
 })
 
-function formatLeadValueInput(value: string | number): string {
-  const digits = String(value ?? '').replace(/\D/g, '')
-  const cents = Number(digits || '0') / 100
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(cents)
-}
-
-function parseLeadValueInput(value: string): number {
-  const normalized = value
-    .replace(/[R$\s]/g, '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 function handleLeadValueInput(event: Event) {
   const input = event.target as HTMLInputElement
   leadForm.value.value = formatLeadValueInput(input.value)
+}
+
+function handleLeadAutofill(match: CrmLeadLookupResult, scope: 'lead' | 'contact' = 'lead') {
+  applyCrmLeadAutofill(match, { leadForm, contactForm, companyForm }, {
+    leadSources: leadSources.value || [],
+    fillLeadFields: scope === 'lead',
+  })
 }
 
 // Watch para pré-preencher todos os formulários quando os dados carregarem
@@ -233,7 +250,11 @@ watch([() => props.lead, leadSources], () => {
       priority: props.lead.priority || 'medium',
       value: props.lead.value ? formatLeadValueInput(props.lead.value) : '',
       notes: props.lead.notes || '',
+      assigned_to: props.lead.assigned_to || props.lead.assignedTo || null,
     }
+
+    whatsappConversationId.value = props.lead.whatsapp_conversation_id ?? null
+    whatsappConversationStatus.value = props.lead.whatsapp_conversation_status ?? null
 
     loadLeadContact(props.lead.id)
 
@@ -334,6 +355,7 @@ async function updateLead() {
       priority: leadForm.value.priority,
       value: parseLeadValueInput(leadForm.value.value),
       notes: leadForm.value.notes || null,
+      assigned_to: leadForm.value.assigned_to,
       tenant_id: tenantId.value,
     }
 
@@ -477,7 +499,14 @@ function cancel() {
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
               <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
-              <Input id="lead-name" v-model="leadForm.name" placeholder="Nome do lead" required />
+              <LeadNameAutofillInput
+                v-model="leadForm.name"
+                input-id="lead-name"
+                placeholder="Nome do lead"
+                :exclude-lead-id="props.lead?.id"
+                required
+                @autofill="handleLeadAutofill"
+              />
             </div>
             
             <div class="space-y-2">
@@ -537,6 +566,16 @@ function cancel() {
             </div>
 
             <div class="space-y-2">
+              <Label for="lead-assigned">Responsável</Label>
+              <TeamMemberSelect
+                id="lead-assigned"
+                v-model="leadForm.assigned_to"
+                include-unassigned
+                placeholder="Selecionar responsável"
+              />
+            </div>
+
+            <div class="space-y-2">
               <Label for="lead-value">Valor estimado</Label>
               <Input
                 id="lead-value"
@@ -560,7 +599,14 @@ function cancel() {
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
               <Label for="contact-name">Nome do contato</Label>
-              <Input id="contact-name" v-model="contactForm.name" placeholder="Nome do contato" />
+              <LeadNameAutofillInput
+                v-model="contactForm.name"
+                input-id="contact-name"
+                placeholder="Nome do contato"
+                search-field="contact"
+                :exclude-lead-id="props.lead?.id"
+                @autofill="handleLeadAutofill"
+              />
             </div>
             
             <div class="space-y-2">
@@ -673,13 +719,41 @@ function cancel() {
         </div>
 
       <!-- Action Buttons -->
-      <div class="flex justify-end gap-2 pt-4">
-        <Button variant="outline" @click="cancel">
-          Cancelar
-        </Button>
-        <Button :loading="loading" :disabled="!validateForm()" @click="updateLead">
-          Atualizar lead
-        </Button>
+      <div
+        class="flex flex-wrap items-center gap-2 pt-4"
+        :class="canOpenWhatsappConversation(leadWhatsappState, contactForm.phone) || canSyncWhatsapp(leadWhatsappState, contactForm.phone) ? 'justify-between' : 'justify-end'"
+      >
+        <div class="flex gap-2">
+          <Button
+            v-if="canOpenWhatsappConversation(leadWhatsappState, contactForm.phone)"
+            variant="outline"
+            size="sm"
+            class="gap-2"
+            @click="openWhatsappForLead(leadWhatsappState, contactForm.phone)"
+          >
+            <Icon name="lucide:message-circle" class="h-4 w-4" />
+            Abrir conversa
+          </Button>
+          <Button
+            v-else-if="canSyncWhatsapp(leadWhatsappState, contactForm.phone)"
+            variant="outline"
+            size="sm"
+            class="gap-2"
+            :disabled="isSyncingWhatsapp"
+            @click="syncWhatsappForLead(leadWhatsappState, contactForm.phone)"
+          >
+            <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': isSyncingWhatsapp }" />
+            Sincronizar no WhatsApp
+          </Button>
+        </div>
+        <div class="flex gap-2">
+          <Button variant="outline" @click="cancel">
+            Cancelar
+          </Button>
+          <Button :loading="loading" :disabled="!validateForm()" @click="updateLead">
+            Atualizar lead
+          </Button>
+        </div>
       </div>
     </div>
   </div>

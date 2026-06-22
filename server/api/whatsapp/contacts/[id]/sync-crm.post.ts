@@ -3,7 +3,7 @@ import { createError, readBody } from 'h3'
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { mapContactRow } from '~/composables/whatsapp/useWhatsAppMapper'
-import { syncWhatsAppContactToCrm } from '~/server/utils/whatsapp/crm-sync'
+import { syncWhatsAppContactToCrmWithLead } from '~/server/utils/whatsapp/crm-sync'
 import { resolveWhatsAppTenantContext } from '~/server/utils/whatsapp/context'
 
 const CONTACT_SELECT = `
@@ -19,6 +19,7 @@ interface SyncCrmBody {
   tenant_id?: string
   create_if_missing?: boolean
   crm_contact_id?: string | null
+  create_lead?: boolean
 }
 
 export default defineEventHandler(async (event) => {
@@ -40,9 +41,10 @@ export default defineEventHandler(async (event) => {
   if (error || !contact)
     throw createError({ statusCode: 404, statusMessage: 'Contact not found' })
 
-  const crmContact = await syncWhatsAppContactToCrm(client, tenantId, contact, {
+  const result = await syncWhatsAppContactToCrmWithLead(client, tenantId, contact, {
     createIfMissing: body.create_if_missing ?? true,
     crmContactId: body.crm_contact_id,
+    createLead: body.create_lead ?? true,
   })
 
   const { data: updated } = await client
@@ -53,6 +55,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     data: mapContactRow(updated as any),
-    crmContact,
+    crmContact: result.crmContact,
+    lead: result.lead,
+    leadCreated: result.leadCreated,
   }
 })

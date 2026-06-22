@@ -2,6 +2,7 @@
 import type { WhatsAppFlowNodeType } from '~/types/whatsapp'
 
 import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import {
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { Textarea } from '~/components/ui/textarea'
+import TeamMemberSelect from '~/components/crm/team/TeamMemberSelect.vue'
 import { WHATSAPP_FLOW_VARIABLES } from '~/constants/whatsapp-flow-nodes'
 
 const { agents } = useWhatsAppAgents()
@@ -56,25 +58,34 @@ function insertVariable(key: string) {
 </script>
 
 <template>
-  <div v-if="!nodeId" class="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-    Selecione um bloco no canvas para editar propriedades.
-  </div>
-
-  <div v-else class="space-y-4 rounded-xl border p-4">
-    <div class="flex items-center justify-between gap-2">
-      <p class="text-sm font-medium capitalize">
-        {{ nodeType }}
+  <Card v-if="!nodeId" class="border-dashed border-border/60 bg-muted/10 shadow-none">
+    <CardContent class="flex flex-col items-center justify-center px-6 py-10 text-center">
+      <span class="i-lucide-mouse-pointer-click mb-3 h-8 w-8 text-muted-foreground/70" />
+      <p class="text-sm font-medium">
+        Nenhum bloco selecionado
       </p>
+      <p class="mt-1 max-w-[220px] text-xs text-muted-foreground">
+        Clique em um bloco do canvas para editar gatilhos, mensagens e ações.
+      </p>
+    </CardContent>
+  </Card>
+
+  <Card v-else class="border-border/60 shadow-none">
+    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-3">
+      <CardTitle class="text-sm font-semibold capitalize">
+        {{ nodeType }}
+      </CardTitle>
       <Button
         v-if="nodeType !== 'trigger'"
         variant="ghost"
         size="sm"
-        class="text-destructive"
+        class="h-8 text-destructive hover:text-destructive"
         @click="emit('remove', nodeId!)"
       >
         Remover
       </Button>
-    </div>
+    </CardHeader>
+    <CardContent class="space-y-4">
 
     <template v-if="nodeType === 'trigger'">
       <div class="space-y-2">
@@ -254,7 +265,7 @@ function insertVariable(key: string) {
         />
       </div>
       <p class="text-xs text-muted-foreground">
-        Saída superior = verdadeiro · inferior = falso
+        Saída superior = verdadeiro · inferior = falso. Usa a mensagem do gatilho ou a última resposta do cliente.
       </p>
     </template>
 
@@ -274,6 +285,13 @@ function insertVariable(key: string) {
       </div>
       <p class="text-xs text-muted-foreground">
         Até 10s executa na hora. Acima disso agenda retomada automática.
+      </p>
+    </template>
+
+    <template v-else-if="nodeType === 'wait_reply'">
+      <p class="rounded-md border border-dashed border-border/70 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        O fluxo pausa neste bloco e continua quando o cliente enviar a próxima mensagem nesta conversa.
+        Use um bloco <strong>Condição</strong> depois para ramificar conforme a resposta.
       </p>
     </template>
 
@@ -422,14 +440,15 @@ function insertVariable(key: string) {
         </Select>
       </div>
       <div class="space-y-2">
-        <Label>ID do atendente (opcional)</Label>
-        <Input
-          :model-value="String(localData.assignToUserId || '')"
-          placeholder="UUID do usuário"
+        <Label>Atendente (opcional)</Label>
+        <TeamMemberSelect
+          :model-value="localData.assignToUserId ? String(localData.assignToUserId) : null"
+          include-unassigned
+          placeholder="Selecionar atendente"
           @update:model-value="(value) => {
-            localData.assignToUserId = value
+            localData.assignToUserId = value || ''
+            applyUpdate()
           }"
-          @blur="applyUpdate"
         />
       </div>
       <div class="flex items-center justify-between rounded-lg border px-3 py-2">
@@ -549,5 +568,6 @@ function insertVariable(key: string) {
         </Button>
       </div>
     </template>
-  </div>
+    </CardContent>
+  </Card>
 </template>

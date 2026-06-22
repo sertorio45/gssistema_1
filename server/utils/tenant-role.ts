@@ -1,22 +1,17 @@
-/**
- * Role helpers aligned with workspace rules: admin/funcionario have access to any tenant;
- * cliente is scoped to tenant_roles / metadata.
- */
+import { isStaffRole } from '~/constants/roles'
 
+/**
+ * Staff da plataforma: apenas role global em app_metadata (Superadministrador / Funcionário).
+ * Roles em tenant_roles (Administrador / Atendente) nunca equivalem a staff.
+ */
 export function isStaffUser(user: { app_metadata?: any, user_metadata?: any }): boolean {
-  const gr = user.user_metadata?.role || user.app_metadata?.role
-  if (gr === 'admin' || gr === 'funcionario')
-    return true
-  const tr = user.app_metadata?.tenant_roles || {}
-  return Object.values(tr).some(r => r === 'admin' || r === 'funcionario')
+  const globalRole = user.app_metadata?.role || user.user_metadata?.role
+  return isStaffRole(globalRole)
 }
 
 export function resolveStaffRole(user: { app_metadata?: any, user_metadata?: any }): 'admin' | 'funcionario' {
-  const gr = user.user_metadata?.role || user.app_metadata?.role
-  if (gr === 'admin' || gr === 'funcionario')
-    return gr
-  const tr = user.app_metadata?.tenant_roles || {}
-  if (Object.values(tr).includes('admin'))
-    return 'admin'
+  const globalRole = user.app_metadata?.role || user.user_metadata?.role
+  if (globalRole === 'admin' || globalRole === 'funcionario')
+    return globalRole
   return 'funcionario'
 }

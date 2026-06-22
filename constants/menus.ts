@@ -7,10 +7,10 @@ export const navMenu: NavMenu[] = [
       {
         title: 'CRM',
         icon: 'i-lucide-briefcase',
-        roles: ['admin', 'funcionario', 'cliente'],
+        roles: ['admin', 'funcionario', 'cliente', 'atendente'],
         children: [
           { title: 'Painel', icon: 'i-lucide-layout-dashboard', link: '/crm/dashboard' },
-          { title: 'Pipeline de Vendas', icon: 'i-lucide-trending-up', link: '/crm/pipeline' },
+          { title: 'Funil de Vendas', icon: 'i-lucide-trending-up', link: '/crm/funnel' },
           { title: 'Empresas', icon: 'i-lucide-building', link: '/crm/company' },
           { title: 'Contatos', icon: 'i-lucide-contact', link: '/crm/contacts' },
           { title: 'Reuniões', icon: 'i-lucide-calendar', link: '/crm/meetings' },
@@ -20,6 +20,12 @@ export const navMenu: NavMenu[] = [
             title: 'Configurações',
             icon: 'i-lucide-bar-chart-3',
             link: '/crm/config',
+          },
+          {
+            title: 'Usuários',
+            icon: 'i-lucide-users',
+            link: '/settings/team',
+            roles: ['admin', 'funcionario', 'cliente'],
           },
         ],
       },
@@ -31,7 +37,7 @@ export const navMenu: NavMenu[] = [
       {
         title: 'WhatsApp',
         icon: 'i-lucide-message-circle',
-        roles: ['admin', 'funcionario', 'cliente'],
+        roles: ['admin', 'funcionario', 'cliente', 'atendente'],
         children: [
           { title: 'Painel', icon: 'i-lucide-layout-dashboard', link: '/whatsapp/dashboard' },
           { title: 'Conversas', icon: 'i-lucide-messages-square', link: '/whatsapp/conversations' },
@@ -53,7 +59,7 @@ export const navMenu: NavMenu[] = [
       {
         title: 'Articles',
         icon: 'i-lucide-book-a',
-        roles: ['admin', 'funcionario', 'cliente'],
+        roles: ['admin', 'funcionario', 'cliente', 'atendente'],
         children: [
           { title: 'View articles', icon: 'i-lucide-file-text', link: '/articles' },
           { title: 'Create', icon: 'i-lucide-plus-circle', link: '/articles/new' },
@@ -445,16 +451,31 @@ export const navMenu: NavMenu[] = [
 /** Administration: only for admin role, shown in a separate section at the bottom of the sidebar */
 export const navMenuAdmin: NavMenu[] = [
   {
-    heading: 'Administration',
+    heading: 'Administração',
     items: [
       {
-        title: 'Administration',
+        title: 'Administração',
         icon: 'i-lucide-lock-keyhole-open',
-        roles: ['admin'],
+        roles: ['admin', 'funcionario'],
         children: [
-          { title: 'Users', icon: 'i-lucide-users', link: '/admin/users' },
-          { title: 'Tenants', icon: 'i-lucide-building-2', link: '/admin/tenants' },
+          { title: 'Usuários', icon: 'i-lucide-users', link: '/admin/users' },
+          { title: 'Empresas', icon: 'i-lucide-building-2', link: '/admin/tenants' },
         ],
+      },
+    ],
+  },
+]
+
+/** Tenant user management: for client owners and staff managing a tenant */
+export const navMenuTenant: NavMenu[] = [
+  {
+    heading: 'Minha empresa',
+    items: [
+      {
+        title: 'Usuários',
+        icon: 'i-lucide-users',
+        link: '/settings/team',
+        roles: ['admin', 'funcionario', 'cliente'],
       },
     ],
   },

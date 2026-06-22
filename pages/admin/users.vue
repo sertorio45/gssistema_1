@@ -31,13 +31,14 @@ const { data: usersData, refresh } = await useFetch<{ users: User[] }>('/api/adm
 
 definePageMeta({
   middleware: ['auth', 'role'],
-  requiredRoles: ['admin'],
+  requiredRoles: ['admin', 'funcionario'],
 })
 
 interface User {
   id: string
   email: string
   role: string
+  tenant_name?: string | null
 }
 
 const { toast } = useToast()
@@ -48,20 +49,18 @@ const selectedUser = ref<User | null>(null)
 const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 
-// Load data
 async function loadData() {
   isLoading.value = true
   try {
     await refresh()
-    if (usersData.value?.users) {
+    if (usersData.value?.users)
       users.value = usersData.value.users
-    }
   }
   catch (error) {
-    console.error('Error loading data:', error)
+    console.error('Erro ao carregar usuários:', error)
     toast({
-      title: 'Error',
-      description: 'Failed to load data',
+      title: 'Erro',
+      description: 'Não foi possível carregar os usuários',
       variant: 'destructive',
     })
   }
@@ -70,58 +69,50 @@ async function loadData() {
   }
 }
 
-// Open delete confirmation dialog
 function handleDeleteClick(user: User) {
   selectedUser.value = user
   isDeleteAlertOpen.value = true
 }
 
-// Delete user
 async function deleteUser() {
-  if (!selectedUser.value) {
+  if (!selectedUser.value)
     return
-  }
 
   try {
     const { data } = await useFetch(`/api/admin/users/${selectedUser.value.id}`, {
       method: 'DELETE',
     })
 
-    if (!data.value?.success) {
-      throw new Error('Error deleting user')
-    }
+    if (!data.value?.success)
+      throw new Error('Erro ao excluir usuário')
 
     toast({
-      title: 'Success',
-      description: 'User deleted successfully',
+      title: 'Sucesso',
+      description: 'Usuário excluído com sucesso',
     })
 
-    // Close confirmation and reload data
     isDeleteAlertOpen.value = false
     selectedUser.value = null
     await loadData()
   }
   catch (error: any) {
-    console.error('Error deleting user:', error)
+    console.error('Erro ao excluir usuário:', error)
     toast({
-      title: 'Error',
-      description: error?.message || 'Failed to delete user',
+      title: 'Erro',
+      description: error?.message || 'Não foi possível excluir o usuário',
       variant: 'destructive',
     })
   }
 }
 
-// Update selected items
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-// Show multi-delete dialog
 function showMultiDeleteConfirmation() {
   showMultiDeleteDialog.value = true
 }
 
-// Delete multiple users
 async function handleMultiDeleteConfirm() {
   const itemIds = selectedItems.value.map((index: number) => users.value[index].id)
   let allSuccess = true
@@ -132,26 +123,25 @@ async function handleMultiDeleteConfirm() {
         method: 'DELETE',
       })
 
-      if (!data.value?.success) {
+      if (!data.value?.success)
         allSuccess = false
-      }
     }
     catch (error) {
-      console.error(`Error deleting user ${id}:`, error)
+      console.error(`Erro ao excluir usuário ${id}:`, error)
       allSuccess = false
     }
   }
 
   if (allSuccess) {
     toast({
-      title: 'Success',
-      description: `${itemIds.length} users deleted successfully!`,
+      title: 'Sucesso',
+      description: `${itemIds.length} usuário(s) excluído(s) com sucesso`,
     })
   }
   else {
     toast({
-      title: 'Warning',
-      description: 'Some users could not be deleted.',
+      title: 'Aviso',
+      description: 'Alguns usuários não puderam ser excluídos',
       variant: 'destructive',
     })
   }
@@ -161,7 +151,6 @@ async function handleMultiDeleteConfirm() {
   await loadData()
 }
 
-// Load data when component mounts
 onMounted(() => {
   loadData()
 })
@@ -172,19 +161,18 @@ onMounted(() => {
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          User Management
+          Usuários do sistema
         </h1>
         <p class="text-muted-foreground">
-          Manage system users
+          Crie usuários e vincule à empresa (tenant) correspondente
         </p>
       </div>
       <Button class="bg-primary hover:bg-primary/90" @click="createUserDialog?.open()">
         <Icon name="lucide:plus-circle" class="mr-2 h-4 w-4" />
-        New User
+        Novo usuário
       </Button>
     </div>
 
-    <!-- User table with the new DataTable -->
     <div v-if="isLoading" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
@@ -206,61 +194,56 @@ onMounted(() => {
       @selection-change="updateSelectedItems"
     />
 
-    <!-- Action bar for multiple items -->
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
       :on-delete="showMultiDeleteConfirmation"
     />
 
-    <!-- Dialog to create user -->
     <CreateUserDialog ref="createUserDialog" @user-created="loadData" />
-
-    <!-- Dialog to edit user -->
     <EditUserDialog ref="editUserDialog" @user-updated="loadData" />
 
-    <!-- Alert Dialog for individual delete confirmation -->
     <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the user
-            {{ selectedUser?.email }} and remove their data from the system.
+            Esta ação não pode ser desfeita. O usuário
+            <span class="font-medium">{{ selectedUser?.email }}</span>
+            será excluído permanentemente do sistema.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel @click="isDeleteAlertOpen = false">
-            Cancel
+            Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             @click="deleteUser"
           >
-            Delete
+            Excluir
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
 
-    <!-- Multiple delete confirmation dialog -->
     <AlertDialog :open="showMultiDeleteDialog" @update:open="showMultiDeleteDialog = $event">
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Multiple Users</AlertDialogTitle>
+          <AlertDialogTitle>Excluir vários usuários</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete {{ selectedItems.length }} users? This action cannot be undone.
+            Tem certeza que deseja excluir {{ selectedItems.length }} usuário(s)? Esta ação não pode ser desfeita.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel @click="showMultiDeleteDialog = false">
-            Cancel
+            Cancelar
           </AlertDialogCancel>
           <AlertDialogAction
             class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             @click="handleMultiDeleteConfirm"
           >
-            Delete
+            Excluir
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

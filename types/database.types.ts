@@ -332,7 +332,7 @@ export interface Database {
           name: string
           next_follow_up: string | null
           notes: string | null
-          pipeline_id: string | null
+          funnel_id: string | null
           priority: Database['public']['Enums']['crm_lead_priority']
           sales_stage_id: string | null
           source: Database['public']['Enums']['crm_lead_source']
@@ -351,7 +351,7 @@ export interface Database {
           name: string
           next_follow_up?: string | null
           notes?: string | null
-          pipeline_id?: string | null
+          funnel_id?: string | null
           priority: Database['public']['Enums']['crm_lead_priority']
           sales_stage_id?: string | null
           source: Database['public']['Enums']['crm_lead_source']
@@ -370,7 +370,7 @@ export interface Database {
           name?: string
           next_follow_up?: string | null
           notes?: string | null
-          pipeline_id?: string | null
+          funnel_id?: string | null
           priority?: Database['public']['Enums']['crm_lead_priority']
           sales_stage_id?: string | null
           source?: Database['public']['Enums']['crm_lead_source']
@@ -382,10 +382,10 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: 'crm_lead_pipeline_id_fkey'
-            columns: ['pipeline_id']
+            foreignKeyName: 'crm_lead_funnel_id_fkey'
+            columns: ['funnel_id']
             isOneToOne: false
-            referencedRelation: 'crm_pipeline'
+            referencedRelation: 'crm_funnel'
             referencedColumns: ['id']
           },
           {
@@ -534,7 +534,7 @@ export interface Database {
           },
         ]
       }
-      crm_pipeline: {
+      crm_funnel: {
         Row: {
           created_at: string
           description: string | null
@@ -570,7 +570,7 @@ export interface Database {
         }
         Relationships: [
           {
-            foreignKeyName: 'crm_pipeline_tenant_id_fkey'
+            foreignKeyName: 'crm_funnel_tenant_id_fkey'
             columns: ['tenant_id']
             isOneToOne: false
             referencedRelation: 'tenant'
@@ -586,7 +586,7 @@ export interface Database {
           is_default: boolean
           name: string
           order: number
-          pipeline_id: string | null
+          funnel_id: string | null
           tenant_id: string | null
         }
         Insert: {
@@ -596,7 +596,7 @@ export interface Database {
           is_default?: boolean
           name: string
           order: number
-          pipeline_id?: string | null
+          funnel_id?: string | null
           tenant_id?: string | null
         }
         Update: {
@@ -606,15 +606,15 @@ export interface Database {
           is_default?: boolean
           name?: string
           order?: number
-          pipeline_id?: string | null
+          funnel_id?: string | null
           tenant_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: 'crm_sales_stage_pipeline_id_fkey'
-            columns: ['pipeline_id']
+            foreignKeyName: 'crm_sales_stage_funnel_id_fkey'
+            columns: ['funnel_id']
             isOneToOne: false
-            referencedRelation: 'crm_pipeline'
+            referencedRelation: 'crm_funnel'
             referencedColumns: ['id']
           },
           {
@@ -897,7 +897,7 @@ export interface Database {
       }
     }
     Enums: {
-      app_role: 'admin' | 'cliente' | 'funcionario'
+      app_role: 'admin' | 'cliente' | 'funcionario' | 'atendente'
       crm_company_size: 'startup' | 'small' | 'medium' | 'large' | 'enterprise'
       crm_lead_priority: 'low' | 'medium' | 'high'
       crm_lead_source:
@@ -1045,7 +1045,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ['admin', 'cliente', 'funcionario'],
+      app_role: ['admin', 'cliente', 'funcionario', 'atendente'],
       crm_company_size: ['startup', 'small', 'medium', 'large', 'enterprise'],
       crm_lead_priority: ['low', 'medium', 'high'],
       crm_lead_source: [

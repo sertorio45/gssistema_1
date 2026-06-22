@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 import ArticleFloatingMenu from '~/components/articles/ArticleFloatingMenu.vue'
 import Tiny from '~/components/articles/Tiny.vue'
 import { useToast } from '~/components/ui/toast'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantStore } from '~/stores/tenant'
 
 definePageMeta({
   middleware: ['auth', 'role', 'tenant-check'],
-  requiredRoles: ['admin'],
+  requiredRoles: ['admin', 'funcionario', 'cliente', 'atendente'],
 })
 
 interface ArticleForm {
@@ -44,8 +43,7 @@ function generateSlug(text: string): string {
 
 const { toast } = useToast()
 const tenantStore = useTenantStore()
-const { tenantId, tenants, setCurrentTenantById, listTenants, setTenantFromJWT } = useTenant()
-const { currentRole } = useAuth()
+const { tenantId, whenTenantReady } = useTenantPage()
 
 const form = ref<ArticleForm>({
   title: '',
@@ -167,33 +165,16 @@ async function saveArticle() {
   }
 }
 
-onMounted(async () => {
-  // Lógica de inicialização de tenant
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-
-    // Se não houver tenant selecionado, mas existem tenants disponíveis
-    if (tenants.value.length > 0 && !tenantStore.tenantId) {
-      // Não selecionar automaticamente, manter o estado atual
-      console.warn('Nenhum tenant selecionado')
-    }
-  }
-
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-  }
-
-  // Buscar categorias quando o tenant for definido
-  if (tenantStore.tenantId) {
+whenTenantReady(async () => {
+  if (tenantStore.tenantId || tenantId.value)
     await fetchCategories()
-  }
+})
 
-  // Manter a lógica de scroll existente
+onMounted(() => {
   window.addEventListener('scroll', () => {
     showFloatingMenu.value = window.scrollY > 200
   })
 
-  // Adicionar listener para mudança de tenant
   const handleTenantChanged = async (event: Event) => {
     const customEvent = event as CustomEvent
     if (customEvent.detail?.tenantId) {
@@ -204,27 +185,9 @@ onMounted(async () => {
 
   window.addEventListener('tenant-changed', handleTenantChanged)
 
-  // Remover listener quando o componente for desmontado
-  return () => {
+  onUnmounted(() => {
     window.removeEventListener('tenant-changed', handleTenantChanged)
-  }
-})
-
-// Watch para mudanças de papel do usuário
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-
-    // Se não houver tenant selecionado, mas existem tenants disponíveis
-    if (tenants.value.length > 0 && !tenantStore.tenantId) {
-      // Não selecionar automaticamente, manter o estado atual
-      console.warn('Nenhum tenant selecionado')
-    }
-  }
-
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-  }
+  })
 })
 </script>
 

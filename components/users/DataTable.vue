@@ -12,7 +12,7 @@ import {
   useVueTable,
 } from '@tanstack/vue-table'
 
-import { computed, ref, watch } from 'vue'
+import { ROLE_LABELS } from '~/constants/roles'
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import DataTablePagination from './DataTablePagination.vue'
@@ -107,22 +107,20 @@ const table = useVueTable({
 
 // Function to create role badge display format
 function _getRoleBadge(role: string) {
-  const roleLabels: Record<string, string> = {
-    admin: 'Administrator',
-    funcionario: 'Employee',
-    cliente: 'Client',
-  }
+  const roleLabels: Record<string, string> = { ...ROLE_LABELS }
 
   const roleIcons: Record<string, string> = {
     admin: 'lucide:shield',
     funcionario: 'lucide:briefcase',
-    cliente: 'lucide:user',
+    cliente: 'lucide:user-cog',
+    atendente: 'lucide:headphones',
   }
 
   const roleColors: Record<string, string> = {
     admin: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
     funcionario: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     cliente: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300',
+    atendente: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
   }
 
   return {

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { useRole } from '@/composables/useRole'
+import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
 import { useAuth } from '~/composables/useAuth'
 import { useModule } from '~/composables/useModule'
 import { useTenant } from '~/composables/useTenant'
-import { navMenu, navMenuAdmin, navMenuBottom } from '~/constants/menus'
+import { navMenu, navMenuAdmin, navMenuBottom, navMenuTenant } from '~/constants/menus'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
   if ('children' in item)
@@ -35,12 +36,13 @@ const isLoadingMenu = ref(true)
 const { currentModuleMeta } = useModule()
 
 // --- Lógica de tenant ---
-const { listTenants, restoreLastTenant } = useTenant()
+const { listTenants } = useTenant()
 const availableTenants = ref<any[]>([])
 const isLoadingTenants = ref(true)
-const { currentRole } = useAuth()
-const showTenantSelector = computed(() => currentRole.value !== 'cliente')
-const showAdminSection = computed(() => hasRole(['admin']))
+const { currentRole, updateUserRole } = useAuth()
+const showTenantSelector = computed(() => isStaffRole(currentRole.value))
+const showAdminSection = computed(() => hasRole(['admin', 'funcionario']))
+const showTenantTeamSection = computed(() => hasRole(['admin', 'funcionario', 'cliente']))
 
 // Carregar lista de tenants disponíveis
 async function loadTenants() {
@@ -73,7 +75,8 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
           // Itens sem children (links soltos) são ocultados quando há um módulo selecionado
           if (moduleTitle && !('children' in item)) return false
           // Se for cliente, aplica filtro de roles normalmente
-          if (currentRole.value === 'cliente') {
+          const isTenantUser = isTenantScopedRole(currentRole.value)
+          if (isTenantUser) {
             if ('children' in item) {
               if (item.roles && !hasRole(item.roles)) {
                 return false
@@ -90,7 +93,8 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
         })
         .map((item: NavLink | NavGroup | NavSectionTitle) => {
           if ('children' in item) {
-            if (currentRole.value === 'cliente') {
+            const isTenantUser = isTenantScopedRole(currentRole.value)
+          if (isTenantUser) {
               return {
                 ...item,
                 children: item.children.filter(child => !child.roles || hasRole(child.roles)),
@@ -128,11 +132,15 @@ const flatModuleLinks = computed((): NavLink[] => {
 const showFlatModuleMenu = computed(() => flatModuleLinks.value.length > 0)
 
 onMounted(async () => {
+  await updateUserRole()
   await fetchUserRole()
-  // Carregar e restaurar tenant
-  await restoreLastTenant()
   await loadTenants()
   isLoadingMenu.value = false
+})
+
+watch(currentRole, async (role) => {
+  if (isStaffRole(role))
+    await loadTenants()
 })
 </script>
 
@@ -201,13 +209,23 @@ onMounted(async () => {
             <component :is="resolveNavItemComponent(item)" v-for="(item, index) in nav.items" :key="index" :item="item" />
           </SidebarGroup>
         </template>
-        <!-- Administration: separate section, only for admins -->
+        <!-- Administration: separate section, only for agency admins -->
         <SidebarGroup v-if="showAdminSection" class="mt-auto border-t pt-2">
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
+          <SidebarGroupLabel>Administração</SidebarGroupLabel>
           <component
             :is="resolveNavItemComponent(item)"
             v-for="(item, index) in navMenuAdmin[0].items"
             :key="index"
+            :item="item"
+          />
+        </SidebarGroup>
+        <!-- Tenant users: separate from agency admin -->
+        <SidebarGroup v-if="showTenantTeamSection" class="border-t pt-2" :class="{ 'mt-auto': !showAdminSection }">
+          <SidebarGroupLabel>{{ navMenuTenant[0].heading }}</SidebarGroupLabel>
+          <component
+            :is="resolveNavItemComponent(item)"
+            v-for="(item, index) in navMenuTenant[0].items"
+            :key="`tenant-${index}`"
             :item="item"
           />
         </SidebarGroup>

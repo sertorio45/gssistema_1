@@ -2,46 +2,37 @@ import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
 import { defineEventHandler } from 'h3'
 
+import { isStaffRole } from '~/constants/roles'
+import {
+  canAccessTenantModule,
+  resolveTenantApiAuth,
+} from '~/server/utils/tenant-access'
+
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
     return { status: 401, message: 'Unauthorized' }
 
-  // Obtenha a role e o tenantId do usuário
-  const tenantRoles = user.app_metadata?.tenant_roles || {}
-  let tenantId = event.context.auth?.tenantId
-  if (!tenantId) {
-    const firstTenant = Object.keys(tenantRoles)[0]
-    if (firstTenant)
-      tenantId = firstTenant
-  }
+  const { role, tenantId } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
 
-  let role = null
-  if (tenantId && tenantRoles[tenantId]) {
-    role = tenantRoles[tenantId]
-  }
-  else {
-    // fallback para role global, se existir
-    role = user.user_metadata?.role || user.app_metadata?.role
-  }
+  if (!canAccessTenantModule(role))
+    return { status: 403, message: 'Forbidden' }
 
   const client = await serverSupabaseServiceRole(event)
 
-  if (role === 'admin' || role === 'funcionario') {
+  if (isStaffRole(role)) {
     const { data, error } = await client.from('articles_tag').select('*')
     if (error)
       return { status: 400, message: error.message }
-
     return data
   }
-  else if (role === 'cliente' && tenantId) {
+
+  if (tenantId) {
     const { data, error } = await client.from('articles_tag').select('*').eq('tenant_id', tenantId)
     if (error)
       return { status: 400, message: error.message }
-
     return data
   }
-  else {
-    return { status: 403, message: 'Forbidden' }
-  }
+
+  return { status: 403, message: 'Forbidden' }
 })

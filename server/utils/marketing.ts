@@ -98,7 +98,14 @@ export async function resolveMarketingTenantContext(event: any, requestedTenantI
     throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
   }
 
-  let role: TenantRole = (tenantRoles[tenantId] as TenantRole) || null
+  let role: TenantRole = null
+
+  if (isStaffUser(user)) {
+    role = resolveStaffRole(user)
+  }
+  else if (tenantRoles[tenantId]) {
+    role = tenantRoles[tenantId] as TenantRole
+  }
   if (!role) {
     const client = await serverSupabaseServiceRole(event)
     const { data: tenantRow } = await client
@@ -114,15 +121,11 @@ export async function resolveMarketingTenantContext(event: any, requestedTenantI
     role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
   }
 
-  if (!role && isStaffUser(user)) {
-    role = resolveStaffRole(user)
-  }
-
   if (!role) {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
 
-  if (role === 'cliente' && normalizedRequestedTenantId) {
+  if ((role === 'cliente' || role === 'atendente') && normalizedRequestedTenantId) {
     const allowedKeys = new Set(
       [
         ...Object.keys(tenantRoles || {}),

@@ -65,7 +65,12 @@ export function useWhatsAppContacts() {
   }
 
   async function syncToCrm(id: string, options: { createIfMissing?: boolean, crmContactId?: string } = {}) {
-    const response = await $fetch<{ data: WhatsAppContact, crmContact: { id: string, name: string, email: string } }>(
+    const response = await $fetch<{
+      data: WhatsAppContact
+      crmContact: { id: string, name: string, email: string }
+      lead: { id: string, name: string, funnelId: string | null, salesStageId: string | null } | null
+      leadCreated: boolean
+    }>(
       `/api/whatsapp/contacts/${id}/sync-crm`,
       {
         method: 'POST',
@@ -73,6 +78,7 @@ export function useWhatsAppContacts() {
           tenant_id: tenantId.value,
           create_if_missing: options.createIfMissing ?? true,
           crm_contact_id: options.crmContactId,
+          create_lead: true,
         },
       },
     )

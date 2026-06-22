@@ -9,10 +9,11 @@ export function useWhatsAppConversations() {
     status: inboxStore.filters.status === 'all' ? undefined : inboxStore.filters.status,
     search: inboxStore.filters.search || undefined,
     unread_only: inboxStore.filters.unreadOnly ? 'true' : undefined,
+    assigned_to_me: inboxStore.filters.assignedToMe ? 'true' : undefined,
   }))
 
   const cacheKey = computed(
-    () => `whatsapp-conversations-${tenantId.value}-${inboxStore.filters.status}-${inboxStore.filters.search}-${inboxStore.filters.unreadOnly}`,
+    () => `whatsapp-conversations-${tenantId.value}-${inboxStore.filters.status}-${inboxStore.filters.search}-${inboxStore.filters.unreadOnly}-${inboxStore.filters.assignedToMe}`,
   )
 
   const { data, pending, refresh } = useAsyncData(
@@ -38,22 +39,37 @@ export function useWhatsAppConversations() {
 
   function upsertConversation(conversation: WhatsAppConversation) {
     const list = [...(data.value || [])]
-    const index = list.findIndex(c => c.id === conversation.id)
-    if (index >= 0)
-      list[index] = conversation
-    else
-      list.unshift(conversation)
-    list.sort((a, b) => {
+    const phoneKey = conversation.contactPhone.replace(/\D/g, '')
+    const existing = list.find(item => item.id === conversation.id)
+
+    const merged: WhatsAppConversation = {
+      ...conversation,
+      activeAgentId: conversation.activeAgentId !== undefined
+        ? conversation.activeAgentId
+        : existing?.activeAgentId ?? null,
+      activeAgentName: conversation.activeAgentName !== undefined
+        ? conversation.activeAgentName
+        : existing?.activeAgentName ?? null,
+    }
+
+    const filtered = list.filter((item) => {
+      if (item.id === merged.id)
+        return false
+      return item.contactPhone.replace(/\D/g, '') !== phoneKey
+    })
+
+    filtered.unshift(merged)
+    filtered.sort((a, b) => {
       const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
       const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
       return bTime - aTime
     })
-    data.value = list
+    data.value = filtered
   }
 
   async function updateConversation(
     id: string,
-    payload: { status?: WhatsAppConversationStatus, mark_read?: boolean },
+    payload: { status?: WhatsAppConversationStatus, mark_read?: boolean, assigned_to?: string | null },
   ) {
     const response = await $fetch<{ data: WhatsAppConversation }>(`/api/whatsapp/conversations/${id}`, {
       method: 'PUT',
@@ -70,6 +86,126 @@ export function useWhatsAppConversations() {
     return updateConversation(id, { mark_read: true })
   }
 
+  async function deleteConversation(id: string) {
+    await $fetch(`/api/whatsapp/conversations/${id}`, {
+      method: 'DELETE',
+      query: { tenant_id: tenantId.value },
+    })
+    data.value = (data.value || []).filter(item => item.id !== id)
+  }
+
+  async function syncConversationToCrm(
+    id: string,
+    payload: {
+      createIfMissing?: boolean
+      value?: number
+      serviceName?: string | null
+      productId?: string | null
+    } = {},
+  ) {
+    const response = await $fetch<{
+      data: WhatsAppConversation
+      crmContact: { id: string, name: string, email: string }
+      lead: {
+        id: string
+        name: string
+        funnelId: string | null
+        salesStageId: string | null
+        value: number
+        serviceName: string | null
+      } | null
+      leadCreated: boolean
+    }>(`/api/whatsapp/conversations/${id}/sync-crm`, {
+      method: 'POST',
+      body: {
+        tenant_id: tenantId.value,
+        create_if_missing: payload.createIfMissing ?? true,
+        create_lead: true,
+        value: payload.value,
+        service_name: payload.serviceName,
+        product_id: payload.productId,
+      },
+    })
+    upsertConversation(response.data)
+    return response
+  }
+
+  async function fetchConversationLead(id: string) {
+    return $fetch<{ data: import('~/types/whatsapp').WhatsAppConversationLead | null }>(
+      `/api/whatsapp/conversations/${id}/lead`,
+      { query: { tenant_id: tenantId.value } },
+    )
+  }
+
+  async function updateConversationLead(
+    id: string,
+    payload: {
+      value?: number
+      serviceName?: string | null
+      productId?: string | null
+    },
+  ) {
+    const response = await $fetch<{ data: import('~/types/whatsapp').WhatsAppConversationLead }>(
+      `/api/whatsapp/conversations/${id}/lead`,
+      {
+        method: 'PUT',
+        body: {
+          tenant_id: tenantId.value,
+          value: payload.value,
+          service_name: payload.serviceName,
+          product_id: payload.productId,
+        },
+      },
+    )
+    return response.data
+  }
+
+  async function fetchConversationAgent(id: string) {
+    return $fetch<{
+      data: {
+        enabled: boolean
+        agentId: string | null
+        agentName: string | null
+        sessionId: string | null
+      }
+    }>(`/api/whatsapp/conversations/${id}/agent`, {
+      query: { tenant_id: tenantId.value },
+    })
+  }
+
+  async function setConversationAgent(
+    id: string,
+    payload: { agentId: string | null, enabled: boolean },
+  ) {
+    const response = await $fetch<{
+      data: {
+        enabled: boolean
+        agentId: string | null
+        agentName: string | null
+        sessionId: string | null
+        catchUpReplied?: boolean
+      }
+    }>(`/api/whatsapp/conversations/${id}/agent`, {
+      method: 'PUT',
+      body: {
+        tenant_id: tenantId.value,
+        agent_id: payload.agentId,
+        enabled: payload.enabled,
+      },
+    })
+
+    const conversation = (data.value || []).find(item => item.id === id)
+    if (conversation) {
+      upsertConversation({
+        ...conversation,
+        activeAgentId: response.data.agentId,
+        activeAgentName: response.data.agentName,
+      })
+    }
+
+    return response.data
+  }
+
   return {
     conversations,
     pending,
@@ -77,5 +213,11 @@ export function useWhatsAppConversations() {
     upsertConversation,
     updateConversation,
     markAsRead,
+    deleteConversation,
+    syncConversationToCrm,
+    fetchConversationLead,
+    updateConversationLead,
+    fetchConversationAgent,
+    setConversationAgent,
   }
 }

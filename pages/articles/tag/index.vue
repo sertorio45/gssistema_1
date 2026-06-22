@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { columns } from '~/components/articles/tag/columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
@@ -7,12 +7,16 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { isStaffRole } from '~/constants/roles'
+import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
-const { tenantId } = useTenant()
-const { currentRole } = useAuth()
+definePageMeta({
+  middleware: ['auth'],
+})
+
+const { tenantId, currentRole, whenTenantReady } = useTenantPage()
+const isStaff = computed(() => isStaffRole(currentRole.value))
 
 const showDeleteDialog = ref(false)
 const tagToDelete = ref<any | null>(null)
@@ -52,8 +56,7 @@ async function handleDeleteConfirm() {
   if (!tagToDelete.value)
     return
   showDeleteDialog.value = false
-  const tenantId = useTenant().tenantId
-  await $fetch(`/api/articles/tag/${tagToDelete.value.id}?tenant_id=${tenantId}`, { method: 'DELETE' as any })
+  await $fetch(`/api/articles/tag/${tagToDelete.value.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' as any })
   tagToDelete.value = null
   await refreshTags()
 }
@@ -64,11 +67,10 @@ function showMultiDeleteConfirmation() {
 
 async function handleMultiDeleteConfirm() {
   showMultiDeleteDialog.value = false
-  const tenantId = useTenant().tenantId
   for (const idx of selectedItems.value) {
     const tag = tags.value[idx]
     if (tag) {
-      await $fetch(`/api/articles/tag/${tag.id}?tenant_id=${tenantId}`, { method: 'DELETE' as any })
+      await $fetch(`/api/articles/tag/${tag.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' as any })
     }
   }
   selectedItems.value = []
@@ -132,13 +134,13 @@ watch(tenantId, () => {
         </template>
       </DataTable>
       <div
-        v-if="tags.length === 0 && tenantId && (currentRole === 'admin' || currentRole === 'funcionario')"
+        v-if="tags.length === 0 && tenantId && isStaff"
         class="p-6 text-center text-muted-foreground"
       >
         No tags found for this tenant.
       </div>
       <div
-        v-else-if="!tenantId && (currentRole === 'admin' || currentRole === 'funcionario')"
+        v-else-if="!tenantId && isStaff"
         class="p-6 text-center text-muted-foreground"
       >
         Select a tenant to view tags.

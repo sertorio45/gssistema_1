@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { sourceColumns } from '~/components/crm/config/columns'
 import SourceForm from '~/components/crm/config/SourceForm.vue'
@@ -17,12 +17,15 @@ import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { isTenantScopedRole } from '~/constants/roles'
+import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
-const { tenantId, setTenantFromJWT, tenants, setCurrentTenantById, listTenants } = useTenant()
-const { currentRole } = useAuth()
+definePageMeta({
+  middleware: ['auth'],
+})
+
+const { tenantId, currentRole, whenTenantReady } = useTenantPage()
 const selectedItems = ref<any[]>([])
 const showDialog = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
@@ -61,8 +64,7 @@ const filteredSources = computed(() => {
 
   const all = sourcesArray.value
   const defaults = all.filter((item: any) => item.is_default === true)
-  if (currentRole.value === 'cliente') {
-    // Cliente: só vê os defaults e os do seu tenant
+  if (isTenantScopedRole(currentRole.value)) {
     return all.filter((item: any) => item.is_default === true || item.tenant_id === tenantId.value)
   }
 
@@ -160,43 +162,16 @@ async function handleMultiDeleteConfirm() {
   await refreshSources()
 }
 
-onMounted(async () => {
-  if (currentRole.value === 'admin' || currentRole.value === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (currentRole.value === 'cliente') {
-    await setTenantFromJWT()
-    await refreshSources()
-  }
+whenTenantReady(() => {
+  refreshSources()
 })
 
-watch(currentRole, async (role) => {
-  if (role === 'admin' || role === 'funcionario') {
-    await listTenants()
-    if (tenants.value.length > 0 && !tenantId.value) {
-      setCurrentTenantById(tenants.value[0].id)
-    }
-  }
-  if (role === 'cliente') {
-    await setTenantFromJWT()
-    await refreshSources()
-  }
+watch(tenantId, (val) => {
+  if (val)
+    refreshSources()
+  showDialog.value = false
+  formModel.value = { name: '', description: '', is_default: false }
 })
-
-watch(
-  tenantId,
-  (val) => {
-    if (val) {
-      refreshSources()
-    }
-    showDialog.value = false
-    formModel.value = { name: '', description: '', is_default: false }
-  },
-  { immediate: true },
-)
 </script>
 
 <template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WhatsAppLlmProvider } from '~/types/whatsapp'
 
+import AgentModelSelect from '~/components/whatsapp/agents/AgentModelSelect.vue'
 import WhatsAppPageHeader from '~/components/whatsapp/shared/WhatsAppPageHeader.vue'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -198,7 +199,10 @@ async function handleTestOllama() {
             </div>
             <div class="space-y-2">
               <Label>Modelo padrão</Label>
-              <Input v-model="llmForm.default_model" placeholder="qwen" />
+              <AgentModelSelect
+                v-model="llmForm.default_model"
+                :provider="llmForm.default_provider"
+              />
             </div>
           </div>
 

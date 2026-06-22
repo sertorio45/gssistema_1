@@ -34,6 +34,7 @@ interface RuntimeContext extends FlowExecutionInput {
 }
 
 export const FLOW_DELAY_SCHEDULE_KEY = '__schedule_delay__'
+export const FLOW_WAIT_REPLY_KEY = '__wait_reply__'
 const INLINE_DELAY_MAX_SECONDS = 10
 const SCHEDULED_DELAY_MAX_SECONDS = 3600
 
@@ -142,17 +143,45 @@ function evaluateCondition(node: DrawflowNode, messageContent: string): boolean 
 }
 
 function buildRuntimeContext(input: FlowExecutionInput): RuntimeContext {
+  const message = input.messageContent
   return {
     ...input,
     variables: {
       phone: input.contactPhone,
       name: input.contactName || '',
-      message: input.messageContent,
+      message,
+      last_reply: message,
       conversation_id: input.conversationId || '',
       contact_id: input.contactId || '',
       instance_id: input.instanceId,
     },
   }
+}
+
+async function finalizeExecutionAfterWalk(
+  client: SupabaseClient,
+  executionId: string,
+): Promise<'completed' | 'waiting' | 'waiting_reply'> {
+  const { data: latestExecution } = await client
+    .from('whatsapp_flow_execution')
+    .select('status')
+    .eq('id', executionId)
+    .single()
+
+  const status = latestExecution?.status
+  if (status === 'waiting' || status === 'waiting_reply')
+    return status
+
+  await client
+    .from('whatsapp_flow_execution')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', executionId)
+
+  return 'completed'
 }
 
 async function executeNode(
@@ -261,6 +290,21 @@ async function executeNode(
     return FLOW_DELAY_SCHEDULE_KEY
   }
 
+  if (nodeType === 'wait_reply') {
+    if (ctx.isTest) {
+      await log('wait_reply', { testMode: true })
+      return 'output_1'
+    }
+
+    if (!ctx.conversationId) {
+      await log('wait_reply', { skipped: true }, 'Conversation is required')
+      return 'output_1'
+    }
+
+    await log('wait_reply', { waiting: true })
+    return FLOW_WAIT_REPLY_KEY
+  }
+
   if (nodeType === 'webhook') {
     const url = String(node.data?.url || '').trim()
     if (!url) {
@@ -341,6 +385,7 @@ async function executeNode(
       const result = await applyFlowCrmUpdate(client, {
         tenantId: ctx.tenantId,
         contactId: ctx.contactId,
+        conversationId: ctx.conversationId,
         createIfMissing,
       })
       await log('crm_update', result)
@@ -485,13 +530,60 @@ async function scheduleFlowDelay(
     .update({
       status: 'waiting',
       context: {
+        waitType: 'delay',
         resumeAt,
         resumeConnections: connections,
         input: params.input,
         flowId: params.flowId,
-        delayedFromNodeId: params.currentNode.id,
+        pausedFromNodeId: params.currentNode.id,
       },
       updated_at: new Date().toISOString(),
+    })
+    .eq('id', params.executionId)
+    .eq('tenant_id', params.tenantId)
+}
+
+async function scheduleFlowWaitReply(
+  client: SupabaseClient,
+  params: {
+    executionId: string
+    tenantId: string
+    flowId: string
+    conversationId: string
+    currentNode: DrawflowNode
+    input: FlowExecutionInput
+  },
+) {
+  const connections = getDrawflowConnections(params.currentNode, 'output_1')
+  const now = new Date().toISOString()
+
+  await client
+    .from('whatsapp_flow_execution')
+    .update({
+      status: 'cancelled',
+      completed_at: now,
+      updated_at: now,
+      context: {
+        cancelledReason: 'superseded_by_new_wait_reply',
+      },
+    })
+    .eq('tenant_id', params.tenantId)
+    .eq('conversation_id', params.conversationId)
+    .eq('status', 'waiting_reply')
+    .neq('id', params.executionId)
+
+  await client
+    .from('whatsapp_flow_execution')
+    .update({
+      status: 'waiting_reply',
+      context: {
+        waitType: 'reply',
+        resumeConnections: connections,
+        input: params.input,
+        flowId: params.flowId,
+        pausedFromNodeId: params.currentNode.id,
+      },
+      updated_at: now,
     })
     .eq('id', params.executionId)
     .eq('tenant_id', params.tenantId)
@@ -542,6 +634,21 @@ async function walkFlow(
     return
   }
 
+  if (outputKey === FLOW_WAIT_REPLY_KEY) {
+    if (!ctx.conversationId)
+      return
+
+    await scheduleFlowWaitReply(client, {
+      executionId,
+      tenantId,
+      flowId,
+      conversationId: ctx.conversationId,
+      currentNode: startNode,
+      input: ctx,
+    })
+    return
+  }
+
   if (!outputKey)
     return
 
@@ -566,6 +673,122 @@ export async function continueFlowFromNode(
 ) {
   const ctx = buildRuntimeContext(input)
   await walkFlow(client, canvas, startNode, ctx, executionId, tenantId, flowId, new Set())
+  return finalizeExecutionAfterWalk(client, executionId)
+}
+
+async function resumeFlowExecution(
+  client: SupabaseClient,
+  execution: {
+    id: string
+    tenant_id: string
+    flow_id: string
+    context: Record<string, unknown> | null
+  },
+  input: FlowExecutionInput,
+) {
+  const context = (execution.context || {}) as Record<string, any>
+  const now = new Date().toISOString()
+
+  const { data: flow } = await client
+    .from('whatsapp_flow')
+    .select('id, tenant_id, viewport, status')
+    .eq('id', execution.flow_id)
+    .eq('tenant_id', execution.tenant_id)
+    .maybeSingle()
+
+  if (!flow || flow.status !== 'active') {
+    await client
+      .from('whatsapp_flow_execution')
+      .update({
+        status: 'cancelled',
+        completed_at: now,
+        updated_at: now,
+      })
+      .eq('id', execution.id)
+    return { status: 'cancelled' as const }
+  }
+
+  const canvas = getCanvasFromViewport(flow.viewport as Record<string, unknown>)
+  const connections = (context.resumeConnections || []) as Array<{ targetNodeId: number }>
+  if (!canvas || !connections.length)
+    return { status: 'failed' as const }
+
+  const nodeMap = new Map(getDrawflowNodes(canvas).map(node => [node.id, node]))
+
+  await client
+    .from('whatsapp_flow_execution')
+    .update({
+      status: 'running',
+      context: {
+        ...context,
+        input,
+        resumedAt: now,
+        resumedMessageId: input.messageId,
+      },
+      updated_at: now,
+    })
+    .eq('id', execution.id)
+
+  try {
+    for (const conn of connections) {
+      const nextNode = nodeMap.get(Number(conn.targetNodeId))
+      if (nextNode)
+        await continueFlowFromNode(client, canvas, nextNode, input, execution.id, execution.tenant_id, flow.id)
+    }
+
+    const finalStatus = await finalizeExecutionAfterWalk(client, execution.id)
+    return { status: finalStatus }
+  }
+  catch (error: any) {
+    await client
+      .from('whatsapp_flow_execution')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        context: { ...context, input, error: error?.message || 'Resume failed' },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', execution.id)
+
+    throw error
+  }
+}
+
+export async function resumeWaitingFlowOnInboundMessage(
+  client: SupabaseClient,
+  params: FlowExecutionInput,
+): Promise<{ resumed: boolean, executionId?: string, status?: string }> {
+  if (params.fromMe || params.isTest || !params.conversationId)
+    return { resumed: false }
+
+  const { data: execution } = await client
+    .from('whatsapp_flow_execution')
+    .select('id, tenant_id, flow_id, context')
+    .eq('tenant_id', params.tenantId)
+    .eq('conversation_id', params.conversationId)
+    .eq('status', 'waiting_reply')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!execution)
+    return { resumed: false }
+
+  const context = (execution.context || {}) as Record<string, any>
+  if (context.resumedMessageId === params.messageId)
+    return { resumed: true, executionId: execution.id, status: 'running' }
+
+  const resumedInput: FlowExecutionInput = {
+    ...params,
+    messageContent: params.messageContent.trim() || '[Mídia recebida]',
+  }
+
+  const result = await resumeFlowExecution(client, execution, resumedInput)
+  return {
+    resumed: true,
+    executionId: execution.id,
+    status: result.status,
+  }
 }
 
 export async function processWaitingFlowExecutions(client: SupabaseClient, limit = 20) {
@@ -624,17 +847,10 @@ export async function processWaitingFlowExecutions(client: SupabaseClient, limit
       for (const conn of connections) {
         const nextNode = nodeMap.get(Number(conn.targetNodeId))
         if (nextNode)
-          await continueFlowFromNode(client, canvas, nextNode, input, execution.id, execution.tenant_id, flow.id)
+          await walkFlow(client, canvas, nextNode, buildRuntimeContext(input), execution.id, execution.tenant_id, flow.id, new Set())
       }
 
-      await client
-        .from('whatsapp_flow_execution')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', execution.id)
+      await finalizeExecutionAfterWalk(client, execution.id)
 
       processed++
     }
@@ -697,24 +913,11 @@ export async function runWhatsAppFlow(
   try {
     await walkFlow(client, canvas, triggerNode, ctx, execution.id, flow.tenant_id, flow.id)
 
-    const { data: latestExecution } = await client
-      .from('whatsapp_flow_execution')
-      .select('status')
-      .eq('id', execution.id)
-      .single()
+    const finalStatus = await finalizeExecutionAfterWalk(client, execution.id)
 
-    if (latestExecution?.status === 'waiting') {
-      return { executionId: execution.id, status: 'waiting', isTest: input.isTest === true }
+    if (finalStatus === 'waiting' || finalStatus === 'waiting_reply') {
+      return { executionId: execution.id, status: finalStatus, isTest: input.isTest === true }
     }
-
-    await client
-      .from('whatsapp_flow_execution')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', execution.id)
 
     return { executionId: execution.id, status: 'completed', isTest: input.isTest === true }
   }
