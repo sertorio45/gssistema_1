@@ -7,6 +7,7 @@ import { Badge } from '~/components/ui/badge'
 const props = defineProps<{
   conversation: WhatsAppConversation
   active?: boolean
+  showInstanceBadge?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -44,9 +45,18 @@ function formatRelative(value?: string | null) {
 
     <div class="min-w-0 flex-1">
       <div class="flex items-center justify-between gap-2">
-        <p class="truncate font-medium">
-          {{ conversation.contactName }}
-        </p>
+        <div class="flex min-w-0 items-center gap-1.5">
+          <p class="truncate font-medium">
+            {{ conversation.contactName }}
+          </p>
+          <Badge
+            v-if="showInstanceBadge && conversation.instanceName"
+            variant="outline"
+            class="h-4 shrink-0 px-1 text-[10px] font-normal"
+          >
+            {{ conversation.instanceName }}
+          </Badge>
+        </div>
         <span class="shrink-0 text-[11px] text-muted-foreground">
           {{ formatRelative(conversation.lastMessageAt) }}
         </span>

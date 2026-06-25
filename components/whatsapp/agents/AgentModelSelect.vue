@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { Skeleton } from '~/components/ui/skeleton'
+import { isReasoningModelName } from '~/constants/whatsapp-llm'
 
 const props = defineProps<{
   provider: WhatsAppLlmProvider
@@ -71,6 +72,8 @@ watch(ollamaOptions, (options) => {
   if (!options.includes(model.value))
     model.value = options[0]
 })
+
+const isReasoningModel = computed(() => isReasoningModelName(model.value || ''))
 </script>
 
 <template>
@@ -117,5 +120,9 @@ watch(ollamaOptions, (options) => {
         </SelectItem>
       </SelectContent>
     </Select>
+
+    <p v-if="isReasoningModel" class="text-xs text-muted-foreground">
+      Modelo de raciocínio: o sistema usa prompt enxuto, histórico reduzido e desativa o modo thinking para respostas mais rápidas no WhatsApp.
+    </p>
   </div>
 </template>

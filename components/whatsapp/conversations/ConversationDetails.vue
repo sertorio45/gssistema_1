@@ -36,6 +36,29 @@ defineProps<{
         </CardContent>
       </Card>
 
+      <Card v-if="conversation.instanceName" class="mt-3">
+        <CardHeader class="pb-2">
+          <CardTitle class="text-xs font-medium text-muted-foreground">
+            Caixa de entrada
+          </CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-1 text-sm">
+          <p class="font-medium">
+            {{ conversation.instanceName }}
+          </p>
+          <p v-if="conversation.instancePhoneNumber" class="text-xs text-muted-foreground">
+            {{ conversation.instancePhoneNumber }}
+          </p>
+          <NuxtLink
+            v-if="conversation.instanceId"
+            :to="`/whatsapp/conversations?inbox=${conversation.instanceId}`"
+            class="inline-block pt-1 text-xs text-primary hover:underline"
+          >
+            Ver caixa →
+          </NuxtLink>
+        </CardContent>
+      </Card>
+
       <Card v-if="lead" class="mt-3">
         <CardHeader class="pb-2">
           <CardTitle class="text-xs font-medium text-muted-foreground">

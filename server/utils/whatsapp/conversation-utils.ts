@@ -45,9 +45,8 @@ export async function findOrUpsertWhatsAppConversation(
     .from('whatsapp_conversation')
     .select('id, unread_count')
     .eq('tenant_id', params.tenantId)
+    .eq('instance_id', params.instanceId)
     .eq('contact_phone', phone)
-    .order('last_message_at', { ascending: false, nullsFirst: false })
-    .limit(1)
     .maybeSingle()
 
   const unreadCount = existing
@@ -97,6 +96,7 @@ export async function findOrUpsertWhatsAppConversation(
       .from('whatsapp_conversation')
       .select('id')
       .eq('tenant_id', params.tenantId)
+      .eq('instance_id', params.instanceId)
       .eq('contact_phone', phone)
       .maybeSingle()
 
@@ -124,29 +124,37 @@ export async function findOrUpsertWhatsAppConversation(
   return created!.id as string
 }
 
-export function dedupeConversationRows<T extends { contact_phone?: string | null, last_message_at?: string | null, created_at?: string | null }>(
+export function dedupeConversationRows<T extends {
+  id?: string | null
+  instance_id?: string | null
+  contact_phone?: string | null
+  last_message_at?: string | null
+  created_at?: string | null
+}>(
   rows: T[],
 ): T[] {
-  const byPhone = new Map<string, T>()
+  const byKey = new Map<string, T>()
 
   for (const row of rows) {
     const phone = normalizePhone(String(row.contact_phone || ''))
     if (!phone)
       continue
 
-    const current = byPhone.get(phone)
+    const instanceId = String(row.instance_id || '')
+    const key = `${instanceId}:${phone}`
+    const current = byKey.get(key)
     if (!current) {
-      byPhone.set(phone, row)
+      byKey.set(key, row)
       continue
     }
 
     const currentTime = new Date(current.last_message_at || current.created_at || 0).getTime()
     const rowTime = new Date(row.last_message_at || row.created_at || 0).getTime()
     if (rowTime >= currentTime)
-      byPhone.set(phone, row)
+      byKey.set(key, row)
   }
 
-  return Array.from(byPhone.values()).sort((a, b) => {
+  return Array.from(byKey.values()).sort((a, b) => {
     const aTime = new Date(a.last_message_at || a.created_at || 0).getTime()
     const bTime = new Date(b.last_message_at || b.created_at || 0).getTime()
     return bTime - aTime

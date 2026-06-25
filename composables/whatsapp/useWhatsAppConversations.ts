@@ -1,11 +1,17 @@
 import type { WhatsAppConversation, WhatsAppConversationStatus } from '~/types/whatsapp'
 
+function conversationListKey(conversation: Pick<WhatsAppConversation, 'instanceId' | 'contactPhone'>) {
+  const phone = conversation.contactPhone.replace(/\D/g, '')
+  return `${conversation.instanceId || ''}:${phone}`
+}
+
 export function useWhatsAppConversations() {
   const { tenantId } = useTenant()
   const inboxStore = useWhatsAppInboxStore()
 
   const queryParams = computed(() => ({
     tenant_id: tenantId.value || undefined,
+    instance_id: inboxStore.activeInstanceId || undefined,
     status: inboxStore.filters.status === 'all' ? undefined : inboxStore.filters.status,
     search: inboxStore.filters.search || undefined,
     unread_only: inboxStore.filters.unreadOnly ? 'true' : undefined,
@@ -13,7 +19,7 @@ export function useWhatsAppConversations() {
   }))
 
   const cacheKey = computed(
-    () => `whatsapp-conversations-${tenantId.value}-${inboxStore.filters.status}-${inboxStore.filters.search}-${inboxStore.filters.unreadOnly}-${inboxStore.filters.assignedToMe}`,
+    () => `whatsapp-conversations-${tenantId.value}-${inboxStore.activeInstanceId || 'all'}-${inboxStore.filters.status}-${inboxStore.filters.search}-${inboxStore.filters.unreadOnly}-${inboxStore.filters.assignedToMe}`,
   )
 
   const { data, pending, refresh } = useAsyncData(
@@ -39,7 +45,7 @@ export function useWhatsAppConversations() {
 
   function upsertConversation(conversation: WhatsAppConversation) {
     const list = [...(data.value || [])]
-    const phoneKey = conversation.contactPhone.replace(/\D/g, '')
+    const key = conversationListKey(conversation)
     const existing = list.find(item => item.id === conversation.id)
 
     const merged: WhatsAppConversation = {
@@ -52,13 +58,18 @@ export function useWhatsAppConversations() {
         : existing?.activeAgentName ?? null,
     }
 
+    const activeInstanceId = inboxStore.activeInstanceId
+    const matchesInbox = !activeInstanceId || merged.instanceId === activeInstanceId
+
     const filtered = list.filter((item) => {
       if (item.id === merged.id)
         return false
-      return item.contactPhone.replace(/\D/g, '') !== phoneKey
+      return conversationListKey(item) !== key
     })
 
-    filtered.unshift(merged)
+    if (matchesInbox)
+      filtered.unshift(merged)
+
     filtered.sort((a, b) => {
       const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
       const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
@@ -219,5 +230,6 @@ export function useWhatsAppConversations() {
     updateConversationLead,
     fetchConversationAgent,
     setConversationAgent,
+    conversationListKey,
   }
 }

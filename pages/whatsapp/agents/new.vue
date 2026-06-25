@@ -3,6 +3,7 @@ import type { WhatsAppLlmProvider } from '~/types/whatsapp'
 
 import AgentModelSelect from '~/components/whatsapp/agents/AgentModelSelect.vue'
 import WhatsAppPageHeader from '~/components/whatsapp/shared/WhatsAppPageHeader.vue'
+import { DEFAULT_AGENT_SYSTEM_PROMPT } from '~/constants/whatsapp-llm'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
@@ -29,7 +30,7 @@ const form = reactive({
   description: '',
   llm_provider: 'ollama' as WhatsAppLlmProvider,
   model: 'qwen',
-  system_prompt: 'Você é um assistente de atendimento prestativo e objetivo. Responda sempre em português.',
+  system_prompt: DEFAULT_AGENT_SYSTEM_PROMPT,
 })
 
 async function handleSubmit() {

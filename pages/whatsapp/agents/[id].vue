@@ -238,6 +238,9 @@ const internalTools = [
             </CardTitle>
           </CardHeader>
           <CardContent class="space-y-2">
+            <p class="text-xs text-muted-foreground">
+              Sem ferramentas customizadas, o agente usa as internas. Em modelos de raciocínio (ex.: DeepSeek R1), só <code class="text-xs">lookup_contact</code> é carregada por padrão para acelerar respostas.
+            </p>
             <div
               v-for="tool in internalTools"
               :key="tool.name"
@@ -252,7 +255,7 @@ const internalTools = [
                 </p>
               </div>
               <Badge variant="secondary">
-                Sempre ativa
+                Interna
               </Badge>
             </div>
           </CardContent>

@@ -12,6 +12,7 @@ export default defineEventHandler(async (event) => {
     .from('whatsapp_instance')
     .select('*')
     .eq('tenant_id', tenantId)
+    .order('is_default', { ascending: false })
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -31,7 +32,42 @@ export default defineEventHandler(async (event) => {
 
   const integrationMap = new Map(integrations.map(i => [i.instance_id, i]))
 
+  const { data: conversationStats } = await client
+    .from('whatsapp_conversation')
+    .select('instance_id, unread_count')
+    .eq('tenant_id', tenantId)
+    .in('instance_id', instanceIds.length ? instanceIds : ['00000000-0000-0000-0000-000000000000'])
+
+  const statsByInstance = new Map<string, { conversationCount: number, unreadCount: number }>()
+  for (const row of conversationStats || []) {
+    const id = row.instance_id as string
+    if (!id)
+      continue
+    const current = statsByInstance.get(id) || { conversationCount: 0, unreadCount: 0 }
+    current.conversationCount += 1
+    current.unreadCount += Number(row.unread_count || 0)
+    statsByInstance.set(id, current)
+  }
+
+  let totalUnread = 0
+  let totalConversations = 0
+  for (const stats of statsByInstance.values()) {
+    totalUnread += stats.unreadCount
+    totalConversations += stats.conversationCount
+  }
+
   return {
-    data: (instances || []).map(row => sanitizeInstanceRow(row, integrationMap.get(row.id) || null)),
+    data: (instances || []).map((row) => {
+      const stats = statsByInstance.get(row.id as string) || { conversationCount: 0, unreadCount: 0 }
+      return {
+        ...sanitizeInstanceRow(row, integrationMap.get(row.id) || null),
+        conversationCount: stats.conversationCount,
+        unreadCount: stats.unreadCount,
+      }
+    }),
+    meta: {
+      totalUnread,
+      totalConversations,
+    },
   }
 })

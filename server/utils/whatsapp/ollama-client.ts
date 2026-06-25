@@ -123,6 +123,10 @@ export async function ollamaChat(params: {
   temperature?: number
   maxTokens?: number
   config?: OllamaConfig
+  /** false desativa chain-of-thought em modelos compatíveis (DeepSeek R1, QwQ) */
+  think?: boolean
+  numCtx?: number
+  keepAlive?: string
 }): Promise<{ content: string, tokensUsed: number }> {
   const config = params.config || getOllamaConfig()
 
@@ -136,18 +140,25 @@ export async function ollamaChat(params: {
   }
 
   try {
+    const body: Record<string, unknown> = {
+      model: params.model,
+      messages: params.messages,
+      stream: false,
+      options: {
+        temperature: params.temperature ?? 0.7,
+        num_predict: params.maxTokens ?? 1024,
+        ...(params.numCtx ? { num_ctx: params.numCtx } : {}),
+      },
+      keep_alive: params.keepAlive ?? '15m',
+    }
+
+    if (params.think === false)
+      body.think = false
+
     const response = await $fetch<OllamaChatResponse>(`${config.baseUrl}/api/chat`, {
       method: 'POST',
       headers: buildOllamaHeaders(config),
-      body: {
-        model: params.model,
-        messages: params.messages,
-        stream: false,
-        options: {
-          temperature: params.temperature ?? 0.7,
-          num_predict: params.maxTokens ?? 1024,
-        },
-      },
+      body,
     })
 
     const content = String(response.message?.content || '').trim()

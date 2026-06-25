@@ -9,9 +9,13 @@ export interface WhatsAppInboxFilters {
   search?: string
 }
 
+/** null = todas as caixas; string = instância específica */
+export type WhatsAppActiveInboxId = string | null
+
 export const useWhatsAppInboxStore = defineStore('whatsapp-inbox', {
   state: () => ({
     activeConversationId: null as string | null,
+    activeInstanceId: null as WhatsAppActiveInboxId,
     filters: {
       status: 'all' as WhatsAppInboxFilters['status'],
       assignedToMe: false,
@@ -26,6 +30,10 @@ export const useWhatsAppInboxStore = defineStore('whatsapp-inbox', {
       this.activeConversationId = id
     },
 
+    setActiveInstance(id: WhatsAppActiveInboxId) {
+      this.activeInstanceId = id
+    },
+
     setFilters(filters: Partial<WhatsAppInboxFilters>) {
       this.filters = { ...this.filters, ...filters }
     },
@@ -36,6 +44,7 @@ export const useWhatsAppInboxStore = defineStore('whatsapp-inbox', {
 
     reset() {
       this.activeConversationId = null
+      this.activeInstanceId = null
       this.filters = { status: 'all', assignedToMe: false, unreadOnly: false, search: '' }
       this.sidebarCollapsed = false
     },

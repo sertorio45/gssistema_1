@@ -11,15 +11,24 @@ export function useWhatsAppInstances() {
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return [] as WhatsAppInstanceView[]
+        return { instances: [] as WhatsAppInstanceView[], totalUnread: 0 }
 
-      const response = await $fetch<{ data: WhatsAppInstanceView[] }>('/api/whatsapp/instances', {
+      const response = await $fetch<{
+        data: WhatsAppInstanceView[]
+        meta?: { totalUnread?: number, totalConversations?: number }
+      }>('/api/whatsapp/instances', {
         query: { tenant_id: tenantId.value },
       })
-      return response.data || []
+      return {
+        instances: response.data || [],
+        totalUnread: response.meta?.totalUnread ?? 0,
+      }
     },
-    { watch: [tenantId], default: () => [], server: false },
+    { watch: [tenantId], default: () => ({ instances: [], totalUnread: 0 }), server: false },
   )
+
+  const instances = computed(() => data.value?.instances || [])
+  const totalUnread = computed(() => data.value?.totalUnread ?? 0)
 
   async function createInstance(payload: Omit<CreateWhatsAppInstancePayload, 'tenant_id'>) {
     const response = await $fetch<{ data: WhatsAppInstanceView, webhookUrl: string }>(
@@ -115,7 +124,8 @@ export function useWhatsAppInstances() {
   }
 
   return {
-    instances: data,
+    instances,
+    totalUnread,
     pending,
     error,
     refresh,

@@ -9,6 +9,7 @@ defineProps<{
   conversations: WhatsAppConversation[]
   activeId?: string | null
   loading?: boolean
+  showInstanceBadge?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="flex h-full min-h-0 flex-col border-r bg-background">
+    <slot name="inbox-switcher" />
     <ConversationFilters />
     <div class="flex-1 overflow-y-auto">
       <div v-if="loading" class="space-y-0 p-4">
@@ -31,6 +33,7 @@ const emit = defineEmits<{
         :key="conversation.id"
         :conversation="conversation"
         :active="conversation.id === activeId"
+        :show-instance-badge="showInstanceBadge"
         @select="emit('select', conversation.id)"
       />
     </div>

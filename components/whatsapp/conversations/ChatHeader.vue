@@ -75,20 +75,15 @@ function formatPhone(phone: string) {
   return phone
 }
 
-function resolveDefaultAgentId(): string | null {
-  const firstActive = props.agents.find(agent => agent.isActive)
-  return firstActive?.id || props.agents[0]?.id || null
-}
-
 function syncAgentState() {
   agentEnabled.value = Boolean(props.conversation.activeAgentId)
-  selectedAgentId.value = props.conversation.activeAgentId || resolveDefaultAgentId()
+  selectedAgentId.value = props.conversation.activeAgentId || null
 }
 
 watch(
-  () => [props.conversation.id, props.conversation.activeAgentId, props.agents] as const,
+  () => [props.conversation.id, props.conversation.activeAgentId] as const,
   syncAgentState,
-  { immediate: true, deep: true },
+  { immediate: true },
 )
 
 function openCrmDialog() {
@@ -128,16 +123,10 @@ function confirmSyncCrm() {
 
 async function handleAgentToggle(enabled: boolean) {
   if (enabled && !selectedAgentId.value) {
-    const defaultAgentId = resolveDefaultAgentId()
-    if (!defaultAgentId) {
-      toast.error('Nenhum agente disponível. Crie um agente ativo em WhatsApp → Agentes.')
-      agentEnabled.value = false
-      return
-    }
-    selectedAgentId.value = defaultAgentId
+    toast.error('Selecione um agente antes de ativar a IA.')
+    return
   }
 
-  agentEnabled.value = enabled
   savingAgent.value = true
   try {
     emit('agentChange', {
@@ -152,6 +141,7 @@ async function handleAgentToggle(enabled: boolean) {
 
 async function handleAgentSelect(agentId: string) {
   selectedAgentId.value = agentId
+
   if (!agentEnabled.value)
     return
 
@@ -163,6 +153,9 @@ async function handleAgentSelect(agentId: string) {
     savingAgent.value = false
   }
 }
+
+const activeAgents = computed(() => props.agents.filter(item => item.isActive))
+const canEnableAgent = computed(() => Boolean(selectedAgentId.value) && activeAgents.value.length > 0)
 
 const toolbarButtonClass = 'h-8 gap-1.5'
 const toolbarSelectClass = 'h-8 w-[120px] text-xs'
@@ -183,6 +176,14 @@ const toolbarSelectClass = 'h-8 w-[120px] text-xs'
         <p class="truncate text-xs text-muted-foreground">
           {{ formatPhone(conversation.contactPhone) }}
         </p>
+        <p
+          v-if="conversation.instanceName"
+          class="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground"
+        >
+          <span class="i-lucide-smartphone h-3 w-3 shrink-0" />
+          {{ conversation.instanceName }}
+          <span v-if="conversation.instancePhoneNumber">· {{ formatPhone(conversation.instancePhoneNumber) }}</span>
+        </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
@@ -197,9 +198,10 @@ const toolbarSelectClass = 'h-8 w-[120px] text-xs'
         </Button>
 
         <Button
-          variant="outline"
+          :variant="conversation.activeAgentId ? 'secondary' : 'outline'"
           size="sm"
           :class="toolbarButtonClass"
+          :title="conversation.activeAgentName ? `IA ativa: ${conversation.activeAgentName}` : 'Configurar atendimento por IA'"
           @click="showAgentMenu = true"
         >
           <span class="i-lucide-bot h-4 w-4" />
@@ -343,36 +345,47 @@ const toolbarSelectClass = 'h-8 w-[120px] text-xs'
         <DialogHeader>
           <DialogTitle>Atendimento por IA</DialogTitle>
           <DialogDescription>
-            Ative um agente para responder automaticamente nesta conversa.
+            Escolha o agente e ative para respostas automáticas nesta conversa. Em fluxos automatizados, a IA segue o agente configurado no fluxo.
           </DialogDescription>
         </DialogHeader>
         <div class="space-y-4">
-          <div class="flex items-center justify-between gap-3">
-            <Label class="text-sm font-normal">Ativar agente</Label>
+          <div class="space-y-2">
+            <Label class="text-sm">Agente</Label>
+            <Select
+              :model-value="selectedAgentId || undefined"
+              :disabled="savingAgent || agentsLoading || !activeAgents.length"
+              @update:model-value="handleAgentSelect(String($event))"
+            >
+              <SelectTrigger class="h-9">
+                <SelectValue placeholder="Selecione um agente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="agent in activeAgents"
+                  :key="agent.id"
+                  :value="agent.id"
+                >
+                  {{ agent.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p v-if="!agentsLoading && !activeAgents.length" class="text-xs text-muted-foreground">
+              Nenhum agente ativo. Crie um em WhatsApp → Agentes IA.
+            </p>
+          </div>
+          <div class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+            <div>
+              <Label class="text-sm font-normal">Ativar nesta conversa</Label>
+              <p class="text-xs text-muted-foreground">
+                {{ selectedAgentId ? 'Responde automaticamente às mensagens recebidas.' : 'Selecione um agente acima.' }}
+              </p>
+            </div>
             <Switch
               :checked="agentEnabled"
-              :disabled="savingAgent || agentsLoading || !agents.length"
+              :disabled="savingAgent || agentsLoading || (!agentEnabled && !canEnableAgent)"
               @update:checked="handleAgentToggle"
             />
           </div>
-          <Select
-            :model-value="selectedAgentId || undefined"
-            :disabled="savingAgent || agentsLoading || !agents.length"
-            @update:model-value="handleAgentSelect(String($event))"
-          >
-            <SelectTrigger class="h-9">
-              <SelectValue placeholder="Selecionar agente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="agent in agents.filter(item => item.isActive)"
-                :key="agent.id"
-                :value="agent.id"
-              >
-                {{ agent.name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
         </div>
         <DialogFooter class="gap-2 sm:gap-0">
           <Button variant="outline" @click="showAgentMenu = false">

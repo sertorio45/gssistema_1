@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { DEFAULT_AGENT_SYSTEM_PROMPT } from '~/constants/whatsapp-llm'
 import {
   buildAgentSystemPrompt,
   findActiveAgentSession,
@@ -15,6 +16,7 @@ import {
 } from '~/server/utils/whatsapp/agent-tools'
 import type { LlmProvider } from '~/server/utils/whatsapp/llm-client'
 import { runLlmChat } from '~/server/utils/whatsapp/llm-client'
+import { resolveLlmRequestParams } from '~/server/utils/whatsapp/llm-profiles'
 
 export interface AgentFlowContext {
   tenantId: string
@@ -26,8 +28,6 @@ export interface AgentFlowContext {
   messageId?: string | null
   isTest?: boolean
 }
-
-const MAX_TOOL_ITERATIONS = 3
 
 export async function runWhatsAppAgentReply(
   client: SupabaseClient,
@@ -52,23 +52,28 @@ export async function runWhatsAppAgentReply(
     throw new Error('Agent is inactive')
 
   const provider = (agent.llm_provider || 'ollama') as LlmProvider
+  const llmParams = resolveLlmRequestParams(agent, provider)
+
   const userMessage = params.ctx.messageContent.trim()
   if (!userMessage)
     throw new Error('Empty user message for agent')
 
   const [tools, contact, history, activeSession] = await Promise.all([
-    loadEnabledAgentTools(client, params.tenantId, params.agentId),
+    loadEnabledAgentTools(client, params.tenantId, params.agentId, {
+      minimalInternal: llmParams.profile.family === 'reasoning',
+    }),
     loadAgentContactContext(client, params.tenantId, params.ctx.contactId, {
       name: params.ctx.contactName,
       phone: params.ctx.contactPhone,
     }),
     params.conversationHistory
-      ? Promise.resolve(params.conversationHistory)
+      ? Promise.resolve(params.conversationHistory.slice(-llmParams.maxHistoryMessages))
       : params.ctx.conversationId && !params.ctx.isTest
         ? loadConversationHistoryForAgent(client, {
             tenantId: params.tenantId,
             conversationId: params.ctx.conversationId,
             excludeMessageId: params.ctx.messageId,
+            limit: llmParams.maxHistoryMessages,
           })
         : Promise.resolve([]),
     params.ctx.conversationId && !params.ctx.isTest
@@ -81,10 +86,12 @@ export async function runWhatsAppAgentReply(
   ])
 
   const toolsPrompt = buildToolsSystemPrompt(tools)
+  const basePrompt = String(agent.system_prompt || '').trim() || DEFAULT_AGENT_SYSTEM_PROMPT
   const systemPrompt = buildAgentSystemPrompt({
-    basePrompt: String(agent.system_prompt || '').trim(),
+    basePrompt,
     toolsPrompt,
     contact,
+    compact: llmParams.profile.compactPrompt,
   })
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
@@ -98,14 +105,22 @@ export async function runWhatsAppAgentReply(
 
   let totalTokens = 0
   let reply = ''
+  const maxIterations = llmParams.maxToolIterations
 
-  for (let iteration = 0; iteration <= MAX_TOOL_ITERATIONS; iteration++) {
+  for (let iteration = 0; iteration <= maxIterations; iteration++) {
     const result = await runLlmChat({
       provider,
-      model: agent.model || (provider === 'ollama' ? 'qwen' : 'gpt-4o-mini'),
-      temperature: Number(agent.temperature ?? 0.7),
-      maxTokens: Number(agent.max_tokens ?? 1024),
+      model: llmParams.model,
+      temperature: llmParams.temperature,
+      maxTokens: llmParams.maxTokens,
       messages,
+      options: {
+        profile: {
+          disableThinking: llmParams.profile.disableThinking,
+          stripThinking: llmParams.profile.stripThinking,
+          numCtx: llmParams.profile.numCtx,
+        },
+      },
     })
 
     totalTokens += result.tokensUsed
@@ -116,7 +131,7 @@ export async function runWhatsAppAgentReply(
       break
     }
 
-    if (iteration === MAX_TOOL_ITERATIONS) {
+    if (iteration === maxIterations) {
       reply = 'Preciso de mais informações ou de um atendente humano para concluir seu pedido. Pode me contar um pouco mais?'
       break
     }

@@ -123,10 +123,16 @@ export function buildAgentSystemPrompt(params: {
   basePrompt: string
   toolsPrompt: string
   contact: AgentContactContext
+  compact?: boolean
 }): string {
   const tagsLine = params.contact.tags.length
     ? params.contact.tags.join(', ')
-    : 'Nenhuma'
+    : '—'
+
+  if (params.compact) {
+    const contextLine = `Contato: ${params.contact.name} (${params.contact.phone}). Etiquetas: ${tagsLine}.`
+    return [params.basePrompt, contextLine, params.toolsPrompt].filter(Boolean).join('\n')
+  }
 
   const contextBlock = [
     '## Contexto do atendimento',

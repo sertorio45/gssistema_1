@@ -150,7 +150,7 @@ async function handleDelete(id: string) {
   <div>
     <WhatsAppPageHeader
       title="Integrações"
-      description="Conecte e gerencie instâncias WhatsApp via Evolution API."
+      description="Cada instância conectada vira uma caixa de entrada separada em Conversas."
     >
       <template #actions>
         <Button @click="setupOpen = true">
@@ -164,8 +164,11 @@ async function handleDelete(id: string) {
       <span class="i-lucide-info h-4 w-4" />
       <AlertTitle>Webhooks automáticos</AlertTitle>
       <AlertDescription>
-        Ao criar uma instância Evolution, o webhook é registrado automaticamente.
-        WhatsApp Cloud API (Meta) estará disponível em breve.
+        Conecte quantos números precisar — cada um aparece como caixa de entrada em
+        <NuxtLink to="/whatsapp/conversations" class="font-medium text-primary hover:underline">
+          Conversas
+        </NuxtLink>.
+        Webhooks Evolution são registrados automaticamente ao criar a instância.
       </AlertDescription>
     </Alert>
 

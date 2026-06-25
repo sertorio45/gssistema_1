@@ -1,6 +1,7 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, readBody } from 'h3'
 
+import { DEFAULT_AGENT_SYSTEM_PROMPT } from '~/constants/whatsapp-llm'
 import { mapAgentRow } from '~/composables/whatsapp/useWhatsAppMapper'
 import { resolveWhatsAppTenantContext } from '~/server/utils/whatsapp/context'
 
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
       description: body.description?.trim() || null,
       llm_provider: body.llm_provider || 'ollama',
       model: body.model?.trim() || 'qwen',
-      system_prompt: body.system_prompt?.trim() || 'Você é um assistente de atendimento prestativo.',
+      system_prompt: body.system_prompt?.trim() || DEFAULT_AGENT_SYSTEM_PROMPT,
       temperature: body.temperature ?? 0.7,
       max_tokens: body.max_tokens ?? 1024,
       is_active: body.is_active ?? true,

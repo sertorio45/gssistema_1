@@ -59,22 +59,23 @@ export function buildToolsSystemPrompt(tools: AgentToolDefinition[]): string {
 
   const lines = tools.map(tool => `- ${tool.name}: ${tool.description}`)
   return [
-    'Ferramentas disponíveis:',
+    'Ferramentas (use só se necessário):',
     ...lines,
-    '',
-    'Para usar uma ferramenta, responda APENAS com JSON válido no formato:',
-    '{"tool":"nome_da_ferramenta","args":{}}',
-    'Quando tiver a resposta final para o usuário, responda em português sem JSON.',
+    'Para ferramenta: responda só JSON {"tool":"nome","args":{}}.',
+    'Resposta ao cliente: texto em português, sem JSON.',
   ].join('\n')
 }
 
 export function parseToolCall(content: string): AgentToolCall | null {
   const trimmed = content.trim()
-  if (!trimmed.startsWith('{'))
+  const jsonStart = trimmed.indexOf('{')
+  if (jsonStart < 0)
     return null
 
+  const candidate = trimmed.slice(jsonStart)
+
   try {
-    const parsed = JSON.parse(trimmed) as Record<string, unknown>
+    const parsed = JSON.parse(candidate) as Record<string, unknown>
     const tool = String(parsed.tool || parsed.name || '').trim()
     if (!tool)
       return null
@@ -164,6 +165,7 @@ export async function loadEnabledAgentTools(
   client: SupabaseClient,
   tenantId: string,
   agentId: string,
+  options?: { minimalInternal?: boolean },
 ): Promise<AgentToolDefinition[]> {
   const { data: rows } = await client
     .from('whatsapp_agent_tool')
@@ -172,17 +174,27 @@ export async function loadEnabledAgentTools(
     .eq('agent_id', agentId)
     .eq('is_enabled', true)
 
-  const tools: AgentToolDefinition[] = [...getInternalToolDefinitions()]
+  const tools: AgentToolDefinition[] = []
 
   for (const row of rows || []) {
-    if (row.type === 'internal' && INTERNAL_TOOLS[row.name])
+    if (row.type === 'internal' && INTERNAL_TOOLS[row.name]) {
+      tools.push(INTERNAL_TOOLS[row.name])
       continue
+    }
 
     tools.push({
       name: row.name,
       description: String((row.config as Record<string, unknown>)?.description || row.mcp_tool_name || row.name),
       parameters: (row.config as Record<string, unknown>)?.parameters as Record<string, unknown> || {},
     })
+  }
+
+  // Sem ferramentas no banco: todas internas (legado) ou só lookup (modelos reasoning)
+  if (!tools.length) {
+    if (options?.minimalInternal)
+      tools.push(INTERNAL_TOOLS.lookup_contact)
+    else
+      tools.push(...getInternalToolDefinitions())
   }
 
   return tools

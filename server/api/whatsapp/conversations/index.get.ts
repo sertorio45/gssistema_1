@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
   const search = (query.search as string | undefined)?.trim()
   const unreadOnly = query.unread_only === 'true'
   const assignedToMe = query.assigned_to_me === 'true'
+  const instanceId = (query.instance_id as string | undefined)?.trim() || undefined
   const limit = Math.min(Number(query.limit) || 50, 100)
 
   const client = serverSupabaseServiceRole(event)
@@ -26,10 +27,13 @@ export default defineEventHandler(async (event) => {
 
   let req = client
     .from('whatsapp_conversation')
-    .select('*')
+    .select('*, whatsapp_instance(id, name, phone_number, status)')
     .eq('tenant_id', tenantId)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(limit)
+
+  if (instanceId)
+    req = req.eq('instance_id', instanceId)
 
   if (status && status !== 'all')
     req = req.eq('status', status)

@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   const { data, error } = await client
     .from('whatsapp_conversation')
-    .select('*')
+    .select('*, whatsapp_instance(id, name, phone_number, status)')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .maybeSingle()

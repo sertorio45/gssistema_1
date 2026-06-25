@@ -5,6 +5,8 @@ import type { WhatsAppConversation, WhatsAppConversationLead } from '~/types/wha
 import ChatPanel from '~/components/whatsapp/conversations/ChatPanel.vue'
 import ConversationDetails from '~/components/whatsapp/conversations/ConversationDetails.vue'
 import ConversationList from '~/components/whatsapp/conversations/ConversationList.vue'
+import InboxMobileSwitcher from '~/components/whatsapp/conversations/InboxMobileSwitcher.vue'
+import InboxSidebar from '~/components/whatsapp/conversations/InboxSidebar.vue'
 import { toast } from 'vue-sonner'
 
 const route = useRoute()
@@ -27,6 +29,7 @@ const {
 } = useWhatsAppConversations()
 
 const { agents, pending: agentsPending } = useWhatsAppAgents()
+const { instances, totalUnread, pending: instancesPending, refresh: refreshInstances } = useWhatsAppInstances()
 
 const conversationLead = ref<WhatsAppConversationLead | null>(null)
 const resolvedConversation = ref<WhatsAppConversation | null>(null)
@@ -52,6 +55,40 @@ function normalizePhone(phone: string) {
   return phone.replace(/\D/g, '')
 }
 
+function buildRouteQuery(id: string | null, instanceId: string | null) {
+  const query: Record<string, string> = {}
+  if (instanceId)
+    query.inbox = instanceId
+  if (id)
+    query.id = id
+  return query
+}
+
+const activeInstanceId = computed({
+  get: () => {
+    const fromQuery = typeof route.query.inbox === 'string' ? route.query.inbox : null
+    return inboxStore.activeInstanceId ?? fromQuery ?? null
+  },
+  set: (instanceId: string | null) => {
+    inboxStore.setActiveInstance(instanceId)
+
+    let conversationId = typeof route.query.id === 'string' ? route.query.id : null
+    if (conversationId) {
+      const conversation = conversations.value.find(item => item.id === conversationId)
+        || (resolvedConversation.value?.id === conversationId ? resolvedConversation.value : null)
+      if (conversation && instanceId && conversation.instanceId !== instanceId)
+        conversationId = null
+    }
+
+    inboxStore.setActiveConversation(conversationId)
+
+    router.replace({
+      path: '/whatsapp/conversations',
+      query: buildRouteQuery(conversationId, instanceId),
+    })
+  },
+})
+
 const activeId = computed({
   get: () => {
     const fromQuery = typeof route.query.id === 'string' ? route.query.id : null
@@ -64,10 +101,10 @@ const activeId = computed({
     if (currentQueryId === id)
       return
 
-    if (id)
-      router.replace({ path: '/whatsapp/conversations', query: { id } })
-    else
-      router.replace({ path: '/whatsapp/conversations' })
+    router.replace({
+      path: '/whatsapp/conversations',
+      query: buildRouteQuery(id, activeInstanceId.value),
+    })
   },
 })
 
@@ -91,9 +128,18 @@ async function fetchConversationById(id: string) {
   })
 }
 
-function findConversationByPhone(phone: string) {
+function findConversationByPhone(
+  phone: string,
+  instanceId?: string | null,
+) {
   const phoneKey = normalizePhone(phone)
-  return conversations.value.find(item => normalizePhone(item.contactPhone) === phoneKey) || null
+  return conversations.value.find((item) => {
+    if (normalizePhone(item.contactPhone) !== phoneKey)
+      return false
+    if (instanceId && item.instanceId !== instanceId)
+      return false
+    return true
+  }) || null
 }
 
 async function resolveConversation(id: string) {
@@ -112,7 +158,7 @@ async function resolveConversation(id: string) {
   catch {
     const cached = resolvedConversation.value
     if (cached?.id === id) {
-      const replacement = findConversationByPhone(cached.contactPhone)
+      const replacement = findConversationByPhone(cached.contactPhone, cached.instanceId)
       if (replacement) {
         activeId.value = replacement.id
         resolvedConversation.value = replacement
@@ -214,10 +260,23 @@ watch(conversations, (list) => {
   if (!cached)
     return
 
-  const replacement = findConversationByPhone(cached.contactPhone)
+  const replacement = findConversationByPhone(
+    cached.contactPhone,
+    cached.instanceId,
+  )
   if (replacement && replacement.id !== activeId.value)
     activeId.value = replacement.id
 })
+
+watch(
+  () => route.query.inbox,
+  (inbox) => {
+    const next = typeof inbox === 'string' ? inbox : null
+    if (next !== inboxStore.activeInstanceId)
+      inboxStore.setActiveInstance(next)
+  },
+  { immediate: true },
+)
 
 watch(
   () => route.query.id,
@@ -251,7 +310,19 @@ useWhatsAppRealtime({
     upsertConversation(conversation)
     if (conversation.id === resolvedConversation.value?.id)
       resolvedConversation.value = conversation
+    refreshInstances()
   },
+})
+
+async function handleSelectInbox(instanceId: string | null) {
+  activeInstanceId.value = instanceId
+}
+
+const showAllInboxes = computed(() => !activeInstanceId.value)
+const activeInboxLabel = computed(() => {
+  if (!activeInstanceId.value)
+    return 'Todas as caixas'
+  return instances.value.find(item => item.id === activeInstanceId.value)?.name || 'Caixa de entrada'
 })
 
 async function handleSelect(id: string) {
@@ -357,6 +428,12 @@ async function handleAgentChange(payload: { agentId: string | null, enabled: boo
   const id = resolvedConversation.value?.id
   if (!id)
     return
+
+  if (payload.enabled && !payload.agentId) {
+    toast.error('Selecione um agente antes de ativar a IA.')
+    return
+  }
+
   try {
     const result = await setConversationAgent(id, payload)
     const current = resolvedConversation.value
@@ -382,20 +459,41 @@ async function handleAgentChange(payload: { agentId: string | null, enabled: boo
 
 <template>
   <div class="flex h-[calc(100vh-8rem)] min-h-[560px] overflow-hidden rounded-xl border bg-background shadow-sm">
+    <InboxSidebar
+      :instances="instances"
+      :active-instance-id="activeInstanceId"
+      :total-unread="totalUnread"
+      :loading="instancesPending"
+      @select="handleSelectInbox"
+    />
+
     <div class="w-full shrink-0 md:w-80 lg:w-96" :class="activeId && 'hidden md:block'">
       <ConversationList
         :conversations="conversations"
         :active-id="resolvedConversation?.id || activeId"
         :loading="conversationsPending"
+        :show-instance-badge="showAllInboxes"
         @select="handleSelect"
-      />
+      >
+        <template #inbox-switcher>
+          <InboxMobileSwitcher
+            :instances="instances"
+            :active-instance-id="activeInstanceId"
+            :total-unread="totalUnread"
+            @select="handleSelectInbox"
+          />
+        </template>
+      </ConversationList>
     </div>
 
     <div class="min-w-0 flex-1" :class="!activeId && 'hidden md:flex md:flex-col'">
-      <div v-if="activeId" class="flex items-center border-b px-3 py-2 md:hidden">
+      <div v-if="activeId" class="flex items-center justify-between border-b px-3 py-2 md:hidden">
         <button type="button" class="text-sm text-primary" @click="activeId = null">
-          ← Voltar
+          ← Conversas
         </button>
+        <span class="truncate text-xs text-muted-foreground">
+          {{ activeInboxLabel }}
+        </span>
       </div>
       <ChatPanel
         :conversation="resolvedConversation"

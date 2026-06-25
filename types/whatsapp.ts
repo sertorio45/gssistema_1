@@ -117,6 +117,9 @@ export interface WhatsAppConversation {
   id: string
   tenantId: string
   instanceId?: string | null
+  instanceName?: string | null
+  instancePhoneNumber?: string | null
+  instanceStatus?: WhatsAppInstanceStatus | null
   contactId?: string | null
   remoteJid: string
   contactName: string
@@ -530,6 +533,8 @@ export interface WhatsAppInstanceView {
   createdAt: string
   updatedAt: string
   integration?: WhatsAppInstanceIntegrationView | null
+  conversationCount?: number
+  unreadCount?: number
 }
 
 export interface CreateWhatsAppInstancePayload {
@@ -634,6 +639,12 @@ export interface WhatsAppConversationRow {
   profile_picture?: string | null
   created_at?: string
   updated_at?: string
+  whatsapp_instance?: {
+    id?: string | null
+    name?: string | null
+    phone_number?: string | null
+    status?: WhatsAppInstanceStatus | null
+  } | null
 }
 
 export interface WhatsAppMessageRow {
