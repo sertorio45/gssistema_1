@@ -3,6 +3,7 @@ import process from 'node:process'
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { clearMarketingCampaignCacheForTenant, decryptSecret, encryptSecret } from '~/server/utils/marketing'
+import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
@@ -11,7 +12,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'provider and config are required' })
   }
 
-  const { tenantId, client } = await requireSocialContext(
+  const { tenantId, client, user } = await requireSocialContext(
     event,
     'marketing.social.integrations',
     body.tenant_id,
@@ -216,6 +217,15 @@ export default defineEventHandler(async (event) => {
     if (deactivateError)
       throw createError({ statusCode: 500, statusMessage: deactivateError.message })
   }
+
+  await recordSocialAudit(event, client, {
+    tenantId,
+    actorId: user.id,
+    action: 'integration.updated',
+    entityType: 'marketing_integration',
+    entityId: data.id,
+    after: { provider, isActive: true },
+  })
 
   return { data }
 })

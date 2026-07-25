@@ -1,4 +1,4 @@
-import { createSocialNotification } from '~/server/utils/social-audit'
+import { createSocialNotification, writeSocialAudit } from '~/server/utils/social-audit'
 import { publishToLinkedin } from '~/server/utils/social-publishers/linkedin-publisher'
 import { publishToMeta } from '~/server/utils/social-publishers/meta-publisher'
 
@@ -73,6 +73,22 @@ export async function processPublicationJob(
       locked_at: null,
       locked_by: null,
     }).eq('id', claimed.id)
+
+    await writeSocialAudit(client, {
+      tenantId: claimed.tenant_id,
+      actorId: null,
+      action: 'social_post.publish_failed',
+      entityType: 'social_post',
+      entityId: claimed.post_id,
+      after: {
+        jobId: claimed.id,
+        workerId,
+        reason: message,
+        code: 'invalid_snapshot',
+      },
+      userAgent: `worker:${workerId}`,
+    })
+
     return { success: false, message }
   }
 
@@ -117,6 +133,27 @@ export async function processPublicationJob(
       external_post_url: result.externalPostUrl,
     }).eq('id', claimed.variant_id)
 
+    await writeSocialAudit(client, {
+      tenantId: claimed.tenant_id,
+      actorId: null,
+      action: 'social_post.channel_published',
+      entityType: 'social_post',
+      entityId: claimed.post_id,
+      after: {
+        jobId: claimed.id,
+        workerId,
+        platform: account.platform,
+        provider: account.provider,
+        accountId: account.id,
+        accountName: account.name,
+        externalPostId: result.externalPostId,
+        externalPostUrl: result.externalPostUrl,
+        attempt: attemptNumber,
+        durationMs: Date.now() - startedAt,
+      },
+      userAgent: `worker:${workerId}`,
+    })
+
     const { count: remaining } = await client
       .from('publication_jobs')
       .select('id', { count: 'exact', head: true })
@@ -127,6 +164,21 @@ export async function processPublicationJob(
         status: 'published',
         published_at: new Date().toISOString(),
       }).eq('id', claimed.post_id)
+
+      await writeSocialAudit(client, {
+        tenantId: claimed.tenant_id,
+        actorId: null,
+        action: 'social_post.published',
+        entityType: 'social_post',
+        entityId: claimed.post_id,
+        after: {
+          workerId,
+          title: post?.title || null,
+          publishedAt: new Date().toISOString(),
+        },
+        userAgent: `worker:${workerId}`,
+      })
+
       if (post?.created_by) {
         await createSocialNotification(client, {
           tenantId: claimed.tenant_id,
@@ -169,6 +221,26 @@ export async function processPublicationJob(
       locked_at: null,
       locked_by: null,
     }).eq('id', claimed.id)
+
+    await writeSocialAudit(client, {
+      tenantId: claimed.tenant_id,
+      actorId: null,
+      action: shouldRetry ? 'social_post.publish_retrying' : 'social_post.publish_failed',
+      entityType: 'social_post',
+      entityId: claimed.post_id,
+      after: {
+        jobId: claimed.id,
+        workerId,
+        platform: account.platform,
+        provider: account.provider,
+        accountId: account.id,
+        attempt: attemptNumber,
+        nextAttemptAt,
+        code: details.code,
+        message: details.message,
+      },
+      userAgent: `worker:${workerId}`,
+    })
 
     if (!shouldRetry) {
       await client.from('social_posts').update({ status: 'failed' }).eq('id', claimed.post_id)

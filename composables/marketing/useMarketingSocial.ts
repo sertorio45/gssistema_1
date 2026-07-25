@@ -157,6 +157,15 @@ export function useMarketingSocial() {
     return response.data
   }
 
+  async function listLogs(filters: Record<string, unknown> = {}) {
+    return $fetch<{
+      data: Array<Record<string, unknown>>
+      pagination: { page: number, pageSize: number, total: number, totalPages: number }
+    }>('/api/marketing/social/logs', {
+      query: tenantQuery(filters),
+    })
+  }
+
   return {
     tenantId,
     listPosts,
@@ -172,5 +181,6 @@ export function useMarketingSocial() {
     uploadAsset,
     deleteAsset,
     listAccounts,
+    listLogs,
   }
 }

@@ -6,6 +6,7 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, defineEventHandler, getQuery, getRequestURL, sendRedirect } from 'h3'
 
 import { clearMarketingCampaignCacheForTenant, encryptSecret } from '~/server/utils/marketing'
+import { recordSocialAudit } from '~/server/utils/social-audit'
 
 function toProvider(value: string) {
   if (value === 'google_ads' || value === 'google_analytics' || value === 'meta' || value === 'linkedin')
@@ -190,6 +191,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 500, statusMessage: error.message })
 
   await clearMarketingCampaignCacheForTenant(client, tenantId)
+
+  await recordSocialAudit(event, client, {
+    tenantId,
+    actorId: oauthState.user_id,
+    action: 'integration.connected',
+    entityType: 'marketing_integration',
+    after: { provider },
+  })
 
   return sendRedirect(event, `${oauthState.redirect_path || '/marketing/integrations'}?oauth=success&provider=${provider}`, 302)
 })

@@ -110,17 +110,19 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
             }
             return true
           }
-          if ('children' in item)
-            return item.children?.some(child => hasCapability(child)) ?? false
-          return hasCapability(item)
+          if ('children' in item) {
+            return item.children?.some(child =>
+              hasCapability(child) && (!child.roles || hasRole(child.roles)),
+            ) ?? false
+          }
+          return hasCapability(item) && (!('roles' in item) || !item.roles || hasRole(item.roles))
         })
         .map((item: NavLink | NavGroup | NavSectionTitle) => {
           if ('children' in item) {
-            const isTenantUser = isTenantScopedRole(currentRole.value)
             return {
               ...item,
               children: (item.children || []).filter(child =>
-                hasCapability(child) && (!isTenantUser || !child.roles || hasRole(child.roles)),
+                hasCapability(child) && (!child.roles || hasRole(child.roles)),
               ),
             }
           }

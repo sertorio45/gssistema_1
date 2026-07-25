@@ -19,6 +19,38 @@ function sanitize(value: unknown): unknown {
   return value
 }
 
+export async function writeSocialAudit(
+  client: any,
+  input: {
+    tenantId: string
+    actorId?: string | null
+    action: string
+    entityType: string
+    entityId?: string | null
+    before?: unknown
+    after?: unknown
+    requestId?: string | null
+    ip?: string | null
+    userAgent?: string | null
+  },
+) {
+  const { error } = await client.from('audit_events').insert({
+    tenant_id: input.tenantId,
+    actor_id: input.actorId || null,
+    action: input.action,
+    entity_type: input.entityType,
+    entity_id: input.entityId || null,
+    before_data: input.before === undefined ? null : sanitize(input.before),
+    after_data: input.after === undefined ? null : sanitize(input.after),
+    request_id: input.requestId || randomUUID(),
+    ip: input.ip || null,
+    user_agent: input.userAgent || null,
+  })
+
+  if (error)
+    console.error('Falha ao registrar auditoria social', error.message)
+}
+
 export async function recordSocialAudit(
   event: any,
   client: any,
@@ -32,22 +64,12 @@ export async function recordSocialAudit(
     after?: unknown
   },
 ) {
-  const requestId = getHeader(event, 'x-request-id') || randomUUID()
-  const { error } = await client.from('audit_events').insert({
-    tenant_id: input.tenantId,
-    actor_id: input.actorId || null,
-    action: input.action,
-    entity_type: input.entityType,
-    entity_id: input.entityId || null,
-    before_data: input.before === undefined ? null : sanitize(input.before),
-    after_data: input.after === undefined ? null : sanitize(input.after),
-    request_id: requestId,
+  await writeSocialAudit(client, {
+    ...input,
+    requestId: getHeader(event, 'x-request-id') || randomUUID(),
     ip: getRequestIP(event, { xForwardedFor: true }) || null,
-    user_agent: getHeader(event, 'user-agent') || null,
+    userAgent: getHeader(event, 'user-agent') || null,
   })
-
-  if (error)
-    console.error('Falha ao registrar auditoria social', error.message)
 }
 
 export async function createSocialNotification(

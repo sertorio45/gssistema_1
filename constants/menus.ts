@@ -58,6 +58,12 @@ export const navMenu: NavMenu[] = [
             roles: ['admin', 'funcionario', 'cliente'],
             capability: 'marketing.social.integrations',
           },
+          {
+            title: 'Logs',
+            icon: 'i-lucide-scroll-text',
+            link: '/marketing/logs',
+            roles: ['admin'],
+          },
         ],
       },
     ],

@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import { clearMarketingCampaignCacheForTenant } from '~/server/utils/marketing'
+import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
@@ -10,7 +11,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'provider é obrigatório' })
   }
 
-  const { tenantId, client } = await requireSocialContext(
+  const { tenantId, client, user } = await requireSocialContext(
     event,
     'marketing.social.integrations',
     body?.tenant_id,
@@ -34,6 +35,14 @@ export default defineEventHandler(async (event) => {
       .eq('tenant_id', tenantId)
       .eq('provider', provider)
   }
+
+  await recordSocialAudit(event, client, {
+    tenantId,
+    actorId: user.id,
+    action: 'integration.disconnected',
+    entityType: 'marketing_integration',
+    after: { provider },
+  })
 
   return { success: true }
 })
