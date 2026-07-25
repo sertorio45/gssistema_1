@@ -12,7 +12,7 @@ import {
 import { WHATSAPP_CLOUD_API_ENABLED } from '~/constants/whatsapp'
 import {
   evolutionCreateInstance,
-  evolutionSetWebhook,
+  evolutionEnsureWebhook,
   getEvolutionConfigFromIntegration,
   resolveEvolutionRemoteInstance,
   syncEvolutionInstanceRecord,
@@ -152,7 +152,7 @@ export default defineEventHandler(async (event) => {
 
       if (linkExisting) {
         const remote = await resolveEvolutionRemoteInstance(evolutionCredentials, evolutionInstanceName)
-        await evolutionSetWebhook(evoConfig, webhookUrl)
+        await evolutionEnsureWebhook(evoConfig, webhookUrl, { webhookSecret })
         const mapped = await syncEvolutionInstanceRecord(client, instance.id, evoConfig)
         instance.status = mapped.status
         instance.phone_number = mapped.phoneNumber || remote.phoneNumber || null
@@ -162,8 +162,8 @@ export default defineEventHandler(async (event) => {
         await evolutionCreateInstance(
           { ...evoConfig, instanceName: evolutionInstanceName },
           webhookUrl,
+          webhookSecret,
         )
-        await evolutionSetWebhook(evoConfig, webhookUrl)
         try {
           const mapped = await syncEvolutionInstanceRecord(client, instance.id, evoConfig)
           instance.status = mapped.status

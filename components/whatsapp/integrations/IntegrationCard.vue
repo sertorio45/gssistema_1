@@ -7,6 +7,8 @@ import WebhookUrlCopy from '~/components/whatsapp/integrations/WebhookUrlCopy.vu
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '~/components/ui/card'
+import { Label } from '~/components/ui/label'
+import { Switch } from '~/components/ui/switch'
 
 const props = defineProps<{
   instance: WhatsAppInstanceView
@@ -21,6 +23,7 @@ const emit = defineEmits<{
   sync: []
   delete: []
   open: []
+  setDefault: [isDefault: boolean]
 }>()
 
 const providerLabel = computed(() => {
@@ -63,6 +66,19 @@ const isCloudStandby = computed(() => props.instance.provider === 'cloud_api')
         :url="webhookUrl"
         label="URL do webhook"
       />
+      <div class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+        <div class="min-w-0">
+          <Label class="text-sm font-medium">Instância padrão</Label>
+          <p class="text-xs text-muted-foreground">
+            Usada em campanhas e envios quando nenhuma caixa estiver definida.
+          </p>
+        </div>
+        <Switch
+          :checked="instance.isDefault"
+          :disabled="actionLoading"
+          @update:checked="emit('setDefault', $event)"
+        />
+      </div>
       <QrCodeDisplay
         v-if="instance.provider === 'evolution' && instance.status === 'connecting'"
         :qr-code="instance.qrCode"

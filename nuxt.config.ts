@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { APP_DESCRIPTION, APP_FULL_NAME, APP_NAME } from './constants/app'
 
@@ -53,8 +55,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/crm/marketing': { ssr: true },
-    '/crm/marketing/**': { ssr: true },
+    '/marketing': { ssr: true },
+    '/marketing/**': { ssr: true },
     '/whatsapp': { ssr: true },
     '/whatsapp/**': { ssr: true },
     // Inbox usa realtime e componentes client-only; evita erro de vnode no SSR.
@@ -66,6 +68,7 @@ export default defineNuxtConfig({
   imports: {
     dirs: [
       './lib',
+      './composables/marketing',
       './composables/whatsapp',
     ],
   },

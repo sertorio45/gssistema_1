@@ -15,7 +15,6 @@ export const navMenu: NavMenu[] = [
           { title: 'Contatos', icon: 'i-lucide-contact', link: '/crm/contacts' },
           { title: 'Reuniões', icon: 'i-lucide-calendar', link: '/crm/meetings' },
           { title: 'Produtos & Serviços', icon: 'i-lucide-package', link: '/crm/products' },
-          { title: 'Marketing', icon: 'i-lucide-megaphone', link: '/crm/marketing' },
           {
             title: 'Configurações',
             icon: 'i-lucide-bar-chart-3',
@@ -26,6 +25,38 @@ export const navMenu: NavMenu[] = [
             icon: 'i-lucide-users',
             link: '/settings/team',
             roles: ['admin', 'funcionario', 'cliente'],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    heading: '',
+    items: [
+      {
+        title: 'Marketing',
+        icon: 'i-lucide-megaphone',
+        roles: ['admin', 'funcionario', 'cliente', 'atendente'],
+        children: [
+          { title: 'Visão geral', icon: 'i-lucide-layout-dashboard', link: '/marketing', capability: 'marketing.social.read' },
+          { title: 'Produção', icon: 'i-lucide-panels-top-left', link: '/marketing/production', capability: 'marketing.social.create' },
+          { title: 'Aprovações', icon: 'i-lucide-badge-check', link: '/marketing/approvals', capability: 'marketing.social.read' },
+          { title: 'Calendário', icon: 'i-lucide-calendar-days', link: '/marketing/calendar', capability: 'marketing.social.read' },
+          { title: 'Biblioteca', icon: 'i-lucide-images', link: '/marketing/library', capability: 'marketing.social.read' },
+          { title: 'Notificações', icon: 'i-lucide-bell', link: '/marketing/notifications', capability: 'marketing.social.read' },
+          {
+            title: 'Relatórios',
+            icon: 'i-lucide-bar-chart-3',
+            link: '/marketing/reports',
+            roles: ['admin', 'funcionario', 'cliente'],
+            capability: 'marketing.social.read',
+          },
+          {
+            title: 'Integrações',
+            icon: 'i-lucide-plug',
+            link: '/marketing/integrations',
+            roles: ['admin', 'funcionario', 'cliente'],
+            capability: 'marketing.social.integrations',
           },
         ],
       },
@@ -460,6 +491,7 @@ export const navMenuAdmin: NavMenu[] = [
         children: [
           { title: 'Usuários', icon: 'i-lucide-users', link: '/admin/users' },
           { title: 'Empresas', icon: 'i-lucide-building-2', link: '/admin/tenants' },
+          { title: 'Agências', icon: 'i-lucide-network', link: '/admin/agencies' },
         ],
       },
     ],

@@ -4,11 +4,11 @@ import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { useRole } from '@/composables/useRole'
-import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
 import { useAuth } from '~/composables/useAuth'
 import { useModule } from '~/composables/useModule'
 import { useTenant } from '~/composables/useTenant'
 import { navMenu, navMenuAdmin, navMenuBottom, navMenuTenant } from '~/constants/menus'
+import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
   if ('children' in item)
@@ -36,19 +36,17 @@ const isLoadingMenu = ref(true)
 const { currentModuleMeta } = useModule()
 
 // --- Lógica de tenant ---
-const { listTenants } = useTenant()
+const { listTenants, tenantId } = useTenant()
 const availableTenants = ref<any[]>([])
+const capabilities = ref(new Set<string>())
 const isLoadingTenants = ref(true)
 const { currentRole, updateUserRole } = useAuth()
-const showTenantSelector = computed(() => isStaffRole(currentRole.value))
+const showTenantSelector = computed(() => isStaffRole(currentRole.value) || availableTenants.value.length > 1)
 const showAdminSection = computed(() => hasRole(['admin', 'funcionario']))
 const showTenantTeamSection = computed(() => hasRole(['admin', 'funcionario', 'cliente']))
 
 // Carregar lista de tenants disponíveis
 async function loadTenants() {
-  if (!showTenantSelector.value) {
-    return
-  }
   isLoadingTenants.value = true
   try {
     availableTenants.value = await listTenants()
@@ -61,6 +59,26 @@ async function loadTenants() {
   }
 }
 
+async function loadCapabilities() {
+  if (!tenantId.value) {
+    capabilities.value = new Set()
+    return
+  }
+  try {
+    const response = await $fetch<{ capabilities: string[] }>('/api/marketing/social/access', {
+      query: { tenant_id: tenantId.value },
+    })
+    capabilities.value = new Set(response.capabilities)
+  }
+  catch {
+    capabilities.value = new Set()
+  }
+}
+
+function hasCapability(item: NavLink | NavGroup | NavSectionTitle) {
+  return !('capability' in item) || !item.capability || capabilities.value.has(item.capability)
+}
+
 function filterMenuByRoleAndModule(menu: NavMenu[]) {
   const moduleTitle = currentModuleMeta.value?.title
   return menu
@@ -70,10 +88,12 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
         .filter((item: NavLink | NavGroup | NavSectionTitle) => {
           // Filtro por módulo: quando há módulo selecionado, mostrar apenas o grupo com esse título
           if (moduleTitle && 'children' in item && item.children) {
-            if (item.title !== moduleTitle) return false
+            if (item.title !== moduleTitle)
+              return false
           }
           // Itens sem children (links soltos) são ocultados quando há um módulo selecionado
-          if (moduleTitle && !('children' in item)) return false
+          if (moduleTitle && !('children' in item))
+            return false
           // Se for cliente, aplica filtro de roles normalmente
           const isTenantUser = isTenantScopedRole(currentRole.value)
           if (isTenantUser) {
@@ -81,26 +101,28 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
               if (item.roles && !hasRole(item.roles)) {
                 return false
               }
-              return item.children.some(child => !child.roles || hasRole(child.roles))
+              return item.children?.some(child =>
+                hasCapability(child) && (!child.roles || hasRole(child.roles)),
+              ) ?? false
             }
             if ('link' in item) {
-              return !item.roles || hasRole(item.roles)
+              return hasCapability(item) && (!item.roles || hasRole(item.roles))
             }
             return true
           }
-          // Para admin/funcionário, não filtra por role (mostra tudo)
-          return true
+          if ('children' in item)
+            return item.children?.some(child => hasCapability(child)) ?? false
+          return hasCapability(item)
         })
         .map((item: NavLink | NavGroup | NavSectionTitle) => {
           if ('children' in item) {
             const isTenantUser = isTenantScopedRole(currentRole.value)
-          if (isTenantUser) {
-              return {
-                ...item,
-                children: item.children.filter(child => !child.roles || hasRole(child.roles)),
-              }
+            return {
+              ...item,
+              children: (item.children || []).filter(child =>
+                hasCapability(child) && (!isTenantUser || !child.roles || hasRole(child.roles)),
+              ),
             }
-            return item
           }
           return item
         }),
@@ -113,7 +135,8 @@ const filteredMenuComputed = computed(() => filterMenuByRoleAndModule(navMenu))
 /** When a module is selected, flatten the module group into a single list of links (no nested/collapsible). */
 const flatModuleLinks = computed((): NavLink[] => {
   const moduleTitle = currentModuleMeta.value?.title
-  if (!moduleTitle) return []
+  if (!moduleTitle)
+    return []
   for (const section of filteredMenuComputed.value) {
     const group = section.items.find((i): i is NavGroup => 'children' in i && i.title === moduleTitle)
     if (group?.children?.length) {
@@ -135,6 +158,7 @@ onMounted(async () => {
   await updateUserRole()
   await fetchUserRole()
   await loadTenants()
+  await loadCapabilities()
   isLoadingMenu.value = false
 })
 
@@ -142,6 +166,8 @@ watch(currentRole, async (role) => {
   if (isStaffRole(role))
     await loadTenants()
 })
+
+watch(tenantId, loadCapabilities)
 </script>
 
 <template>

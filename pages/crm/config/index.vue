@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Layers, ListChecks, Package, Plug, Settings, Users } from 'lucide-vue-next'
+import { Layers, ListChecks, Package, Settings, Users } from 'lucide-vue-next'
 
 import Card from '@/components/ui/card/Card.vue'
 import CardContent from '@/components/ui/card/CardContent.vue'
@@ -39,53 +39,47 @@ const configCards = computed(() => [
   },
   ...(canManageTeam.value
     ? [{
-    title: 'Usuários',
-    description: 'Atendentes e administradores da sua empresa.',
+        title: 'Usuários',
+        description: 'Atendentes e administradores da sua empresa.',
         icon: Users,
         to: '/settings/team',
       }]
     : []),
-  {
-    title: 'Integrações',
-    description: 'Google Ads, Analytics e Meta.',
-    icon: Plug,
-    to: '/crm/marketing/integrations',
-  },
 ])
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-6xl px-4 py-8 md:py-10">
+  <div class="mx-auto max-w-6xl w-full px-4 py-8 md:py-10">
     <header class="mb-8 md:mb-10">
-      <h1 class="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+      <h1 class="text-2xl text-foreground font-semibold tracking-tight md:text-3xl">
         Configurações do CRM
       </h1>
-      <p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        Origens, funis, produtos e integrações em um só lugar.
+      <p class="mt-2 max-w-2xl text-sm text-muted-foreground leading-relaxed">
+        Origens, funis, produtos e usuários em um só lugar.
       </p>
     </header>
 
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-3 lg:grid-cols-3 sm:grid-cols-2 sm:gap-4">
       <NuxtLink
         v-for="card in configCards"
         :key="card.title"
         :to="card.to"
-        class="group block outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+        class="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring focus-visible:ring-offset-background"
       >
         <Card
-          class="h-full border border-border/60 bg-muted/15 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/30 hover:shadow-sm"
+          class="h-full border border-border/60 bg-muted/15 shadow-none transition-all duration-200 hover:border-border hover:bg-muted/30 hover:shadow-sm hover:-translate-y-0.5"
         >
           <CardContent class="flex flex-row items-start gap-4 p-5 sm:p-6">
             <div
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background text-muted-foreground shadow-sm transition-colors group-hover:border-border group-hover:text-foreground"
+              class="h-11 w-11 flex shrink-0 items-center justify-center border border-border/50 rounded-lg bg-background text-muted-foreground shadow-sm transition-colors group-hover:border-border group-hover:text-foreground"
             >
               <component :is="card.icon" class="h-5 w-5" aria-hidden="true" />
             </div>
             <div class="min-w-0 flex-1">
-              <h2 class="text-base font-semibold leading-snug text-foreground">
+              <h2 class="text-base text-foreground font-semibold leading-snug">
                 {{ card.title }}
               </h2>
-              <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-3">
+              <p class="line-clamp-3 mt-1.5 text-sm text-muted-foreground leading-relaxed">
                 {{ card.description }}
               </p>
             </div>

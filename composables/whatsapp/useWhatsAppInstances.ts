@@ -123,6 +123,25 @@ export function useWhatsAppInstances() {
     return response
   }
 
+  async function updateInstance(
+    id: string,
+    payload: {
+      is_default?: boolean
+      name?: string
+      evolution_instance_name?: string
+    },
+  ) {
+    const response = await $fetch<{ data: WhatsAppInstanceView }>(`/api/whatsapp/instances/${id}`, {
+      method: 'PUT',
+      body: {
+        tenant_id: tenantId.value,
+        ...payload,
+      },
+    })
+    await refresh()
+    return response.data
+  }
+
   return {
     instances,
     totalUnread,
@@ -130,6 +149,7 @@ export function useWhatsAppInstances() {
     error,
     refresh,
     createInstance,
+    updateInstance,
     deleteInstance,
     connectInstance,
     disconnectInstance,

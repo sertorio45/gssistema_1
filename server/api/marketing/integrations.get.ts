@@ -1,13 +1,15 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
-
 import { defineEventHandler, getQuery } from 'h3'
 
-import { decryptSecret, maskSensitiveValue, resolveMarketingTenantContext } from '~/server/utils/marketing'
+import { decryptSecret, maskSensitiveValue } from '~/server/utils/marketing'
+import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
-  const client = await serverSupabaseServiceRole(event)
+  const { tenantId, client } = await requireSocialContext(
+    event,
+    'marketing.social.integrations',
+    query.tenant_id as string | undefined,
+  )
 
   const { data, error } = await client
     .from('marketing_integrations')

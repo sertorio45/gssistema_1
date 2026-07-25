@@ -1,0 +1,226 @@
+import { createSocialNotification } from '~/server/utils/social-audit'
+import { publishToLinkedin } from '~/server/utils/social-publishers/linkedin-publisher'
+import { publishToMeta } from '~/server/utils/social-publishers/meta-publisher'
+
+function retryDelay(attempt: number) {
+  const minutes = Math.min(6 * 60, 2 ** Math.max(0, attempt - 1))
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString()
+}
+
+function errorDetails(error: unknown) {
+  const candidate = error as any
+  return {
+    code: String(candidate?.data?.error?.code || candidate?.statusCode || candidate?.code || 'publish_error'),
+    message: String(candidate?.data?.error?.message || candidate?.statusMessage || candidate?.message || 'Falha ao publicar'),
+  }
+}
+
+export async function processPublicationJob(
+  client: any,
+  job: any,
+  workerId: string,
+) {
+  const claimedAt = new Date().toISOString()
+  const { data: claimed } = await client
+    .from('publication_jobs')
+    .update({
+      status: 'processing',
+      locked_at: claimedAt,
+      locked_by: workerId,
+      attempts: Number(job.attempts || 0) + 1,
+    })
+    .eq('id', job.id)
+    .in('status', ['pending', 'retrying'])
+    .select('*')
+    .maybeSingle()
+
+  if (!claimed)
+    return { skipped: true }
+
+  const startedAt = Date.now()
+  const attemptNumber = Number(claimed.attempts)
+  const { data: version } = await client
+    .from('content_versions')
+    .select('snapshot')
+    .eq('id', claimed.version_id)
+    .eq('tenant_id', claimed.tenant_id)
+    .maybeSingle()
+  const { data: account } = await client
+    .from('social_accounts')
+    .select('*')
+    .eq('id', claimed.account_id)
+    .eq('tenant_id', claimed.tenant_id)
+    .maybeSingle()
+  const { data: post } = await client
+    .from('social_posts')
+    .select('title, created_by')
+    .eq('id', claimed.post_id)
+    .maybeSingle()
+
+  const snapshot = version?.snapshot || {}
+  const variant = (snapshot.variants || []).find((row: any) => row.id === claimed.variant_id)
+  const assetRelations = (snapshot.assets || [])
+    .filter((row: any) => row.variant_id === claimed.variant_id)
+    .sort((a: any, b: any) => Number(a.position) - Number(b.position))
+  const assets = assetRelations.map((row: any) => row.media_assets).filter(Boolean)
+
+  if (!variant || !account) {
+    const message = 'Snapshot, variante ou conta social não encontrado'
+    await client.from('publication_jobs').update({
+      status: 'failed',
+      last_error_code: 'invalid_snapshot',
+      last_error_message: message,
+      locked_at: null,
+      locked_by: null,
+    }).eq('id', claimed.id)
+    return { success: false, message }
+  }
+
+  try {
+    const publisherInput = {
+      client,
+      tenantId: claimed.tenant_id,
+      account,
+      variant,
+      assets,
+    }
+    const result = account.provider === 'linkedin'
+      ? await publishToLinkedin(publisherInput)
+      : await publishToMeta(publisherInput)
+
+    await client.from('publication_attempts').insert({
+      tenant_id: claimed.tenant_id,
+      job_id: claimed.id,
+      attempt_number: attemptNumber,
+      status: 'published',
+      request_summary: {
+        provider: account.provider,
+        platform: account.platform,
+        assetCount: assets.length,
+      },
+      response_summary: { externalPostId: result.externalPostId },
+      external_post_id: result.externalPostId,
+      duration_ms: Date.now() - startedAt,
+    })
+
+    await client.from('publication_jobs').update({
+      status: 'published',
+      published_at: new Date().toISOString(),
+      last_error_code: null,
+      last_error_message: null,
+      locked_at: null,
+      locked_by: null,
+    }).eq('id', claimed.id)
+
+    await client.from('social_post_variants').update({
+      external_post_id: result.externalPostId,
+      external_post_url: result.externalPostUrl,
+    }).eq('id', claimed.variant_id)
+
+    const { count: remaining } = await client
+      .from('publication_jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('post_id', claimed.post_id)
+      .neq('status', 'published')
+    if (!remaining) {
+      await client.from('social_posts').update({
+        status: 'published',
+        published_at: new Date().toISOString(),
+      }).eq('id', claimed.post_id)
+      if (post?.created_by) {
+        await createSocialNotification(client, {
+          tenantId: claimed.tenant_id,
+          userId: post.created_by,
+          type: 'published',
+          title: 'Publicação concluída',
+          body: `${post.title} foi publicada em todos os canais.`,
+          actionUrl: `/marketing/production/${claimed.post_id}`,
+        })
+      }
+    }
+
+    return { success: true, externalPostId: result.externalPostId }
+  }
+  catch (error) {
+    const details = errorDetails(error)
+    const shouldRetry = attemptNumber < Number(claimed.max_attempts)
+    const status = shouldRetry ? 'retrying' : 'failed'
+    const nextAttemptAt = shouldRetry ? retryDelay(attemptNumber) : null
+
+    await client.from('publication_attempts').insert({
+      tenant_id: claimed.tenant_id,
+      job_id: claimed.id,
+      attempt_number: attemptNumber,
+      status,
+      request_summary: {
+        provider: account.provider,
+        platform: account.platform,
+        assetCount: assets.length,
+      },
+      error_code: details.code,
+      error_message: details.message,
+      duration_ms: Date.now() - startedAt,
+    })
+    await client.from('publication_jobs').update({
+      status,
+      next_attempt_at: nextAttemptAt,
+      last_error_code: details.code,
+      last_error_message: details.message,
+      locked_at: null,
+      locked_by: null,
+    }).eq('id', claimed.id)
+
+    if (!shouldRetry) {
+      await client.from('social_posts').update({ status: 'failed' }).eq('id', claimed.post_id)
+      await client.from('dead_letter_events').insert({
+        tenant_id: claimed.tenant_id,
+        source: 'publication_job',
+        source_id: claimed.id,
+        reason: details.message,
+        payload: {
+          postId: claimed.post_id,
+          variantId: claimed.variant_id,
+          accountId: claimed.account_id,
+          errorCode: details.code,
+        },
+      })
+      if (post?.created_by) {
+        await createSocialNotification(client, {
+          tenantId: claimed.tenant_id,
+          userId: post.created_by,
+          type: 'publish_failed',
+          title: 'Falha na publicação',
+          body: `${post.title}: ${details.message}`,
+          actionUrl: `/marketing/production/${claimed.post_id}`,
+        })
+      }
+    }
+
+    return { success: false, retrying: shouldRetry, ...details }
+  }
+}
+
+export async function processDuePublicationJobs(
+  client: any,
+  workerId: string,
+  limit = 10,
+) {
+  const now = new Date().toISOString()
+  const { data: jobs, error } = await client
+    .from('publication_jobs')
+    .select('*')
+    .in('status', ['pending', 'retrying'])
+    .lte('scheduled_at', now)
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`)
+    .order('priority')
+    .order('scheduled_at')
+    .limit(Math.min(50, Math.max(1, limit)))
+
+  if (error)
+    throw new Error(error.message)
+
+  const results = []
+  for (const job of jobs || [])
+    results.push({ jobId: job.id, ...(await processPublicationJob(client, job, workerId)) })
+  return results
+}

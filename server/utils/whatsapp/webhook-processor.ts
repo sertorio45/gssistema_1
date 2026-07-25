@@ -54,7 +54,12 @@ function extractMessageText(message: Record<string, any> | undefined): string {
 function shouldIgnoreEvolutionJid(remoteJid: string): boolean {
   if (!remoteJid)
     return true
-  return remoteJid.includes('status@broadcast') || remoteJid.endsWith('@broadcast')
+  if (remoteJid.includes('status@broadcast') || remoteJid.endsWith('@broadcast'))
+    return true
+  // Groups use another JID format — skip to avoid wrong contact_phone saves.
+  if (remoteJid.endsWith('@g.us'))
+    return true
+  return false
 }
 
 async function upsertContact(
@@ -163,7 +168,21 @@ export async function processEvolutionWebhook(
       const fromMe = Boolean(item.key.fromMe)
       const phone = normalizePhone(remoteJid)
       const pushName = String(item.pushName || phone)
-      const messageId = String(item.key.id || '')
+      const messageId = String(item.key.id || '').trim()
+      if (!messageId)
+        continue
+
+      const { data: existingMsg } = await client
+        .from('whatsapp_message')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('external_id', messageId)
+        .maybeSingle()
+
+      // Idempotency: Evolution retries webhooks and may register duplicate endpoints.
+      if (existingMsg?.id)
+        continue
+
       const timestamp = item.messageTimestamp
         ? new Date(Number(item.messageTimestamp) * 1000).toISOString()
         : new Date().toISOString()
@@ -183,76 +202,45 @@ export async function processEvolutionWebhook(
         fromMe,
       })
 
-      const { data: existingMsg } = await client
-        .from('whatsapp_message')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('external_id', messageId)
-        .maybeSingle()
+      const { data: inserted } = await client.from('whatsapp_message').insert({
+        tenant_id: tenantId,
+        conversation_id: conversationId,
+        instance_id: instanceId,
+        contact_id: contactId,
+        external_id: messageId,
+        remote_jid: remoteJid,
+        from_me: fromMe,
+        message_type: item.messageType || 'text',
+        content: text,
+        media_url: item.message?.imageMessage?.url || null,
+        status: fromMe ? 'sent' : 'delivered',
+        sent_at: timestamp,
+        metadata: {},
+      }).select('*').single()
 
-      if (!existingMsg?.id) {
-        const { data: inserted } = await client.from('whatsapp_message').insert({
-          tenant_id: tenantId,
-          conversation_id: conversationId,
-          instance_id: instanceId,
-          contact_id: contactId,
-          external_id: messageId,
-          remote_jid: remoteJid,
-          from_me: fromMe,
-          message_type: item.messageType || 'text',
-          content: text,
-          media_url: item.message?.imageMessage?.url || null,
-          status: fromMe ? 'sent' : 'delivered',
-          sent_at: timestamp,
-          metadata: {},
-        }).select('*').single()
+      if (inserted) {
+        await broadcastWhatsAppEvent(tenantId, 'message', inserted)
 
-        if (inserted) {
-          await broadcastWhatsAppEvent(tenantId, 'message', inserted)
-
-          if (!fromMe) {
-            try {
-              await dispatchInboundAutomation(client, {
-                tenantId,
-                instanceId,
-                contactId,
-                conversationId,
-                remoteJid,
-                messageId: inserted.id as string,
-                messageContent: text,
-                messageType: String(item.messageType || 'text'),
-                fromMe,
-                sentAt: timestamp,
-                contactPhone: phone,
-                contactName: pushName,
-              })
-            }
-            catch (err: any) {
-              console.error('[WhatsApp] Inbound automation failed:', err?.message || err)
-            }
+        if (!fromMe) {
+          try {
+            await dispatchInboundAutomation(client, {
+              tenantId,
+              instanceId,
+              contactId,
+              conversationId,
+              remoteJid,
+              messageId: inserted.id as string,
+              messageContent: text,
+              messageType: String(item.messageType || 'text'),
+              fromMe,
+              sentAt: timestamp,
+              contactPhone: phone,
+              contactName: pushName,
+            })
           }
-        }
-      }
-      else if (!fromMe) {
-        // Message already stored (duplicate webhook) — still attempt flow dispatch.
-        try {
-          await dispatchInboundAutomation(client, {
-            tenantId,
-            instanceId,
-            contactId,
-            conversationId,
-            remoteJid,
-            messageId: existingMsg.id as string,
-            messageContent: text,
-            messageType: String(item.messageType || 'text'),
-            fromMe,
-            sentAt: timestamp,
-            contactPhone: phone,
-            contactName: pushName,
-          })
-        }
-        catch (err: any) {
-          console.error('[WhatsApp] Inbound automation failed (existing message):', err?.message || err)
+          catch (err: any) {
+            console.error('[WhatsApp] Inbound automation failed:', err?.message || err)
+          }
         }
       }
     }

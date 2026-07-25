@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Switch } from '~/components/ui/switch'
 import { toast } from 'vue-sonner'
 
 definePageMeta({
@@ -28,6 +29,7 @@ const {
   testConnection,
   syncInstance,
   pollStatus,
+  updateInstance,
 } = useWhatsAppInstances()
 
 const actionLoading = ref(false)
@@ -53,7 +55,13 @@ const { data, pending, refresh } = await useAsyncData(
 const instance = computed(() => data.value?.data)
 const webhookUrl = computed(() => data.value?.webhookUrl || '')
 const evolutionInstanceName = computed(() => data.value?.evolutionInstanceName || '')
+const inboxNameDraft = ref('')
 const evolutionNameDraft = ref('')
+
+watch(instance, (value) => {
+  if (value?.name)
+    inboxNameDraft.value = value.name
+}, { immediate: true })
 
 watch(evolutionInstanceName, (value) => {
   evolutionNameDraft.value = value
@@ -116,18 +124,38 @@ async function handleSync() {
   }
 }
 
+async function handleSaveInboxName() {
+  const name = inboxNameDraft.value.trim()
+  if (!name) {
+    toast.error('Informe o nome da caixa')
+    return
+  }
+
+  if (name === instance.value?.name)
+    return
+
+  actionLoading.value = true
+  try {
+    await updateInstance(instanceId.value, { name })
+    toast.success('Nome da caixa atualizado')
+    await refresh()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao salvar')
+  }
+  finally {
+    actionLoading.value = false
+  }
+}
+
 async function handleSaveEvolutionName() {
   if (!evolutionNameDraft.value.trim() || !tenantId.value)
     return
 
   actionLoading.value = true
   try {
-    await $fetch(`/api/whatsapp/instances/${instanceId.value}`, {
-      method: 'PUT',
-      body: {
-        tenant_id: tenantId.value,
-        evolution_instance_name: evolutionNameDraft.value.trim(),
-      },
+    await updateInstance(instanceId.value, {
+      evolution_instance_name: evolutionNameDraft.value.trim(),
     })
     toast.success('Nome da instância Evolution atualizado')
     await refresh()
@@ -135,6 +163,21 @@ async function handleSaveEvolutionName() {
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Erro ao salvar')
+  }
+  finally {
+    actionLoading.value = false
+  }
+}
+
+async function handleSetDefault(isDefault: boolean) {
+  actionLoading.value = true
+  try {
+    await updateInstance(instanceId.value, { is_default: isDefault })
+    toast.success(isDefault ? 'Instância definida como padrão' : 'Instância padrão removida')
+    await refresh()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao atualizar instância padrão')
   }
   finally {
     actionLoading.value = false
@@ -197,6 +240,49 @@ async function handleTest() {
           Esta instância usa a API oficial da Meta, que está em standby. Para operação imediata, crie uma instância Evolution API.
         </AlertDescription>
       </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuração</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-4">
+          <div class="space-y-2">
+            <Label for="inbox-name">Nome da caixa (Blimber)</Label>
+            <div class="flex gap-2">
+              <Input
+                id="inbox-name"
+                v-model="inboxNameDraft"
+                placeholder="Ex.: Vendas, Suporte, Loja SP"
+                @keydown.enter="handleSaveInboxName"
+              />
+              <Button
+                variant="outline"
+                :disabled="actionLoading || !inboxNameDraft.trim() || inboxNameDraft.trim() === instance.name"
+                @click="handleSaveInboxName"
+              >
+                Salvar
+              </Button>
+            </div>
+            <p class="text-xs text-muted-foreground">
+              Nome exibido em Conversas e na sidebar de caixas de entrada.
+            </p>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+            <div>
+              <Label class="text-sm font-medium">Instância padrão</Label>
+              <p class="text-xs text-muted-foreground">
+                Usada em campanhas e envios quando nenhuma caixa estiver definida.
+              </p>
+            </div>
+            <Switch
+              :checked="instance.isDefault"
+              :disabled="actionLoading"
+              @update:checked="handleSetDefault"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

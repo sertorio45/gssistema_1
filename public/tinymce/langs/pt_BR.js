@@ -1,1 +1,1 @@
-404: Not Found
+// TinyMCE falls back to its default labels when a translation is unavailable.

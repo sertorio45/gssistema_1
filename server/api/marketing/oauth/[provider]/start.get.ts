@@ -1,9 +1,12 @@
-import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
+import { createHash, randomBytes } from 'node:crypto'
+import process from 'node:process'
 
-import { resolveMarketingTenantContext } from '~/server/utils/marketing'
+import { createError, defineEventHandler, getRequestURL } from 'h3'
+
+import { requireSocialContext } from '~/server/utils/social-context'
 
 function toProvider(value: string) {
-  if (value === 'google_ads' || value === 'google_analytics' || value === 'meta')
+  if (value === 'google_ads' || value === 'google_analytics' || value === 'meta' || value === 'linkedin')
     return value
   return null
 }
@@ -15,21 +18,43 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Provider inválido' })
   }
 
-  const query = getQuery(event)
-  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
+  const { tenantId, user, client } = await requireSocialContext(
+    event,
+    'marketing.social.integrations',
+  )
 
   const requestUrl = getRequestURL(event)
   const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`
   const googleRedirectUri
     = process.env.GOOGLE_REDIRECT_URI
       || process.env.GOOGLE_OAUTH_REDIRECT_URI
-      || `${baseUrl}/auth/google/callback`
+      || `${baseUrl}/api/marketing/oauth/${provider}/callback`
   const metaRedirectUri
     = process.env.META_REDIRECT_URI
       || process.env.META_OAUTH_REDIRECT_URI
-      || `${baseUrl}/auth/meta/callback`
-  const callbackUrl = provider === 'meta' ? metaRedirectUri : googleRedirectUri
-  const state = `${tenantId}:${provider}`
+      || `${baseUrl}/api/marketing/oauth/meta/callback`
+  const linkedinRedirectUri
+    = process.env.LINKEDIN_REDIRECT_URI
+      || `${baseUrl}/api/marketing/oauth/linkedin/callback`
+  const callbackUrl = provider === 'meta'
+    ? metaRedirectUri
+    : provider === 'linkedin'
+      ? linkedinRedirectUri
+      : googleRedirectUri
+  const state = randomBytes(32).toString('base64url')
+  const stateHash = createHash('sha256').update(state).digest('hex')
+
+  const { error: stateError } = await client.from('oauth_states').insert({
+    tenant_id: tenantId,
+    user_id: user.id,
+    provider,
+    state_hash: stateHash,
+    redirect_path: '/marketing/integrations',
+    expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+  })
+
+  if (stateError)
+    throw createError({ statusCode: 500, statusMessage: 'Não foi possível iniciar a autenticação' })
 
   if (provider === 'meta') {
     const clientId = process.env.META_APP_ID || ''
@@ -43,14 +68,31 @@ export default defineEventHandler(async (event) => {
       'read_insights',
       'pages_show_list',
       'pages_read_engagement',
+      'pages_manage_posts',
       'instagram_basic',
+      'instagram_content_publish',
       'instagram_manage_insights',
     ].join(',')
-    const url = new URL('https://www.facebook.com/v20.0/dialog/oauth')
+    const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
+    const url = new URL(`https://www.facebook.com/${graphVersion}/dialog/oauth`)
     url.searchParams.set('client_id', clientId)
     url.searchParams.set('redirect_uri', callbackUrl)
     url.searchParams.set('state', state)
     url.searchParams.set('scope', scopes)
+    return { redirectTo: url.toString() }
+  }
+
+  if (provider === 'linkedin') {
+    const clientId = process.env.LINKEDIN_CLIENT_ID || ''
+    if (!clientId)
+      throw createError({ statusCode: 500, statusMessage: 'LINKEDIN_CLIENT_ID não configurado' })
+
+    const url = new URL('https://www.linkedin.com/oauth/v2/authorization')
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('client_id', clientId)
+    url.searchParams.set('redirect_uri', callbackUrl)
+    url.searchParams.set('state', state)
+    url.searchParams.set('scope', 'openid profile w_organization_social rw_organization_admin')
     return { redirectTo: url.toString() }
   }
 

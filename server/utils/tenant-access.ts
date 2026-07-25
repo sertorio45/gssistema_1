@@ -3,7 +3,7 @@ import { createError } from 'h3'
 import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
 import { isStaffUser, resolveStaffRole } from '~/server/utils/tenant-role'
 
-type AuthUser = {
+interface AuthUser {
   app_metadata?: { role?: string, tenant_roles?: Record<string, string>, tenant_id?: string }
   user_metadata?: { role?: string, tenant_id?: string }
 }
@@ -22,8 +22,7 @@ export function resolveUserTenantId(
   }
 
   if (!tenantId) {
-    tenantId = user.user_metadata?.tenant_id
-      || user.app_metadata?.tenant_id
+    tenantId = user.app_metadata?.tenant_id
       || null
   }
 
@@ -43,7 +42,7 @@ export function resolveApiUserRole(user: AuthUser, tenantId?: string | null): st
   if (!tenantId && keys.length === 1)
     return tenantRoles[keys[0]] ?? null
 
-  return user.user_metadata?.role || user.app_metadata?.role || null
+  return user.app_metadata?.role || null
 }
 
 export function canAccessTenantModule(role?: string | null): boolean {

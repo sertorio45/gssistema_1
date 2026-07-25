@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 import { createClient } from '@supabase/supabase-js'
 import { defineEventHandler, getHeader } from 'h3'
 
@@ -60,9 +62,36 @@ export default defineEventHandler(async (event) => {
       const { data: row } = await service.from('tenant').select('slug').eq('id', tenantId).maybeSingle()
       if (row?.slug && tenantRoles[row.slug])
         role = tenantRoles[row.slug]
+      if (!role) {
+        const { data: directMembership } = await service
+          .from('user_tenant_role')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        role = directMembership?.role || null
+      }
+      if (!role) {
+        const { data: portfolio } = await service
+          .from('organization_tenants')
+          .select('organization_id')
+          .eq('tenant_id', tenantId)
+        const organizationIds = (portfolio || []).map(item => item.organization_id)
+        if (organizationIds.length) {
+          const { data: organizationMembership } = await service
+            .from('organization_memberships')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .in('organization_id', organizationIds)
+            .limit(1)
+            .maybeSingle()
+          role = organizationMembership?.role || null
+        }
+      }
     }
     if (!role) {
-      role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
+      role = (user.app_metadata as any)?.role || null
     }
     // Adicionar essas informações ao evento para que estejam disponíveis nos handlers
     event.context.auth = {

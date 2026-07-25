@@ -24,10 +24,18 @@ const chartData = computed(() => {
   const v = raw.length === 1 ? [raw[0], raw[0], raw[0]] : raw
   return v.map((val, i) => ({ i, val }))
 })
+
+function xAccessor(point: { i: number }) {
+  return point.i
+}
+
+function yAccessor(point: { val: number }) {
+  return point.val
+}
 </script>
 
 <template>
-  <div class="h-12 w-full min-w-[72px]">
+  <div class="h-12 min-w-[72px] w-full">
     <VisXYContainer
       :data="chartData"
       :margin="{ top: 2, bottom: 0, left: 0, right: 0 }"
@@ -43,8 +51,8 @@ const chartData = computed(() => {
         </defs>
       </svg>
       <VisArea
-        :x="(d: { i: number }) => d.i"
-        :y="(d: { val: number }) => d.val"
+        :x="xAccessor"
+        :y="yAccessor"
         color="auto"
         :curve-type="CurveType.MonotoneX"
         :attributes="{
@@ -54,8 +62,8 @@ const chartData = computed(() => {
         }"
       />
       <VisLine
-        :x="(d: { i: number }) => d.i"
-        :y="(d: { val: number }) => d.val"
+        :x="xAccessor"
+        :y="yAccessor"
         :color="color"
         :curve-type="CurveType.MonotoneX"
       />

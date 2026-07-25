@@ -1,4 +1,4 @@
-export type MarketingProvider = 'google_ads' | 'google_analytics' | 'meta'
+export type MarketingProvider = 'google_ads' | 'google_analytics' | 'meta' | 'linkedin'
 
 export type GoogleTemplateType = 'local_business' | 'website_visits' | 'standard'
 
@@ -6,7 +6,7 @@ export interface MarketingIntegrationPayload {
   provider: MarketingProvider
   tenant_id?: string
   is_active?: boolean
-  config: Record<string, any>
+  config: Record<string, unknown>
 }
 
 export type MarketingDatePreset =

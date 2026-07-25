@@ -1,7 +1,7 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { clearMarketingCampaignCacheForTenant, resolveMarketingTenantContext } from '~/server/utils/marketing'
+import { clearMarketingCampaignCacheForTenant } from '~/server/utils/marketing'
+import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -10,8 +10,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'provider é obrigatório' })
   }
 
-  const { tenantId } = await resolveMarketingTenantContext(event, body?.tenant_id)
-  const client = await serverSupabaseServiceRole(event)
+  const { tenantId, client } = await requireSocialContext(
+    event,
+    'marketing.social.integrations',
+    body?.tenant_id,
+  )
 
   const { error } = await client
     .from('marketing_integrations')
@@ -24,6 +27,13 @@ export default defineEventHandler(async (event) => {
   }
 
   await clearMarketingCampaignCacheForTenant(client, tenantId)
+  if (provider === 'meta' || provider === 'linkedin') {
+    await client
+      .from('social_accounts')
+      .update({ is_active: false })
+      .eq('tenant_id', tenantId)
+      .eq('provider', provider)
+  }
 
   return { success: true }
 })

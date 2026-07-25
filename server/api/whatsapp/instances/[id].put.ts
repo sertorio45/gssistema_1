@@ -6,7 +6,7 @@ import {
   resolveWhatsAppTenantContext,
 } from '~/server/utils/whatsapp/context'
 import {
-  evolutionSetWebhook,
+  evolutionEnsureWebhook,
   getEvolutionConfigFromIntegration,
   resolveEvolutionRemoteInstance,
   syncEvolutionInstanceRecord,
@@ -59,7 +59,16 @@ export default defineEventHandler(async (event) => {
 
   if (body.is_default === true) {
     await client.from('whatsapp_instance').update({ is_default: false }).eq('tenant_id', tenantId)
-    await client.from('whatsapp_instance').update({ is_default: true }).eq('id', id)
+    await client
+      .from('whatsapp_instance')
+      .update({ is_default: true, updated_at: new Date().toISOString() })
+      .eq('id', id)
+  }
+  else if (body.is_default === false) {
+    await client
+      .from('whatsapp_instance')
+      .update({ is_default: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
   }
 
   const integrationUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -96,7 +105,9 @@ export default defineEventHandler(async (event) => {
     if (evoConfig) {
       const webhookUrl = buildEvolutionWebhookUrl(event, id)
       try {
-        await evolutionSetWebhook(evoConfig, webhookUrl)
+        await evolutionEnsureWebhook(evoConfig, webhookUrl, {
+          webhookSecret: updatedIntegration.webhook_secret,
+        })
         await resolveEvolutionRemoteInstance(
           { baseUrl: evoConfig.baseUrl, apiToken: evoConfig.apiToken },
           evoConfig.instanceName,

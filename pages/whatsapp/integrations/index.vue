@@ -23,6 +23,7 @@ const {
   testConnection,
   syncInstance,
   pollStatus,
+  updateInstance,
 } = useWhatsAppInstances()
 
 const setupOpen = ref(false)
@@ -127,6 +128,20 @@ async function handleTest(id: string) {
   }
 }
 
+async function handleSetDefault(id: string, isDefault: boolean) {
+  actionLoadingId.value = id
+  try {
+    await updateInstance(id, { is_default: isDefault })
+    toast.success(isDefault ? 'Instância definida como padrão' : 'Instância padrão removida')
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao atualizar instância padrão')
+  }
+  finally {
+    actionLoadingId.value = null
+  }
+}
+
 async function handleDelete(id: string) {
   if (!import.meta.client || !confirm('Excluir esta instância? Esta ação não pode ser desfeita.'))
     return
@@ -201,6 +216,7 @@ async function handleDelete(id: string) {
         @test="handleTest(instance.id)"
         @sync="handleSync(instance.id)"
         @delete="handleDelete(instance.id)"
+        @set-default="handleSetDefault(instance.id, $event)"
         @open="navigateTo(`/whatsapp/integrations/${instance.id}`)"
       />
     </div>

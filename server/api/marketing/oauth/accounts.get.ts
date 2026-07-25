@@ -1,23 +1,24 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import process from 'node:process'
+
 import { createError, defineEventHandler, getQuery } from 'h3'
 
-import { decryptSecret, resolveMarketingTenantContext } from '~/server/utils/marketing'
+import { decryptSecret } from '~/server/utils/marketing'
+import { requireSocialContext } from '~/server/utils/social-context'
 
 function normalizeMetaAdAccountId(raw: string) {
   return String(raw || '').replace(/^act_/i, '')
 }
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event): Promise<any> => {
   const query = getQuery(event)
   const provider = String(query.provider || '')
-  if (!['google_ads', 'google_analytics', 'meta'].includes(provider)) {
+  if (!['google_ads', 'google_analytics', 'meta', 'linkedin'].includes(provider)) {
     throw createError({ statusCode: 400, statusMessage: 'Provider inválido' })
   }
 
   const resource = String(query.resource || (provider === 'meta' ? 'ad_accounts' : ''))
 
-  const { tenantId } = await resolveMarketingTenantContext(event, query.tenant_id as string | undefined)
-  const client = await serverSupabaseServiceRole(event)
+  const { tenantId, client } = await requireSocialContext(event, 'marketing.social.integrations')
 
   const { data: integration } = await client
     .from('marketing_integrations')
@@ -31,9 +32,10 @@ export default defineEventHandler(async (event) => {
   if (!token) {
     return { data: [] }
   }
+  const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
 
   if (provider === 'meta' && resource === 'pages') {
-    const res = await $fetch<any>('https://graph.facebook.com/v20.0/me/accounts', {
+    const res = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/me/accounts`, {
       query: {
         fields: 'id,name',
         access_token: token,
@@ -58,7 +60,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'ad_account_id é obrigatório para listar pixels' })
     }
     const act = `act_${adAccountId}`
-    const res = await $fetch<any>(`https://graph.facebook.com/v20.0/${act}/adspixels`, {
+    const res = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/${act}/adspixels`, {
       query: {
         fields: 'id,name',
         access_token: token,
@@ -88,7 +90,7 @@ export default defineEventHandler(async (event) => {
 
     if (adAccountId) {
       const act = `act_${adAccountId}`
-      const igRes = await $fetch<any>(`https://graph.facebook.com/v20.0/${act}/instagram_accounts`, {
+      const igRes = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/${act}/instagram_accounts`, {
         query: {
           fields: 'id,username,name',
           access_token: token,
@@ -108,7 +110,7 @@ export default defineEventHandler(async (event) => {
     }
 
     if (pageId) {
-      const res = await $fetch<any>(`https://graph.facebook.com/v20.0/${pageId}`, {
+      const res = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/${pageId}`, {
         query: {
           fields: 'instagram_business_account{id,username,name}',
           access_token: token,
@@ -137,7 +139,7 @@ export default defineEventHandler(async (event) => {
     const response = await $fetch<any>('https://googleads.googleapis.com/v19/customers:listAccessibleCustomers', {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
         'developer-token': developerToken || '',
       },
     }).catch(() => ({ resourceNames: [] }))
@@ -165,11 +167,43 @@ export default defineEventHandler(async (event) => {
     return { data }
   }
 
+  if (provider === 'linkedin') {
+    const linkedinVersion = process.env.LINKEDIN_VERSION || '202605'
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'LinkedIn-Version': linkedinVersion,
+      'X-Restli-Protocol-Version': '2.0.0',
+    }
+    const response = await $fetch<any>('https://api.linkedin.com/rest/organizationAcls', {
+      headers,
+      query: {
+        q: 'roleAssignee',
+        state: 'APPROVED',
+      },
+    }).catch((error: any) => {
+      throw createError({
+        statusCode: error?.statusCode || 502,
+        statusMessage: error?.data?.message || 'Falha ao listar organizações LinkedIn',
+      })
+    })
+    const organizationIds = (response.elements || [])
+      .map((row: any) => String(row.organization || '').split(':').pop())
+      .filter(Boolean)
+    const organizations = await Promise.all(organizationIds.map(async (id: string) => {
+      const organization = await $fetch<any>(`https://api.linkedin.com/rest/organizations/${id}`, {
+        headers,
+      }).catch(() => null)
+      const localizedName = organization?.localizedName || organization?.vanityName
+      return { id, name: localizedName || `Organização ${id}` }
+    }))
+    return { data: organizations }
+  }
+
   if (provider !== 'meta' || resource !== 'ad_accounts') {
     throw createError({ statusCode: 400, statusMessage: 'Combinação provider/resource inválida' })
   }
 
-  const metaResponse = await $fetch<any>('https://graph.facebook.com/v20.0/me/adaccounts', {
+  const metaResponse = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/me/adaccounts`, {
     query: {
       fields: 'id,name,account_status',
       access_token: token,

@@ -1,8 +1,10 @@
-import { createError, getHeader, getRequestURL } from 'h3'
+import process from 'node:process'
 
 import { createClient } from '@supabase/supabase-js'
 
-import { isStaffUser, resolveStaffRole } from '~/server/utils/tenant-role'
+import { createError, getHeader, getRequestURL } from 'h3'
+
+import { isStaffUser } from '~/server/utils/tenant-role'
 
 // Bloqueia acesso a endpoints de módulos para role `cliente` quando o tenant
 // não tem o módulo ativo em `public.tenant_modules`.
@@ -57,24 +59,8 @@ export default defineEventHandler(async (event) => {
   const isUuid = (v: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 
-  let role: string | null = null
-  if (isStaffUser(user)) {
-    role = resolveStaffRole(user)
-  }
-  else if (tenantId && tenantRoles[tenantId]) {
-    role = tenantRoles[tenantId]
-  }
-  if (!role && tenantId && isUuid(tenantId)) {
-    const { data: row } = await service.from('tenant').select('slug').eq('id', tenantId).maybeSingle()
-    if (row?.slug && tenantRoles[row.slug])
-      role = tenantRoles[row.slug]
-  }
-  if (!role) {
-    role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
-  }
-
   // Administração da plataforma (Superadministrador / Funcionário): todos os módulos
-  if (role !== 'cliente' && role !== 'atendente')
+  if (isStaffUser(user))
     return
 
   if (!tenantId) {
@@ -89,6 +75,36 @@ export default defineEventHandler(async (event) => {
       tenantIdForRpc = row.id
   }
 
+  const { data: directMembership } = await service
+    .from('user_tenant_role')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('tenant_id', tenantIdForRpc)
+    .maybeSingle()
+  let hasAccess = Boolean(directMembership)
+
+  if (!hasAccess) {
+    const { data: portfolio } = await service
+      .from('organization_tenants')
+      .select('organization_id')
+      .eq('tenant_id', tenantIdForRpc)
+    const organizationIds = (portfolio || []).map(row => row.organization_id)
+    if (organizationIds.length) {
+      const { data: organizationMembership } = await service
+        .from('organization_memberships')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .in('organization_id', organizationIds)
+        .limit(1)
+        .maybeSingle()
+      hasAccess = Boolean(organizationMembership)
+    }
+  }
+
+  if (!hasAccess)
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+
   const { data: isActive, error } = await service.rpc('is_tenant_module_active', {
     p_tenant_id: tenantIdForRpc,
     p_module_name: moduleName,
@@ -98,4 +114,3 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
 })
-

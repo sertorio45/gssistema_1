@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { LineChart } from '@/components/ui/chart-line'
+import type { MarketingReportSource } from '@/components/marketing/MarketingReportTemplateSidebar.vue'
 
+import type { GoogleTemplateType, MarketingDatePreset } from '~/types/marketing'
 import GoogleAnalyticsBrandIcon from '@/components/brand/GoogleAnalyticsBrandIcon.vue'
 import MarketingReportTemplateSidebar from '@/components/marketing/MarketingReportTemplateSidebar.vue'
-import type { MarketingReportSource } from '@/components/marketing/MarketingReportTemplateSidebar.vue'
 import MetaAdsBoard from '@/components/marketing/MetaAdsBoard.vue'
-import { DateRangePicker } from '@/components/ui/date-range-picker'
+import { LineChart } from '@/components/ui/chart-line'
 
-import type { MarketingDatePreset, GoogleTemplateType } from '~/types/marketing'
+import { DateRangePicker } from '@/components/ui/date-range-picker'
 
 const { tenantId } = useTenant()
 const source = ref<MarketingReportSource>('google_ads')
@@ -18,8 +18,8 @@ const dateStart = ref('')
 const dateEnd = ref('')
 const metaActiveOnly = ref(true)
 
-watch(datePreset, (v) => {
-  if (v === 'custom' && !dateStart.value) {
+watch(datePreset, (value) => {
+  if (value === 'custom' && !dateStart.value) {
     const end = new Date()
     const start = new Date()
     start.setDate(end.getDate() - 30)
@@ -30,11 +30,11 @@ watch(datePreset, (v) => {
 
 definePageMeta({
   middleware: ['auth'],
-  title: 'Painel de Campanhas',
+  title: 'Relatórios de Marketing',
 })
 
 function overviewQuery() {
-  const q: Record<string, string | undefined> = {
+  const query: Record<string, string | undefined> = {
     source: source.value,
     google_template: googleTemplate.value,
     tenant_id: tenantId.value || undefined,
@@ -43,15 +43,15 @@ function overviewQuery() {
     insights_only: 'true',
   }
   if (datePreset.value === 'custom') {
-    q.date_start = dateStart.value
-    q.date_end = dateEnd.value
+    query.date_start = dateStart.value
+    query.date_end = dateEnd.value
   }
-  return q
+  return query
 }
 
 const { data, pending, refresh } = await useAsyncData(
   () =>
-    `marketing-overview-${tenantId.value}-${source.value}-${googleTemplate.value}-${datePreset.value}-${dateStart.value}-${dateEnd.value}-${metaActiveOnly.value}`,
+    `marketing-reports-${tenantId.value}-${source.value}-${googleTemplate.value}-${datePreset.value}-${dateStart.value}-${dateEnd.value}-${metaActiveOnly.value}`,
   async () => {
     const response = await $fetch<{ data: any }>('/api/marketing/overview', {
       query: overviewQuery(),
@@ -64,10 +64,10 @@ const { data, pending, refresh } = await useAsyncData(
 )
 
 const googleChartData = computed(() => {
-  return (data.value?.google?.campaigns || []).slice(0, 10).map((campaign: any, idx: number) => ({
-    campanha: campaign.name || `Campanha ${idx + 1}`,
+  return (data.value?.google?.campaigns || []).slice(0, 10).map((campaign: any, index: number) => ({
+    campanha: campaign.name || `Campanha ${index + 1}`,
     cliques: Number(campaign.clicks || 0),
-    'conversões': Number(campaign.conversions || 0),
+    conversões: Number(campaign.conversions || 0),
   }))
 })
 
@@ -90,10 +90,10 @@ async function refreshMarketing() {
   <div class="w-full flex flex-col gap-6">
     <div>
       <h1 class="text-2xl font-bold">
-        Dashboard de Marketing
+        Relatórios de Marketing
       </h1>
       <p class="text-muted-foreground">
-        Visão geral das campanhas de Google Ads e Meta.
+        Acompanhe campanhas e resultados de Google Ads, Google Analytics e Meta.
       </p>
     </div>
 
@@ -106,7 +106,9 @@ async function refreshMarketing() {
       <div class="min-w-0 flex flex-1 flex-col gap-6">
         <div class="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:justify-between">
           <div class="flex flex-wrap items-center gap-2">
-            <Label class="text-xs text-muted-foreground whitespace-nowrap">Período</Label>
+            <Label class="whitespace-nowrap text-xs text-muted-foreground">
+              Período
+            </Label>
             <Select v-model="datePreset">
               <SelectTrigger class="w-[180px]">
                 <SelectValue placeholder="Período" />
@@ -172,7 +174,7 @@ async function refreshMarketing() {
           <Card>
             <CardHeader>
               <CardTitle>Desempenho das Campanhas Google</CardTitle>
-              <CardDescription>Principais campanhas por cliques e conversões (mesmo período selecionado acima).</CardDescription>
+              <CardDescription>Principais campanhas por cliques e conversões no período selecionado.</CardDescription>
             </CardHeader>
             <CardContent>
               <LineChart
@@ -189,7 +191,7 @@ async function refreshMarketing() {
           <Card>
             <CardHeader>
               <div class="flex items-start gap-3">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center">
+                <div class="h-10 w-10 flex shrink-0 items-center justify-center">
                   <GoogleAnalyticsBrandIcon size="lg" />
                 </div>
                 <div>

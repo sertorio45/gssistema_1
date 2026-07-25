@@ -5,7 +5,7 @@ import {
   resolveWhatsAppTenantContext,
 } from '~/server/utils/whatsapp/context'
 import {
-  evolutionSetWebhook,
+  evolutionEnsureWebhook,
   getEvolutionConfigFromIntegration,
   syncEvolutionInstanceRecord,
 } from '~/server/utils/whatsapp/evolution-client'
@@ -36,7 +36,9 @@ export default defineEventHandler(async (event) => {
   const webhookUrl = buildEvolutionWebhookUrl(event, id)
 
   try {
-    await evolutionSetWebhook(evoConfig, webhookUrl)
+    const webhookResult = await evolutionEnsureWebhook(evoConfig, webhookUrl, {
+      webhookSecret: integration.webhook_secret,
+    })
     const mapped = await syncEvolutionInstanceRecord(client, id, evoConfig, {
       currentQrCode: instance.qr_code,
     })
@@ -44,6 +46,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: true,
       webhookUrl,
+      webhookSkipped: webhookResult.skipped,
       data: {
         status: mapped.status,
         phoneNumber: mapped.phoneNumber || instance.phone_number,

@@ -1,0 +1,680 @@
+<script setup lang="ts">
+import type {
+  ApprovalPolicy,
+  MediaAsset,
+  MediaAssetPurpose,
+  SocialAccount,
+  SocialPostInput,
+  SocialPostVariantInput,
+} from '~/types/marketing-social'
+
+import SocialDateTimePicker from '~/components/marketing/social/SocialDateTimePicker.vue'
+
+const props = defineProps<{
+  initialValue?: SocialPostInput
+  saving?: boolean
+}>()
+
+const emit = defineEmits<{
+  save: [value: SocialPostInput]
+}>()
+
+const social = useMarketingSocial()
+const currentStep = ref(1)
+const formError = ref('')
+const title = ref(props.initialValue?.title || '')
+const content = ref(props.initialValue?.content || '')
+const scheduledAt = ref(props.initialValue?.scheduledAt?.slice(0, 16) || '')
+const approvalPolicy = ref<ApprovalPolicy>(props.initialValue?.approvalPolicy || 'any')
+const minimumApprovals = ref(props.initialValue?.minimumApprovals || 1)
+const variants = ref<SocialPostVariantInput[]>(props.initialValue?.variants || [])
+const publicationFormat = ref<SocialPostVariantInput['format']>(props.initialValue?.variants?.[0]?.format || 'static')
+const publicationLink = ref(props.initialValue?.variants?.[0]?.linkUrl || '')
+const publicationAssetIds = ref<string[]>(props.initialValue?.variants?.[0]?.assetIds || [])
+const referenceAssetIds = ref<string[]>(props.initialValue?.referenceAssetIds || [])
+const uploading = ref(false)
+const steps = [
+  { step: 1, title: 'Conteúdo', description: 'Título e legenda' },
+  { step: 2, title: 'Redes', description: 'Canais e formato' },
+  { step: 3, title: 'Planejamento', description: 'Mídia e agenda' },
+  { step: 4, title: 'Revisão', description: 'Conferir e salvar' },
+]
+
+const { data: accounts, refresh: refreshAccounts } = await useAsyncData(
+  () => `marketing-social-form-accounts-${social.tenantId.value}`,
+  () => social.listAccounts(),
+  { watch: [social.tenantId], default: () => [] as SocialAccount[] },
+)
+const { data: assets, refresh: refreshAssets } = await useAsyncData(
+  () => `marketing-social-form-assets-${social.tenantId.value}`,
+  () => social.listAssets(),
+  { watch: [social.tenantId], default: () => [] as MediaAsset[] },
+)
+onMounted(() => refreshAccounts())
+
+const publicationAssets = computed(() =>
+  (assets.value || []).filter(asset => asset.purpose === 'publication' || (asset as any).purpose === 'publication'),
+)
+const referenceAssets = computed(() =>
+  (assets.value || []).filter(asset => asset.purpose === 'reference' || (asset as any).purpose === 'reference'),
+)
+const hasFormatConflict = computed(() =>
+  publicationFormat.value === 'video'
+  && variants.value.some(variant => variant.platform === 'linkedin'),
+)
+const allAccountsSelected = computed(() =>
+  Boolean(accounts.value?.length)
+  && accounts.value.every(account => accountSelected(account.id)),
+)
+const formatLabel = computed(() => ({
+  static: 'Post estático',
+  carousel: 'Carrossel',
+  video: 'Vídeo',
+})[publicationFormat.value])
+const approvalLabel = computed(() => {
+  if (approvalPolicy.value === 'all')
+    return 'Todos devem aprovar'
+  if (approvalPolicy.value === 'minimum')
+    return `Mínimo de ${minimumApprovals.value} aprovações`
+  return 'Uma aprovação'
+})
+const mediaSelectionValid = computed(() => {
+  if (publicationFormat.value === 'carousel')
+    return publicationAssetIds.value.length >= 2 && publicationAssetIds.value.length <= 10
+  return publicationAssetIds.value.length === 1
+})
+
+watch(
+  () => props.initialValue,
+  (value) => {
+    if (!value)
+      return
+    title.value = value.title
+    content.value = value.content || ''
+    scheduledAt.value = value.scheduledAt?.slice(0, 16) || ''
+    approvalPolicy.value = value.approvalPolicy || 'any'
+    minimumApprovals.value = value.minimumApprovals || 1
+    variants.value = value.variants ? structuredClone(value.variants) : []
+    publicationFormat.value = value.variants?.[0]?.format || 'static'
+    publicationLink.value = value.variants?.[0]?.linkUrl || ''
+    publicationAssetIds.value = value.variants?.[0]?.assetIds ? [...value.variants[0].assetIds] : []
+    referenceAssetIds.value = value.referenceAssetIds ? [...value.referenceAssetIds] : []
+  },
+  { deep: true },
+)
+
+function accountSelected(accountId: string) {
+  return variants.value.some(variant => variant.accountId === accountId)
+}
+
+function platformLabel(platform: SocialAccount['platform']) {
+  return {
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    linkedin: 'LinkedIn',
+  }[platform]
+}
+
+function toggleAccount(account: SocialAccount) {
+  if (accountSelected(account.id)) {
+    variants.value = variants.value.filter(variant => variant.accountId !== account.id)
+    return
+  }
+  variants.value.push({
+    accountId: account.id,
+    platform: account.platform,
+    format: publicationFormat.value,
+    caption: '',
+    hashtags: [],
+    assetIds: [],
+  })
+}
+
+function toggleAllAccounts() {
+  if (allAccountsSelected.value) {
+    variants.value = []
+    return
+  }
+
+  const existing = new Map(variants.value.map(variant => [variant.accountId, variant]))
+  variants.value = (accounts.value || []).map(account => existing.get(account.id) || {
+    accountId: account.id,
+    platform: account.platform,
+    format: publicationFormat.value,
+    caption: '',
+    hashtags: [],
+    assetIds: [],
+  })
+}
+
+function toggleAsset(assetId: string) {
+  const selected = new Set(publicationAssetIds.value)
+  if (selected.has(assetId)) {
+    selected.delete(assetId)
+  }
+  else if (publicationFormat.value === 'carousel' && selected.size < 10) {
+    selected.add(assetId)
+  }
+  else if (publicationFormat.value !== 'carousel') {
+    selected.clear()
+    selected.add(assetId)
+  }
+  publicationAssetIds.value = [...selected]
+}
+
+function compatiblePublicationAssets() {
+  return publicationAssets.value.filter((asset) => {
+    const mimeType = asset.mimeType || (asset as any).mime_type || ''
+    return publicationFormat.value === 'video' ? mimeType.startsWith('video/') : !mimeType.startsWith('video/')
+  })
+}
+
+function publicationAssetById(assetId: string): any {
+  return publicationAssets.value.find(asset => asset.id === assetId)
+}
+
+function changeFormat(format: unknown) {
+  publicationFormat.value = format as SocialPostVariantInput['format']
+  publicationAssetIds.value = []
+}
+
+function toggleReference(assetId: string) {
+  const selected = new Set(referenceAssetIds.value)
+  if (selected.has(assetId))
+    selected.delete(assetId)
+  else
+    selected.add(assetId)
+  referenceAssetIds.value = [...selected]
+}
+
+async function uploadFiles(event: Event, purpose: MediaAssetPurpose) {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length)
+    return
+  uploading.value = true
+  try {
+    for (const file of Array.from(input.files))
+      await social.uploadAsset(file, purpose)
+    await refreshAssets()
+    input.value = ''
+  }
+  finally {
+    uploading.value = false
+  }
+}
+
+function nextStep() {
+  formError.value = ''
+  if (currentStep.value === 1 && !title.value.trim()) {
+    formError.value = 'Informe um título interno para continuar.'
+    return
+  }
+  if (currentStep.value === 2 && !variants.value.length) {
+    formError.value = 'Selecione ao menos uma rede social.'
+    return
+  }
+  if (currentStep.value === 2 && hasFormatConflict.value) {
+    formError.value = 'Ajuste o formato ou os canais selecionados.'
+    return
+  }
+  if (currentStep.value === 3 && !mediaSelectionValid.value) {
+    formError.value = publicationFormat.value === 'carousel'
+      ? 'Selecione pelo menos duas imagens para o carrossel.'
+      : 'Selecione uma peça final para continuar.'
+    return
+  }
+  currentStep.value = Math.min(4, currentStep.value + 1)
+}
+
+function previousStep() {
+  formError.value = ''
+  currentStep.value = Math.max(1, currentStep.value - 1)
+}
+
+function formatScheduledDate() {
+  if (!scheduledAt.value)
+    return 'Sem data sugerida'
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(new Date(scheduledAt.value))
+}
+
+function submit() {
+  if (hasFormatConflict.value)
+    return
+
+  emit('save', {
+    title: title.value.trim(),
+    content: content.value,
+    scheduledAt: scheduledAt.value ? new Date(scheduledAt.value).toISOString() : null,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
+    approvalPolicy: approvalPolicy.value,
+    minimumApprovals: minimumApprovals.value,
+    variants: variants.value.map(variant => ({
+      ...variant,
+      format: publicationFormat.value,
+      caption: content.value,
+      linkUrl: publicationLink.value || undefined,
+      assetIds: [...publicationAssetIds.value],
+    })),
+    referenceAssetIds: referenceAssetIds.value,
+  })
+}
+</script>
+
+<template>
+  <form class="space-y-6" @submit.prevent="submit">
+    <Stepper :model-value="currentStep" class="w-full items-start gap-0">
+      <StepperItem
+        v-for="item in steps"
+        :key="item.step"
+        :step="item.step"
+        class="relative flex flex-1 flex-col items-center"
+      >
+        <StepperIndicator class="z-10 border bg-background">
+          <Icon v-if="currentStep > item.step" name="lucide:check" class="h-4 w-4" />
+          <span v-else>{{ item.step }}</span>
+        </StepperIndicator>
+        <StepperTitle class="mt-2 text-center text-xs sm:text-sm">
+          {{ item.title }}
+        </StepperTitle>
+        <StepperDescription class="hidden text-center lg:block">
+          {{ item.description }}
+        </StepperDescription>
+        <StepperSeparator
+          v-if="item.step < steps.length"
+          class="absolute left-1/2 top-4 h-0.5 w-full bg-muted group-data-[state=completed]:bg-primary"
+        />
+      </StepperItem>
+    </Stepper>
+
+    <Card v-if="currentStep === 1">
+      <CardHeader>
+        <CardTitle>Conteúdo da publicação</CardTitle>
+        <CardDescription>
+          A mesma legenda será aplicada a todas as redes selecionadas.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-5">
+        <div class="space-y-2">
+          <Label for="social-title">Título interno</Label>
+          <Input
+            id="social-title"
+            v-model="title"
+            maxlength="180"
+            placeholder="Ex.: Campanha de inverno — lançamento"
+          />
+          <p class="text-xs text-muted-foreground">
+            Usado apenas para organização interna.
+          </p>
+        </div>
+        <div class="space-y-2">
+          <Label for="social-content">Legenda da publicação</Label>
+          <Textarea
+            id="social-content"
+            v-model="content"
+            class="min-h-44"
+            maxlength="10000"
+            placeholder="Escreva a legenda que será publicada nas redes sociais"
+          />
+          <p class="text-right text-xs text-muted-foreground">
+            {{ content.length }}/10.000
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card v-else-if="currentStep === 2">
+      <CardHeader>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle>Redes e formato</CardTitle>
+            <CardDescription>
+              Selecione um canal, vários canais ou todos de uma vez.
+            </CardDescription>
+          </div>
+          <div class="flex gap-2">
+            <Button type="button" variant="outline" size="sm" @click="refreshAccounts()">
+              <Icon name="lucide:refresh-cw" class="mr-2 h-4 w-4" />
+              Atualizar
+            </Button>
+            <Button
+              v-if="accounts?.length"
+              type="button"
+              :variant="allAccountsSelected ? 'secondary' : 'outline'"
+              size="sm"
+              @click="toggleAllAccounts"
+            >
+              <Icon :name="allAccountsSelected ? 'lucide:x' : 'lucide:check-check'" class="mr-2 h-4 w-4" />
+              {{ allAccountsSelected ? 'Limpar seleção' : 'Selecionar todos' }}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div v-if="accounts?.length" class="grid gap-3 sm:grid-cols-3">
+          <button
+            v-for="account in accounts"
+            :key="account.id"
+            type="button"
+            class="flex items-center gap-3 border rounded-xl p-4 text-left transition-colors hover:bg-muted/40"
+            :class="{ 'border-primary bg-primary/5 ring-1 ring-primary': accountSelected(account.id) }"
+            @click="toggleAccount(account)"
+          >
+            <span class="h-10 w-10 flex items-center justify-center rounded-full bg-muted">
+              <Icon
+                :name="account.platform === 'linkedin' ? 'lucide:linkedin' : account.platform === 'instagram' ? 'lucide:instagram' : 'lucide:facebook'"
+                class="h-5 w-5"
+              />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block font-medium">{{ platformLabel(account.platform) }}</span>
+              <span class="block truncate text-xs text-muted-foreground">
+                {{ account.name }}
+              </span>
+            </span>
+            <Icon
+              :name="accountSelected(account.id) ? 'lucide:circle-check' : 'lucide:circle'"
+              class="h-5 w-5"
+              :class="accountSelected(account.id) ? 'text-primary' : 'text-muted-foreground'"
+            />
+          </button>
+        </div>
+        <Alert v-else>
+          <Icon name="lucide:plug" class="h-4 w-4" />
+          <AlertTitle>Nenhuma conta social conectada</AlertTitle>
+          <AlertDescription>
+            Conecte Meta ou LinkedIn antes de continuar.
+            <Button type="button" variant="link" class="h-auto p-0" @click="navigateTo('/marketing/integrations')">
+              Abrir integrações
+            </Button>
+          </AlertDescription>
+        </Alert>
+
+        <Separator />
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <Label>Formato da publicação</Label>
+            <Select :model-value="publicationFormat" @update:model-value="changeFormat">
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="static">
+                  Post estático
+                </SelectItem>
+                <SelectItem value="carousel">
+                  Carrossel
+                </SelectItem>
+                <SelectItem value="video">
+                  Vídeo
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div class="space-y-2">
+            <Label for="publication-link">Link opcional</Label>
+            <Input id="publication-link" v-model="publicationLink" type="url" placeholder="https://..." />
+          </div>
+        </div>
+
+        <Alert v-if="hasFormatConflict" variant="destructive">
+          <Icon name="lucide:triangle-alert" class="h-4 w-4" />
+          <AlertTitle>Formato indisponível no LinkedIn</AlertTitle>
+          <AlertDescription>
+            Escolha post estático ou carrossel, ou desmarque o LinkedIn.
+          </AlertDescription>
+        </Alert>
+      </CardContent>
+    </Card>
+
+    <div v-else-if="currentStep === 3" class="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Peças finais</CardTitle>
+          <CardDescription>
+            {{ publicationFormat === 'carousel' ? 'Selecione de 2 a 10 imagens na ordem desejada.' : publicationFormat === 'video' ? 'Selecione um vídeo.' : 'Selecione uma imagem.' }}
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-5">
+          <label class="min-h-28 flex flex-col cursor-pointer items-center justify-center border rounded-xl border-dashed p-5 text-center hover:bg-muted/40">
+            <Icon name="lucide:upload-cloud" class="mb-2 h-6 w-6 text-primary" />
+            <span class="text-sm font-medium">{{ uploading ? 'Enviando...' : 'Enviar novas peças' }}</span>
+            <span class="mt-1 text-xs text-muted-foreground">Imagens e vídeos de até 100 MB</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/mp4,video/quicktime"
+              class="hidden"
+              :disabled="uploading"
+              @change="uploadFiles($event, 'publication')"
+            >
+          </label>
+          <div class="grid grid-cols-2 gap-3 lg:grid-cols-6 sm:grid-cols-3">
+            <button
+              v-for="asset in compatiblePublicationAssets()"
+              :key="asset.id"
+              type="button"
+              class="relative aspect-square overflow-hidden border rounded-xl bg-muted"
+              :class="{ 'ring-2 ring-primary': publicationAssetIds.includes(asset.id) }"
+              @click="toggleAsset(asset.id)"
+            >
+              <img
+                v-if="asset.mimeType?.startsWith('image/') || (asset as any).mime_type?.startsWith('image/')"
+                :src="asset.previewUrl || (asset as any).preview_url || ''"
+                :alt="asset.name"
+                class="h-full w-full object-cover"
+              >
+              <div v-else class="h-full flex items-center justify-center">
+                <Icon name="lucide:file-video" class="h-8 w-8 text-muted-foreground" />
+              </div>
+              <span class="absolute inset-x-0 bottom-0 truncate bg-background/90 px-2 py-1 text-xs">
+                {{ asset.name }}
+              </span>
+              <span
+                v-if="publicationAssetIds.includes(asset.id)"
+                class="absolute right-2 top-2 h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground"
+              >
+                <Icon name="lucide:check" class="h-3.5 w-3.5" />
+              </span>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Referências e planejamento</CardTitle>
+          <CardDescription>
+            Referências não serão publicadas; servem apenas para orientar a equipe e os aprovadores.
+          </CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-6">
+          <label class="min-h-24 flex cursor-pointer items-center justify-center gap-3 border rounded-xl border-dashed p-4 hover:bg-muted/40">
+            <Icon name="lucide:paperclip" class="h-5 w-5 text-muted-foreground" />
+            <span class="text-sm font-medium">{{ uploading ? 'Enviando...' : 'Adicionar referências' }}</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/mp4,video/quicktime,application/pdf"
+              class="hidden"
+              :disabled="uploading"
+              @change="uploadFiles($event, 'reference')"
+            >
+          </label>
+          <div v-if="referenceAssets.length" class="grid grid-cols-2 gap-3 lg:grid-cols-6 sm:grid-cols-4">
+            <button
+              v-for="asset in referenceAssets"
+              :key="asset.id"
+              type="button"
+              class="relative aspect-square overflow-hidden border rounded-xl bg-muted"
+              :class="{ 'ring-2 ring-primary': referenceAssetIds.includes(asset.id) }"
+              @click="toggleReference(asset.id)"
+            >
+              <img
+                v-if="asset.mimeType?.startsWith('image/') || (asset as any).mime_type?.startsWith('image/')"
+                :src="asset.previewUrl || (asset as any).preview_url || ''"
+                :alt="asset.name"
+                class="h-full w-full object-cover"
+              >
+              <div v-else class="h-full flex items-center justify-center">
+                <Icon name="lucide:file" class="h-8 w-8 text-muted-foreground" />
+              </div>
+              <span
+                v-if="referenceAssetIds.includes(asset.id)"
+                class="absolute right-2 top-2 h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground"
+              >
+                <Icon name="lucide:check" class="h-3.5 w-3.5" />
+              </span>
+            </button>
+          </div>
+
+          <Separator />
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <SocialDateTimePicker
+              v-model="scheduledAt"
+              label="Data sugerida"
+              description="A publicação só será agendada após a aprovação."
+              placeholder="Sem data sugerida"
+            />
+            <div class="space-y-2">
+              <Label>Política de aprovação</Label>
+              <Select v-model="approvalPolicy">
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">
+                    Uma aprovação
+                  </SelectItem>
+                  <SelectItem value="all">
+                    Todos devem aprovar
+                  </SelectItem>
+                  <SelectItem value="minimum">
+                    Quantidade mínima
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                v-if="approvalPolicy === 'minimum'"
+                v-model.number="minimumApprovals"
+                type="number"
+                min="1"
+                max="100"
+                aria-label="Mínimo de aprovações"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <Card v-else>
+      <CardHeader>
+        <CardTitle>Revise antes de salvar</CardTitle>
+        <CardDescription>
+          Confira canais, mídia e planejamento. O conteúdo será salvo inicialmente como rascunho.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-6">
+        <div class="border rounded-xl p-4">
+          <p class="text-xs text-muted-foreground">
+            Título interno
+          </p>
+          <p class="mt-1 font-semibold">
+            {{ title }}
+          </p>
+          <p class="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+            {{ content || 'Sem legenda' }}
+          </p>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="border rounded-xl p-4">
+            <p class="text-xs text-muted-foreground">
+              Canais
+            </p>
+            <div class="mt-2 flex flex-wrap gap-1">
+              <Badge v-for="variant in variants" :key="variant.accountId" variant="secondary">
+                {{ platformLabel(variant.platform) }}
+              </Badge>
+            </div>
+          </div>
+          <div class="border rounded-xl p-4">
+            <p class="text-xs text-muted-foreground">
+              Formato
+            </p>
+            <p class="mt-2 font-medium">
+              {{ formatLabel }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              {{ publicationAssetIds.length }} peça(s)
+            </p>
+          </div>
+          <div class="border rounded-xl p-4">
+            <p class="text-xs text-muted-foreground">
+              Aprovação
+            </p>
+            <p class="mt-2 font-medium">
+              {{ approvalLabel }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              {{ formatScheduledDate() }}
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-6 sm:grid-cols-4">
+          <div
+            v-for="assetId in publicationAssetIds"
+            :key="assetId"
+            class="aspect-square overflow-hidden border rounded-xl bg-muted"
+          >
+            <img
+              v-if="publicationAssetById(assetId)?.mime_type?.startsWith('image/') || publicationAssetById(assetId)?.mimeType?.startsWith('image/')"
+              :src="publicationAssetById(assetId)?.preview_url || publicationAssetById(assetId)?.previewUrl"
+              alt="Prévia da peça"
+              class="h-full w-full object-cover"
+            >
+            <div v-else class="h-full flex items-center justify-center">
+              <Icon name="lucide:play-circle" class="h-8 w-8 text-muted-foreground" />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Alert v-if="formError" variant="destructive">
+      <Icon name="lucide:circle-alert" class="h-4 w-4" />
+      <AlertTitle>Revise esta etapa</AlertTitle>
+      <AlertDescription>{{ formError }}</AlertDescription>
+    </Alert>
+
+    <div class="sticky bottom-4 z-20 flex items-center justify-between gap-3 border rounded-xl bg-background/95 p-3 shadow-lg backdrop-blur">
+      <p class="hidden text-xs text-muted-foreground sm:block">
+        Etapa {{ currentStep }} de {{ steps.length }}
+      </p>
+      <div class="ml-auto flex gap-2">
+        <Button
+          v-if="currentStep === 1"
+          type="button"
+          variant="ghost"
+          @click="navigateTo('/marketing/production')"
+        >
+          Cancelar
+        </Button>
+        <Button v-else type="button" variant="outline" @click="previousStep">
+          <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
+          Voltar
+        </Button>
+        <Button v-if="currentStep < 4" type="button" @click="nextStep">
+          Continuar
+          <Icon name="lucide:arrow-right" class="ml-2 h-4 w-4" />
+        </Button>
+        <Button v-else type="submit" :disabled="saving">
+          <Icon :name="saving ? 'lucide:loader-circle' : 'lucide:save'" class="mr-2 h-4 w-4" :class="{ 'animate-spin': saving }" />
+          {{ saving ? 'Salvando...' : 'Salvar rascunho' }}
+        </Button>
+      </div>
+    </div>
+  </form>
+</template>

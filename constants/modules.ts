@@ -29,7 +29,8 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     slug: 'marketing',
     title: 'Marketing',
     icon: 'lucide:megaphone',
-    basePath: '/crm/marketing',
+    basePath: '/marketing',
+    defaultPath: '/marketing',
   },
   whatsapp: {
     slug: 'whatsapp',

@@ -30,6 +30,6 @@ export function isGlobalStaffFromJwt(payload: {
   app_metadata?: { role?: string, tenant_roles?: Record<string, string> }
   user_metadata?: { role?: string }
 }): boolean {
-  const globalRole = payload.app_metadata?.role || payload.user_metadata?.role
+  const globalRole = payload.app_metadata?.role
   return isStaffRole(globalRole)
 }

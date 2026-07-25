@@ -8,7 +8,7 @@ definePageMeta({
   title: 'Integrações de marketing',
 })
 
-type Provider = 'google_ads' | 'google_analytics' | 'meta'
+type Provider = 'google_ads' | 'google_analytics' | 'meta' | 'linkedin'
 
 const { tenantId } = useTenant()
 const route = useRoute()
@@ -24,12 +24,14 @@ const selectedMetaAdAccount = ref('')
 const selectedMetaPage = ref('')
 const selectedMetaPixel = ref('')
 const selectedMetaInstagram = ref('')
+const selectedLinkedinOrganization = ref('')
 const googleAdsAccounts = ref<Array<{ id: string, name: string }>>([])
 const googleAnalyticsAccounts = ref<Array<{ id: string, name: string, account_id?: string }>>([])
 const metaAccounts = ref<Array<{ id: string, name: string }>>([])
 const metaPages = ref<Array<{ id: string, name: string }>>([])
 const metaPixels = ref<Array<{ id: string, name: string }>>([])
 const metaInstagramAccounts = ref<Array<{ id: string, name: string }>>([])
+const linkedinOrganizations = ref<Array<{ id: string, name: string }>>([])
 
 const editDialogOpen = ref(false)
 const editProvider = ref<Provider | null>(null)
@@ -94,6 +96,14 @@ function displayAccountLabel(provider: Provider): string {
     }
     return parts.join(' · ')
   }
+  if (provider === 'linkedin') {
+    const id = String(c.organization_id || '')
+    if (!id)
+      return 'Selecione a organização em editar'
+    return linkedinOrganizations.value.find(item => item.id === id)?.name
+      || c.organization_name
+      || id
+  }
   return '—'
 }
 
@@ -121,6 +131,8 @@ watch(
         if (c.instagram_business_account_id)
           selectedMetaInstagram.value = String(c.instagram_business_account_id)
       }
+      if (row.provider === 'linkedin' && c.organization_id)
+        selectedLinkedinOrganization.value = String(c.organization_id)
     }
   },
   { immediate: true, deep: true },
@@ -137,6 +149,8 @@ watch(
       const p = r.provider as Provider
       if (p === 'google_ads' || p === 'google_analytics')
         await loadAccounts(p)
+      if (p === 'linkedin')
+        await loadAccounts('linkedin')
       if (p === 'meta') {
         await loadAccounts('meta')
         await loadMetaAuxiliaryListsForCard()
@@ -235,6 +249,8 @@ async function loadAccounts(provider: Provider) {
       googleAnalyticsAccounts.value = response.data || []
     if (provider === 'meta')
       metaAccounts.value = response.data || []
+    if (provider === 'linkedin')
+      linkedinOrganizations.value = response.data || []
   }
   catch (error: any) {
     lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar contas'
@@ -406,6 +422,25 @@ async function saveMetaAccount() {
   actionLoading.value = null
 }
 
+async function saveLinkedinOrganization() {
+  actionLoading.value = 'linkedin'
+  const organization = linkedinOrganizations.value.find(item => item.id === selectedLinkedinOrganization.value)
+  await $fetch('/api/marketing/integrations', {
+    method: 'POST',
+    body: {
+      tenant_id: tenantId.value || undefined,
+      provider: 'linkedin',
+      config: {
+        organization_id: selectedLinkedinOrganization.value,
+        organization_name: organization?.name,
+      },
+      is_active: true,
+    },
+  })
+  await refresh()
+  actionLoading.value = null
+}
+
 async function disconnectProvider(provider: Provider) {
   actionLoading.value = `disconnect:${provider}`
   try {
@@ -442,6 +477,8 @@ const dialogSaveDisabled = computed(() => {
     return !selectedGoogleAds.value
   if (p === 'google_analytics')
     return !selectedGoogleAnalytics.value
+  if (p === 'linkedin')
+    return !selectedLinkedinOrganization.value
   return false
 })
 
@@ -455,6 +492,8 @@ async function saveFromDialog() {
     await saveGoogleAnalyticsAccount()
   else if (p === 'meta')
     await saveMetaAccount()
+  else if (p === 'linkedin')
+    await saveLinkedinOrganization()
   editDialogOpen.value = false
 }
 
@@ -503,7 +542,7 @@ watch(
         Integrações
       </h1>
       <p class="mt-1 max-w-3xl text-muted-foreground">
-        Conecte Google Ads, Google Analytics e Meta (Facebook e Instagram) com um único OAuth por provedor. As credenciais ficam apenas no servidor.
+        Conecte Google Ads, Google Analytics, Meta e LinkedIn. As credenciais ficam apenas no servidor.
       </p>
     </div>
 
@@ -513,9 +552,9 @@ watch(
       <AlertDescription>{{ lastError }}</AlertDescription>
     </Alert>
 
-    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
       <!-- Google Ads -->
-      <Card class="relative overflow-hidden rounded-2xl border bg-card shadow-md">
+      <Card class="relative overflow-hidden border rounded-2xl bg-card shadow-md">
         <Button
           variant="ghost"
           size="icon"
@@ -526,20 +565,20 @@ watch(
           <Icon name="lucide:square-pen" class="h-4 w-4" />
         </Button>
         <CardContent class="flex flex-col items-center px-6 pb-8 pt-10 text-center">
-          <div class="flex h-14 w-14 items-center justify-center">
+          <div class="h-14 w-14 flex items-center justify-center">
             <GoogleAdsBrandIcon size="lg" />
           </div>
-          <h2 class="mt-4 text-lg font-semibold text-foreground">
+          <h2 class="mt-4 text-lg text-foreground font-semibold">
             Google Ads
           </h2>
           <Button
-            class="mt-6 w-full max-w-[240px] rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
+            class="mt-6 max-w-[240px] w-full rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
             :disabled="primaryDisabled('google_ads')"
             @click="primaryAction('google_ads')"
           >
             {{ primaryButtonLabel('google_ads') }}
           </Button>
-          <p class="mt-4 max-w-[240px] truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p class="mt-4 max-w-[240px] truncate text-xs text-muted-foreground font-medium tracking-wide uppercase">
             {{ displayAccountLabel('google_ads') }}
           </p>
           <div
@@ -553,7 +592,7 @@ watch(
       </Card>
 
       <!-- Google Analytics -->
-      <Card class="relative overflow-hidden rounded-2xl border bg-card shadow-md">
+      <Card class="relative overflow-hidden border rounded-2xl bg-card shadow-md">
         <Button
           variant="ghost"
           size="icon"
@@ -564,20 +603,20 @@ watch(
           <Icon name="lucide:square-pen" class="h-4 w-4" />
         </Button>
         <CardContent class="flex flex-col items-center px-6 pb-8 pt-10 text-center">
-          <div class="flex h-14 w-14 items-center justify-center">
+          <div class="h-14 w-14 flex items-center justify-center">
             <GoogleAnalyticsBrandIcon size="lg" />
           </div>
-          <h2 class="mt-4 text-lg font-semibold text-foreground">
+          <h2 class="mt-4 text-lg text-foreground font-semibold">
             Google Analytics
           </h2>
           <Button
-            class="mt-6 w-full max-w-[240px] rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
+            class="mt-6 max-w-[240px] w-full rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
             :disabled="primaryDisabled('google_analytics')"
             @click="primaryAction('google_analytics')"
           >
             {{ primaryButtonLabel('google_analytics') }}
           </Button>
-          <p class="mt-4 max-w-[240px] truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p class="mt-4 max-w-[240px] truncate text-xs text-muted-foreground font-medium tracking-wide uppercase">
             {{ displayAccountLabel('google_analytics') }}
           </p>
           <div
@@ -591,7 +630,7 @@ watch(
       </Card>
 
       <!-- Meta -->
-      <Card class="relative overflow-hidden rounded-2xl border bg-card shadow-md">
+      <Card class="relative overflow-hidden border rounded-2xl bg-card shadow-md">
         <Button
           variant="ghost"
           size="icon"
@@ -602,23 +641,23 @@ watch(
           <Icon name="lucide:square-pen" class="h-4 w-4" />
         </Button>
         <CardContent class="flex flex-col items-center px-6 pb-8 pt-10 text-center">
-          <div class="flex h-14 w-14 items-center justify-center text-[#0866FF]">
+          <div class="h-14 w-14 flex items-center justify-center text-[#0866FF]">
             <MetaBrandIcon size="lg" />
           </div>
-          <h2 class="mt-4 text-lg font-semibold text-foreground">
+          <h2 class="mt-4 text-lg text-foreground font-semibold">
             Meta
           </h2>
           <p class="mt-1 text-sm text-muted-foreground">
             Facebook &amp; Instagram
           </p>
           <Button
-            class="mt-6 w-full max-w-[240px] rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
+            class="mt-6 max-w-[240px] w-full rounded-full bg-foreground text-background shadow-sm hover:bg-foreground/90"
             :disabled="primaryDisabled('meta')"
             @click="primaryAction('meta')"
           >
             {{ primaryButtonLabel('meta') }}
           </Button>
-          <p class="mt-4 line-clamp-2 max-w-[260px] text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <p class="line-clamp-2 mt-4 max-w-[260px] text-xs text-muted-foreground font-medium tracking-wide uppercase">
             {{ displayAccountLabel('meta') }}
           </p>
           <div
@@ -626,6 +665,47 @@ watch(
             class="mt-6 flex items-center gap-2 text-sm text-muted-foreground"
           >
             <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+            <span>Conectado</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <!-- LinkedIn -->
+      <Card class="relative overflow-hidden border rounded-2xl bg-card shadow-md">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="absolute right-2 top-2 z-10 h-9 w-9 text-muted-foreground hover:text-foreground"
+          aria-label="Editar integração LinkedIn"
+          @click="openEdit('linkedin')"
+        >
+          <Icon name="lucide:square-pen" class="h-4 w-4" />
+        </Button>
+        <CardContent class="flex flex-col items-center px-6 pb-8 pt-10 text-center">
+          <div class="h-14 w-14 flex items-center justify-center rounded-xl bg-[#0A66C2] text-white">
+            <Icon name="lucide:linkedin" class="h-8 w-8" />
+          </div>
+          <h2 class="mt-4 text-lg text-foreground font-semibold">
+            LinkedIn
+          </h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Páginas de empresas
+          </p>
+          <Button
+            class="mt-6 max-w-[240px] w-full rounded-full bg-foreground text-background hover:bg-foreground/90"
+            :disabled="primaryDisabled('linkedin')"
+            @click="primaryAction('linkedin')"
+          >
+            {{ primaryButtonLabel('linkedin') }}
+          </Button>
+          <p class="line-clamp-2 mt-4 max-w-[260px] text-xs text-muted-foreground font-medium tracking-wide uppercase">
+            {{ displayAccountLabel('linkedin') }}
+          </p>
+          <div
+            v-if="isConnected('linkedin')"
+            class="mt-6 flex items-center gap-2 text-sm text-muted-foreground"
+          >
+            <span class="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
             <span>Conectado</span>
           </div>
         </CardContent>
@@ -644,12 +724,15 @@ watch(
           <DialogTitle v-else-if="editProvider === 'meta'">
             Meta — detalhes
           </DialogTitle>
+          <DialogTitle v-else-if="editProvider === 'linkedin'">
+            LinkedIn — detalhes
+          </DialogTitle>
           <DialogDescription>
             Carregue as contas, selecione a desejada e salve. Campos sensíveis não são exibidos após salvar.
           </DialogDescription>
         </DialogHeader>
 
-        <div v-if="editProvider === 'google_ads'" class="space-y-3 py-2">
+        <div v-if="editProvider === 'google_ads'" class="py-2 space-y-3">
           <Button
             variant="outline"
             class="w-full"
@@ -682,7 +765,7 @@ watch(
           </div>
         </div>
 
-        <div v-else-if="editProvider === 'google_analytics'" class="space-y-3 py-2">
+        <div v-else-if="editProvider === 'google_analytics'" class="py-2 space-y-3">
           <Button
             variant="outline"
             class="w-full"
@@ -707,7 +790,7 @@ watch(
           </div>
         </div>
 
-        <div v-else-if="editProvider === 'meta'" class="max-h-[70vh] space-y-3 overflow-y-auto py-2">
+        <div v-else-if="editProvider === 'meta'" class="max-h-[70vh] overflow-y-auto py-2 space-y-3">
           <Button
             variant="outline"
             class="w-full"
@@ -788,6 +871,38 @@ watch(
               class="text-xs text-muted-foreground"
             >
               Nenhuma conta Instagram encontrada por estes critérios (pode guardar na mesma).
+            </p>
+          </div>
+        </div>
+
+        <div v-else-if="editProvider === 'linkedin'" class="py-2 space-y-3">
+          <Button
+            variant="outline"
+            class="w-full"
+            :disabled="accountsLoading === 'linkedin'"
+            @click="loadAccounts('linkedin')"
+          >
+            <Icon name="lucide:refresh-cw" class="mr-2 h-4 w-4" />
+            {{ accountsLoading === 'linkedin' ? 'Carregando...' : 'Carregar organizações' }}
+          </Button>
+          <div class="space-y-2">
+            <Label>Organização</Label>
+            <Select v-model="selectedLinkedinOrganization">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="Selecione a página da empresa" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  v-for="organization in linkedinOrganizations"
+                  :key="organization.id"
+                  :value="organization.id"
+                >
+                  {{ organization.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p class="text-xs text-muted-foreground">
+              O usuário conectado deve ser administrador ou gestor de conteúdo da página.
             </p>
           </div>
         </div>

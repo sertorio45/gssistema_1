@@ -3,11 +3,9 @@ import { useSupabaseClient } from '#imports'
 import { computed, onMounted, ref, watch } from 'vue'
 
 import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
-import { useAuth } from '~/composables/useAuth'
 import { useTenantStore } from '~/stores/tenant'
 import {
   decodeJwtPayload,
-  getAllowedTenantIdsFromSession,
   isGlobalStaffFromJwt,
 } from '~/utils/resolve-user-role'
 
@@ -34,7 +32,7 @@ function setTenantId(newTenantId: string | null) {
 }
 
 async function guardedSetTenantId(
-  supabase: ReturnType<typeof useSupabaseClient>,
+  _supabase: any,
   newTenantId: string | null,
 ) {
   if (!newTenantId || !isUuid(newTenantId)) {
@@ -42,8 +40,9 @@ async function guardedSetTenantId(
     return
   }
 
-  const allowed = await getAllowedTenantIdsFromSession(supabase)
-  if (allowed !== null && !allowed.has(newTenantId))
+  const response = await $fetch<{ tenants: Array<{ id: string }> }>('/api/tenants/accessible')
+  const allowed = new Set(response.tenants.map(tenant => tenant.id))
+  if (!allowed.has(newTenantId))
     return
 
   setTenantId(newTenantId)
@@ -67,11 +66,7 @@ if (import.meta.client) {
       return
 
     const supabase = useSupabaseClient()
-    const allowed = await getAllowedTenantIdsFromSession(supabase)
-    if (allowed !== null && !allowed.has(nextId))
-      return
-
-    setTenantId(nextId)
+    await guardedSetTenantId(supabase, nextId)
   })
 }
 
@@ -85,30 +80,10 @@ watch(tenantId, (newVal) => {
   useTenantStore().setTenant(newVal ?? '')
 })
 
-async function listTenants(supabase: ReturnType<typeof useSupabaseClient>) {
-  const allowed = await getAllowedTenantIdsFromSession(supabase)
-
-  if (allowed === null) {
-    const response = await $fetch<{ tenants: any[] }>('/api/admin/tenants')
-    tenants.value = response.tenants || []
-    return tenants.value
-  }
-
-  if (allowed.size === 0) {
-    tenants.value = []
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from('tenant')
-    .select('*')
-    .in('id', [...allowed])
-    .order('name')
-
-  if (error)
-    throw error
-
-  tenants.value = data || []
+async function listTenants(supabase: any) {
+  void supabase
+  const response = await $fetch<{ tenants: any[] }>('/api/tenants/accessible')
+  tenants.value = response.tenants || []
   return tenants.value
 }
 
@@ -119,8 +94,6 @@ const currentTenant = computed(() => {
 export function useTenant() {
   const tenantStore = useTenantStore()
   const supabase = useSupabaseClient()
-  const { currentRole } = useAuth()
-
   watch(
     () => tenantStore.tenantId,
     async (val) => {
@@ -145,8 +118,7 @@ export function useTenant() {
   }
 
   function setTenant(newTenantId: string) {
-    if (isStaffRole(currentRole.value))
-      setTenantId(newTenantId)
+    void guardedSetTenantId(supabase, newTenantId)
   }
 
   async function setTenantFromJWT() {
@@ -176,17 +148,13 @@ export function useTenant() {
   }
 
   async function bootstrapTenantContext() {
-    const { data: { session } } = await supabase.auth.getSession()
-    const payload = session?.access_token ? decodeJwtPayload(session.access_token) : null
-    const isScoped = payload ? !isGlobalStaffFromJwt(payload) : isTenantScopedRole(currentRole.value)
-
-    if (isScoped) {
-      await setTenantFromJWT()
-      return
-    }
-
+    const available = await listTenants(supabase)
     restoreLastTenant()
-    if (!tenantId.value)
+    if (tenantId.value && available.some(tenant => tenant.id === tenantId.value))
+      return
+    if (available[0]?.id)
+      setTenantId(available[0].id)
+    else
       await setTenantFromJWT()
   }
 

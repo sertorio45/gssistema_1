@@ -6,6 +6,12 @@ export interface EvolutionClientConfig {
   instanceName: string
 }
 
+const DEFAULT_WEBHOOK_EVENTS = [
+  'MESSAGES_UPSERT',
+  'MESSAGES_UPDATE',
+  'CONNECTION_UPDATE',
+] as const
+
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/$/, '')
 }
@@ -26,9 +32,92 @@ async function evolutionFetch<T>(
   })
 }
 
+function buildEvolutionWebhookBody(webhookUrl: string, webhookSecret?: string | null) {
+  const webhook: Record<string, unknown> = {
+    url: webhookUrl,
+    enabled: true,
+    // Evolution API v2
+    byEvents: false,
+    // Legacy Evolution builds
+    webhookByEvents: false,
+    events: [...DEFAULT_WEBHOOK_EVENTS],
+  }
+
+  if (webhookSecret) {
+    webhook.headers = {
+      'x-webhook-secret': webhookSecret,
+    }
+  }
+
+  return { webhook }
+}
+
+function extractConfiguredWebhookUrl(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object')
+    return null
+
+  const record = raw as Record<string, unknown>
+  const nested = record.webhook as Record<string, unknown> | undefined
+  const url = String(nested?.url || record.url || '').trim()
+  return url || null
+}
+
+function isConfiguredWebhookEnabled(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object')
+    return false
+
+  const record = raw as Record<string, unknown>
+  const nested = record.webhook as Record<string, unknown> | undefined
+  if (nested?.enabled === false)
+    return false
+  if (record.enabled === false)
+    return false
+  return true
+}
+
+export async function evolutionFindWebhook(
+  config: EvolutionClientConfig,
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await evolutionFetch<Record<string, unknown>>(
+      config,
+      `/webhook/find/${encodeURIComponent(config.instanceName)}`,
+    )
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Registers webhook only when missing or URL differs.
+ * Avoids Evolution API P2002 duplicate webhook rows (set after create).
+ */
+export async function evolutionEnsureWebhook(
+  config: EvolutionClientConfig,
+  webhookUrl: string,
+  options?: { webhookSecret?: string | null, force?: boolean },
+): Promise<{ configured: boolean, skipped: boolean, reason?: string }> {
+  const targetUrl = webhookUrl.trim()
+  if (!targetUrl)
+    throw new Error('Webhook URL is required')
+
+  if (!options?.force) {
+    const current = await evolutionFindWebhook(config)
+    const currentUrl = extractConfiguredWebhookUrl(current)
+    if (currentUrl === targetUrl && isConfiguredWebhookEnabled(current)) {
+      return { configured: true, skipped: true, reason: 'already_configured' }
+    }
+  }
+
+  await evolutionSetWebhook(config, targetUrl, options?.webhookSecret)
+  return { configured: true, skipped: false }
+}
+
 export async function evolutionCreateInstance(
   config: Omit<EvolutionClientConfig, 'instanceName'> & { instanceName: string },
   webhookUrl?: string,
+  webhookSecret?: string | null,
 ) {
   const body: Record<string, unknown> = {
     instanceName: config.instanceName,
@@ -37,12 +126,7 @@ export async function evolutionCreateInstance(
   }
 
   if (webhookUrl) {
-    body.webhook = {
-      url: webhookUrl,
-      enabled: true,
-      webhookByEvents: false,
-      events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
-    }
+    Object.assign(body, buildEvolutionWebhookBody(webhookUrl, webhookSecret))
   }
 
   return evolutionFetch(config, '/instance/create', { method: 'POST', body })
@@ -77,17 +161,11 @@ export async function evolutionDeleteInstance(config: EvolutionClientConfig) {
 export async function evolutionSetWebhook(
   config: EvolutionClientConfig,
   webhookUrl: string,
+  webhookSecret?: string | null,
 ) {
   return evolutionFetch(config, `/webhook/set/${encodeURIComponent(config.instanceName)}`, {
     method: 'POST',
-    body: {
-      webhook: {
-        url: webhookUrl,
-        enabled: true,
-        webhookByEvents: false,
-        events: ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
-      },
-    },
+    body: buildEvolutionWebhookBody(webhookUrl, webhookSecret),
   })
 }
 

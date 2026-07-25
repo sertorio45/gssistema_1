@@ -6,7 +6,7 @@ import {
 } from '~/server/utils/whatsapp/context'
 import {
   evolutionConnect,
-  evolutionSetWebhook,
+  evolutionEnsureWebhook,
   getEvolutionConfigFromIntegration,
   syncEvolutionInstanceRecord,
 } from '~/server/utils/whatsapp/evolution-client'
@@ -38,12 +38,9 @@ export default defineEventHandler(async (event) => {
 
   const webhookUrl = buildEvolutionWebhookUrl(event, id)
 
-  try {
-    await evolutionSetWebhook(evoConfig, webhookUrl)
-  }
-  catch {
-    /* webhook may already be configured */
-  }
+  await evolutionEnsureWebhook(evoConfig, webhookUrl, {
+    webhookSecret: integration.webhook_secret,
+  })
 
   const mapped = await syncEvolutionInstanceRecord(client, id, evoConfig, {
     currentQrCode: instance.qr_code,

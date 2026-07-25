@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto'
+import process from 'node:process'
+
 import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { createError, defineEventHandler, getQuery, getRequestURL, sendRedirect } from 'h3'
@@ -5,13 +8,13 @@ import { createError, defineEventHandler, getQuery, getRequestURL, sendRedirect 
 import { clearMarketingCampaignCacheForTenant, encryptSecret } from '~/server/utils/marketing'
 
 function toProvider(value: string) {
-  if (value === 'google_ads' || value === 'google_analytics' || value === 'meta')
+  if (value === 'google_ads' || value === 'google_analytics' || value === 'meta' || value === 'linkedin')
     return value
   return null
 }
 
 export default defineEventHandler(async (event) => {
-  const failRedirect = (message: string) => sendRedirect(event, `/crm/marketing/integrations?oauth=error&message=${encodeURIComponent(message)}`, 302)
+  const failRedirect = (message: string) => sendRedirect(event, `/marketing/integrations?oauth=error&message=${encodeURIComponent(message)}`, 302)
   const providerParam = event.context.params?.provider || ''
   const provider = toProvider(providerParam)
   if (!provider)
@@ -23,42 +26,58 @@ export default defineEventHandler(async (event) => {
   if (!code || !state)
     throw createError({ statusCode: 400, statusMessage: 'Código OAuth inválido' })
 
-  let [tenantId] = state.split(':')
-  if (!tenantId)
-    throw createError({ statusCode: 400, statusMessage: 'State OAuth inválido' })
+  const client: any = await serverSupabaseServiceRole(event)
+  const stateHash = createHash('sha256').update(state).digest('hex')
+  const { data: oauthState } = await client
+    .from('oauth_states')
+    .select('id, tenant_id, user_id, provider, redirect_path, expires_at, consumed_at')
+    .eq('state_hash', stateHash)
+    .eq('provider', provider)
+    .maybeSingle()
 
-  const client = await serverSupabaseServiceRole(event)
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(tenantId)) {
-    const { data: tenantBySlug } = await client
-      .from('tenant')
-      .select('id')
-      .eq('slug', tenantId)
-      .maybeSingle()
-    if (tenantBySlug?.id) {
-      tenantId = tenantBySlug.id
-    }
+  if (
+    !oauthState
+    || oauthState.consumed_at
+    || new Date(oauthState.expires_at).getTime() < Date.now()
+  ) {
+    return failRedirect('A sessão de autenticação expirou. Tente conectar novamente.')
   }
+
+  const tenantId = String(oauthState.tenant_id)
+  await client
+    .from('oauth_states')
+    .update({ consumed_at: new Date().toISOString() })
+    .eq('id', oauthState.id)
 
   const requestUrl = getRequestURL(event)
   const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`
   const googleRedirectUri
     = process.env.GOOGLE_REDIRECT_URI
       || process.env.GOOGLE_OAUTH_REDIRECT_URI
-      || `${baseUrl}/auth/google/callback`
+      || `${baseUrl}/api/marketing/oauth/${provider}/callback`
   const metaRedirectUri
     = process.env.META_REDIRECT_URI
       || process.env.META_OAUTH_REDIRECT_URI
-      || `${baseUrl}/auth/meta/callback`
-  const callbackUrl = provider === 'meta' ? metaRedirectUri : googleRedirectUri
+      || `${baseUrl}/api/marketing/oauth/meta/callback`
+  const linkedinRedirectUri
+    = process.env.LINKEDIN_REDIRECT_URI
+      || `${baseUrl}/api/marketing/oauth/linkedin/callback`
+  const callbackUrl = provider === 'meta'
+    ? metaRedirectUri
+    : provider === 'linkedin'
+      ? linkedinRedirectUri
+      : googleRedirectUri
 
   let accessToken = ''
   let refreshToken = ''
+  let expiresIn: number | null = null
 
   if (provider === 'meta') {
     if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
       throw createError({ statusCode: 500, statusMessage: 'META_APP_ID/META_APP_SECRET não configurados' })
     }
-    const tokenResponse = await $fetch<any>('https://graph.facebook.com/v20.0/oauth/access_token', {
+    const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
+    const tokenResponse = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/oauth/access_token`, {
       query: {
         client_id: process.env.META_APP_ID,
         client_secret: process.env.META_APP_SECRET,
@@ -73,7 +92,7 @@ export default defineEventHandler(async (event) => {
     if (!shortLivedToken) {
       throw createError({ statusCode: 400, statusMessage: 'Não foi possível obter token Meta' })
     }
-    const longLivedResponse = await $fetch<any>('https://graph.facebook.com/v20.0/oauth/access_token', {
+    const longLivedResponse = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/oauth/access_token`, {
       query: {
         grant_type: 'fb_exchange_token',
         client_id: process.env.META_APP_ID,
@@ -82,6 +101,32 @@ export default defineEventHandler(async (event) => {
       },
     }).catch(() => null)
     accessToken = longLivedResponse?.access_token || shortLivedToken
+    expiresIn = Number(longLivedResponse?.expires_in || tokenResponse?.expires_in || 0) || null
+  }
+  else if (provider === 'linkedin') {
+    const clientId = process.env.LINKEDIN_CLIENT_ID || ''
+    const clientSecret = process.env.LINKEDIN_CLIENT_SECRET || ''
+    if (!clientId || !clientSecret)
+      throw createError({ statusCode: 500, statusMessage: 'Credenciais LinkedIn não configuradas' })
+
+    const tokenResponse = await $fetch<any>('https://www.linkedin.com/oauth/v2/accessToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: callbackUrl,
+      }),
+    }).catch(() => null)
+
+    if (!tokenResponse?.access_token)
+      return failRedirect('Falha ao obter token LinkedIn. Verifique o acesso ao Community Management API.')
+
+    accessToken = tokenResponse.access_token
+    refreshToken = tokenResponse.refresh_token || ''
+    expiresIn = Number(tokenResponse.expires_in || 0) || null
   }
   else {
     const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID || ''
@@ -104,6 +149,7 @@ export default defineEventHandler(async (event) => {
     }
     accessToken = tokenResponse?.access_token || ''
     refreshToken = tokenResponse?.refresh_token || ''
+    expiresIn = Number(tokenResponse?.expires_in || 0) || null
   }
 
   if (!accessToken)
@@ -111,10 +157,13 @@ export default defineEventHandler(async (event) => {
 
   const config: Record<string, any> = {
     access_token_enc: encryptSecret(accessToken),
+    connected_by: oauthState.user_id,
   }
   if (refreshToken) {
     config.refresh_token_enc = encryptSecret(refreshToken)
   }
+  if (expiresIn)
+    config.token_expires_at = new Date(Date.now() + expiresIn * 1000).toISOString()
 
   const { data: existing } = await client
     .from('marketing_integrations')
@@ -142,5 +191,5 @@ export default defineEventHandler(async (event) => {
 
   await clearMarketingCampaignCacheForTenant(client, tenantId)
 
-  return sendRedirect(event, '/crm/marketing/integrations?oauth=success&provider=' + provider, 302)
+  return sendRedirect(event, `${oauthState.redirect_path || '/marketing/integrations'}?oauth=success&provider=${provider}`, 302)
 })

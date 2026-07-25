@@ -1,27 +1,21 @@
+import { Buffer } from 'node:buffer'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
+import process from 'node:process'
 
-import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { createError, getHeader, getQuery } from 'h3'
-
-import { isStaffUser, resolveStaffRole } from '~/server/utils/tenant-role'
+import { requireSocialContext } from '~/server/utils/social-context'
 
 const KEY_SEPARATOR = ':'
 
 type TenantRole = 'admin' | 'funcionario' | 'cliente' | string | null
-
-function isUuid(value?: string | null) {
-  if (!value)
-    return false
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-}
 
 function getEncryptionKey() {
   const secret
     = process.env.MARKETING_ENCRYPTION_SECRET
       || process.env.DASHBOARD_ENCRYPTION_SECRET
       || process.env.SUPABASE_SERVICE_KEY
-      || process.env.SUPABASE_KEY
-      || 'marketing-fallback-secret'
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!secret)
+    throw new Error('MARKETING_ENCRYPTION_SECRET não configurado')
   return createHash('sha256').update(secret).digest()
 }
 
@@ -53,103 +47,16 @@ export function decryptSecret(value?: string | null) {
 }
 
 export async function resolveMarketingTenantContext(event: any, requestedTenantId?: string) {
-  const user = await serverSupabaseUser(event)
-  if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+  const context = await requireSocialContext(
+    event,
+    'marketing.social.read',
+    requestedTenantId,
+  )
+  return {
+    user: context.user,
+    tenantId: context.tenantId,
+    role: context.role as TenantRole,
   }
-
-  const headerTenant = event ? getHeader(event, 'X-Tenant-Id')?.trim() : undefined
-  const queryTenant = event
-    ? (getQuery(event).tenant_id as string | undefined)?.trim()
-    : undefined
-  const effectiveRequested = requestedTenantId?.trim() || headerTenant || queryTenant || undefined
-
-  const tenantRoles = (user.app_metadata as any)?.tenant_roles || {}
-  let fallbackTenantId = event.context.auth?.tenantId || Object.keys(tenantRoles)[0] || null
-  if (fallbackTenantId && !isUuid(fallbackTenantId)) {
-    const client = await serverSupabaseServiceRole(event)
-    const { data: tenantBySlug } = await client
-      .from('tenant')
-      .select('id')
-      .eq('slug', fallbackTenantId)
-      .maybeSingle()
-    if (tenantBySlug?.id) {
-      fallbackTenantId = tenantBySlug.id
-    }
-  }
-  let normalizedRequestedTenantId = effectiveRequested || null
-
-  if (normalizedRequestedTenantId && !isUuid(normalizedRequestedTenantId)) {
-    const client = await serverSupabaseServiceRole(event)
-    const { data: tenantBySlug } = await client
-      .from('tenant')
-      .select('id')
-      .eq('slug', normalizedRequestedTenantId)
-      .maybeSingle()
-
-    if (tenantBySlug?.id) {
-      normalizedRequestedTenantId = tenantBySlug.id
-    }
-  }
-
-  const tenantId = normalizedRequestedTenantId || fallbackTenantId
-
-  if (!tenantId) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
-  }
-
-  let role: TenantRole = null
-
-  if (isStaffUser(user)) {
-    role = resolveStaffRole(user)
-  }
-  else if (tenantRoles[tenantId]) {
-    role = tenantRoles[tenantId] as TenantRole
-  }
-  if (!role) {
-    const client = await serverSupabaseServiceRole(event)
-    const { data: tenantRow } = await client
-      .from('tenant')
-      .select('slug')
-      .eq('id', tenantId)
-      .maybeSingle()
-    if (tenantRow?.slug && tenantRoles[tenantRow.slug]) {
-      role = tenantRoles[tenantRow.slug] as TenantRole
-    }
-  }
-  if (!role) {
-    role = (user.user_metadata as any)?.role || (user.app_metadata as any)?.role || null
-  }
-
-  if (!role) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
-  }
-
-  if ((role === 'cliente' || role === 'atendente') && normalizedRequestedTenantId) {
-    const allowedKeys = new Set(
-      [
-        ...Object.keys(tenantRoles || {}),
-        String((user.user_metadata as any)?.tenant_id || ''),
-        String((user.app_metadata as any)?.tenant_id || ''),
-        String(fallbackTenantId || ''),
-      ].filter(Boolean),
-    )
-    const client = await serverSupabaseServiceRole(event)
-    const { data: tenantRow } = await client
-      .from('tenant')
-      .select('slug')
-      .eq('id', normalizedRequestedTenantId)
-      .maybeSingle()
-    const slugForRequested = tenantRow?.slug
-    const hasTenantAccess
-      = allowedKeys.has(normalizedRequestedTenantId)
-        || (slugForRequested && allowedKeys.has(slugForRequested))
-    if (!hasTenantAccess) {
-      throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
-    }
-  }
-
-  return { user, tenantId, role }
 }
 
 export function maskSensitiveValue(value?: string | null) {

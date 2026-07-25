@@ -1,8 +1,9 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import process from 'node:process'
 
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import { clearMarketingCampaignCacheForTenant, decryptSecret, encryptSecret, resolveMarketingTenantContext } from '~/server/utils/marketing'
+import { clearMarketingCampaignCacheForTenant, decryptSecret, encryptSecret } from '~/server/utils/marketing'
+import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -10,10 +11,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'provider and config are required' })
   }
 
-  const { tenantId } = await resolveMarketingTenantContext(event, body.tenant_id)
-  const client = await serverSupabaseServiceRole(event)
+  const { tenantId, client } = await requireSocialContext(
+    event,
+    'marketing.social.integrations',
+    body.tenant_id,
+  )
 
-  const provider = body.provider as 'google_ads' | 'google_analytics' | 'meta'
+  const provider = body.provider as 'google_ads' | 'google_analytics' | 'meta' | 'linkedin'
+  if (!['google_ads', 'google_analytics', 'meta', 'linkedin'].includes(provider))
+    throw createError({ statusCode: 400, statusMessage: 'Provider inválido' })
   const incomingConfig = { ...(body.config || {}) }
   if ('page_access_token' in incomingConfig)
     delete (incomingConfig as any).page_access_token
@@ -32,6 +38,13 @@ export default defineEventHandler(async (event) => {
     for (const k of optionalMetaKeys) {
       if (k in incomingConfig && (incomingConfig[k] === '' || incomingConfig[k] == null))
         delete config[k]
+    }
+  }
+  if (provider === 'linkedin') {
+    const optionalKeys = ['organization_id', 'organization_name'] as const
+    for (const key of optionalKeys) {
+      if (key in incomingConfig && (incomingConfig[key] === '' || incomingConfig[key] == null))
+        delete config[key]
     }
   }
 
@@ -60,8 +73,9 @@ export default defineEventHandler(async (event) => {
     const pageId = String(incomingConfig.page_id || '').trim()
     const userToken = decryptSecret(config.access_token_enc)
     if (pageId && userToken) {
+      const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
       const res = await $fetch<{ data?: Array<{ id?: string, access_token?: string }> }>(
-        'https://graph.facebook.com/v20.0/me/accounts',
+        `https://graph.facebook.com/${graphVersion}/me/accounts`,
         {
           query: {
             fields: 'id,access_token',
@@ -98,6 +112,110 @@ export default defineEventHandler(async (event) => {
   }
 
   await clearMarketingCampaignCacheForTenant(client, tenantId)
+
+  if (provider === 'meta') {
+    const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
+    const userToken = decryptSecret(config.access_token_enc)
+    const pageId = String(config.page_id || '')
+    const instagramId = String(config.instagram_business_account_id || '')
+    const rows: Array<Record<string, unknown>> = []
+
+    if (pageId && userToken) {
+      const page = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/${pageId}`, {
+        query: { fields: 'id,name,picture', access_token: userToken },
+      }).catch(() => null)
+      if (page?.name)
+        config.page_name = page.name
+      rows.push({
+        tenant_id: tenantId,
+        platform: 'facebook',
+        provider: 'meta',
+        integration_id: data.id,
+        external_account_id: pageId,
+        name: page?.name || `Página ${pageId}`,
+        avatar_url: page?.picture?.data?.url || null,
+        capabilities: ['publish_post'],
+        is_active: true,
+      })
+    }
+
+    if (instagramId && userToken) {
+      const account = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/${instagramId}`, {
+        query: { fields: 'id,name,username,profile_picture_url', access_token: userToken },
+      }).catch(() => null)
+      if (account?.name || account?.username)
+        config.instagram_name = account.name || account.username
+      if (account?.username)
+        config.instagram_username = account.username
+      rows.push({
+        tenant_id: tenantId,
+        platform: 'instagram',
+        provider: 'meta',
+        integration_id: data.id,
+        external_account_id: instagramId,
+        name: account?.name || account?.username || `Instagram ${instagramId}`,
+        username: account?.username || null,
+        avatar_url: account?.profile_picture_url || null,
+        capabilities: ['publish_image', 'publish_video', 'publish_carousel'],
+        is_active: true,
+      })
+    }
+
+    const { error: deactivateError } = await client
+      .from('social_accounts')
+      .update({ is_active: false })
+      .eq('tenant_id', tenantId)
+      .eq('provider', 'meta')
+    if (deactivateError)
+      throw createError({ statusCode: 500, statusMessage: deactivateError.message })
+
+    if (rows.length) {
+      const { error: accountsError } = await client
+        .from('social_accounts')
+        .upsert(rows, { onConflict: 'tenant_id,platform,external_account_id' })
+      if (accountsError)
+        throw createError({ statusCode: 500, statusMessage: accountsError.message })
+    }
+
+    await client
+      .from('marketing_integrations')
+      .update({ config })
+      .eq('id', data.id)
+  }
+
+  if (provider === 'linkedin' && config.organization_id) {
+    const { error: deactivateError } = await client
+      .from('social_accounts')
+      .update({ is_active: false })
+      .eq('tenant_id', tenantId)
+      .eq('provider', 'linkedin')
+    if (deactivateError)
+      throw createError({ statusCode: 500, statusMessage: deactivateError.message })
+
+    const { error: accountError } = await client.from('social_accounts').upsert({
+      tenant_id: tenantId,
+      platform: 'linkedin',
+      provider: 'linkedin',
+      integration_id: data.id,
+      external_account_id: String(config.organization_id),
+      name: String(config.organization_name || `Organização ${config.organization_id}`),
+      capabilities: ['publish_post', 'publish_image', 'publish_video'],
+      is_active: true,
+      token_expires_at: config.token_expires_at || null,
+    }, { onConflict: 'tenant_id,platform,external_account_id' })
+    if (accountError)
+      throw createError({ statusCode: 500, statusMessage: accountError.message })
+  }
+
+  if (provider === 'linkedin' && !config.organization_id) {
+    const { error: deactivateError } = await client
+      .from('social_accounts')
+      .update({ is_active: false })
+      .eq('tenant_id', tenantId)
+      .eq('provider', 'linkedin')
+    if (deactivateError)
+      throw createError({ statusCode: 500, statusMessage: deactivateError.message })
+  }
 
   return { data }
 })

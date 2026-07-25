@@ -1,5 +1,6 @@
 export interface NavBase {
   roles?: string[]
+  capability?: string
 }
 
 export interface NavLink extends NavBase {
