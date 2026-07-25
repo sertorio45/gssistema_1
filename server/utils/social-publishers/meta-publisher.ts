@@ -187,11 +187,19 @@ export async function publishToMeta(input: MetaPublishInput) {
     .maybeSingle()
 
   const config = integration?.config || {}
-  const token = input.account.platform === 'facebook'
-    ? decryptSecret(config.page_access_token_enc) || decryptSecret(config.access_token_enc)
-    : decryptSecret(config.access_token_enc)
-  if (!token)
-    throw createError({ statusCode: 401, statusMessage: 'Integração Meta sem token válido' })
+  // Instagram Graph API (Facebook Login) and Facebook Page publishing both require
+  // a Page access token of the Page linked to the Instagram professional account.
+  const pageToken = decryptSecret(config.page_access_token_enc)
+  const userToken = decryptSecret(config.access_token_enc)
+  const token = pageToken || (input.account.platform === 'facebook' ? userToken : null)
+  if (!token) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: input.account.platform === 'instagram'
+        ? 'Integração Meta sem token da Página. Selecione novamente a Página do Facebook vinculada ao Instagram.'
+        : 'Integração Meta sem token válido',
+    })
+  }
 
   const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
   const graphBase = `https://graph.facebook.com/${graphVersion}`

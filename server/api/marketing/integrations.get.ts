@@ -27,6 +27,10 @@ export default defineEventHandler(async (event) => {
       = decryptSecret(config.access_token_enc)
         || decryptSecret(config.refresh_token_enc)
         || decryptSecret(config.developer_token_enc)
+    const pageToken = decryptSecret(config.page_access_token_enc)
+    const missingPublishScopes = Array.isArray(config.missing_publish_scopes)
+      ? config.missing_publish_scopes
+      : []
 
     return {
       id: row.id,
@@ -43,6 +47,11 @@ export default defineEventHandler(async (event) => {
         page_access_token_enc: undefined,
       },
       has_key: Boolean(token),
+      has_page_token: Boolean(pageToken),
+      missing_publish_scopes: missingPublishScopes,
+      can_publish: row.provider === 'meta'
+        ? Boolean(pageToken) && missingPublishScopes.length === 0
+        : Boolean(token),
       masked_key: maskSensitiveValue(token),
     }
   })

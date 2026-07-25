@@ -75,20 +75,27 @@ export default defineEventHandler(async (event) => {
     const userToken = decryptSecret(config.access_token_enc)
     if (pageId && userToken) {
       const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
-      const res = await $fetch<{ data?: Array<{ id?: string, access_token?: string }> }>(
+      const res = await $fetch<{ data?: Array<{ id?: string, access_token?: string, tasks?: string[] }> }>(
         `https://graph.facebook.com/${graphVersion}/me/accounts`,
         {
           query: {
-            fields: 'id,access_token',
+            fields: 'id,access_token,tasks',
             access_token: userToken,
           },
         },
       ).catch(() => ({ data: [] }))
       const row = (res.data || []).find(p => String(p.id) === pageId)
-      if (row?.access_token)
+      if (row?.access_token) {
         config.page_access_token_enc = encryptSecret(row.access_token)
-      else
+        config.page_tasks = row.tasks || []
+      }
+      else {
         delete config.page_access_token_enc
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Não foi possível obter o token da Página. Reconecte a Meta com as permissões pages_manage_posts e pages_show_list, e confirme que seu usuário tem função na Página.',
+        })
+      }
     }
     else {
       delete config.page_access_token_enc

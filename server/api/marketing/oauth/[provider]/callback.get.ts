@@ -72,6 +72,8 @@ export default defineEventHandler(async (event) => {
   let accessToken = ''
   let refreshToken = ''
   let expiresIn: number | null = null
+  let grantedScopes: string[] = []
+  let missingPublishScopes: string[] = []
 
   if (provider === 'meta') {
     if (!process.env.META_APP_ID || !process.env.META_APP_SECRET) {
@@ -103,6 +105,22 @@ export default defineEventHandler(async (event) => {
     }).catch(() => null)
     accessToken = longLivedResponse?.access_token || shortLivedToken
     expiresIn = Number(longLivedResponse?.expires_in || tokenResponse?.expires_in || 0) || null
+
+    const appToken = `${process.env.META_APP_ID}|${process.env.META_APP_SECRET}`
+    const debug = await $fetch<any>(`https://graph.facebook.com/${graphVersion}/debug_token`, {
+      query: {
+        input_token: accessToken,
+        access_token: appToken,
+      },
+    }).catch(() => null)
+    grantedScopes = (debug?.data?.scopes || []) as string[]
+    const requiredPublishScopes = [
+      'pages_manage_posts',
+      'pages_show_list',
+      'instagram_basic',
+      'instagram_content_publish',
+    ]
+    missingPublishScopes = requiredPublishScopes.filter(scope => !grantedScopes.includes(scope))
   }
   else if (provider === 'linkedin') {
     const clientId = process.env.LINKEDIN_CLIENT_ID || ''
@@ -165,6 +183,15 @@ export default defineEventHandler(async (event) => {
   }
   if (expiresIn)
     config.token_expires_at = new Date(Date.now() + expiresIn * 1000).toISOString()
+  if (provider === 'meta') {
+    config.granted_scopes = grantedScopes
+    if (missingPublishScopes.length)
+      config.missing_publish_scopes = missingPublishScopes
+    else
+      delete config.missing_publish_scopes
+    // Page token must be refreshed after reconnecting.
+    delete config.page_access_token_enc
+  }
 
   const { data: existing } = await client
     .from('marketing_integrations')
@@ -174,6 +201,8 @@ export default defineEventHandler(async (event) => {
     .maybeSingle()
 
   const mergedConfig = { ...(existing?.config || {}), ...config }
+  if (provider === 'meta' && !missingPublishScopes.length)
+    delete mergedConfig.missing_publish_scopes
 
   const { error } = await client
     .from('marketing_integrations')
@@ -197,8 +226,18 @@ export default defineEventHandler(async (event) => {
     actorId: oauthState.user_id,
     action: 'integration.connected',
     entityType: 'marketing_integration',
-    after: { provider },
+    after: {
+      provider,
+      grantedScopes: provider === 'meta' ? grantedScopes : undefined,
+      missingPublishScopes: provider === 'meta' ? missingPublishScopes : undefined,
+    },
   })
 
-  return sendRedirect(event, `${oauthState.redirect_path || '/marketing/integrations'}?oauth=success&provider=${provider}`, 302)
+  const redirectBase = oauthState.redirect_path || '/marketing/integrations'
+  if (provider === 'meta' && missingPublishScopes.length) {
+    const message = `Conectado, mas faltam permissões de publicação: ${missingPublishScopes.join(', ')}. Reconecte e aceite todas as permissões, ou solicite Advanced Access no app Meta.`
+    return sendRedirect(event, `${redirectBase}?oauth=error&provider=meta&message=${encodeURIComponent(message)}`, 302)
+  }
+
+  return sendRedirect(event, `${redirectBase}?oauth=success&provider=${provider}`, 302)
 })

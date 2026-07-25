@@ -59,6 +59,25 @@ function rowFor(provider: Provider) {
   return integrations.value?.find((r: any) => r.provider === provider)
 }
 
+const metaPublishReady = computed(() => {
+  const row = rowFor('meta')
+  if (!row?.has_key)
+    return false
+  return Boolean(row.can_publish)
+})
+
+const metaPublishIssues = computed(() => {
+  const row = rowFor('meta')
+  if (!row?.has_key)
+    return [] as string[]
+  const issues: string[] = []
+  if (Array.isArray(row.missing_publish_scopes) && row.missing_publish_scopes.length)
+    issues.push(`Permissões faltando: ${row.missing_publish_scopes.join(', ')}`)
+  if (!row.has_page_token)
+    issues.push('Selecione a Página do Facebook (necessário para publicar no Facebook e no Instagram).')
+  return issues
+})
+
 function displayAccountLabel(provider: Provider): string {
   const row = rowFor(provider)
   if (!row?.has_key)
@@ -542,7 +561,7 @@ watch(
         Integrações
       </h1>
       <p class="mt-1 max-w-3xl text-muted-foreground">
-        Conecte Google Ads, Google Analytics, Meta e LinkedIn. As credenciais ficam apenas no servidor.
+        Cada empresa conecta a própria conta Meta/LinkedIn/Google. As credenciais ficam apenas no servidor, por tenant.
       </p>
     </div>
 
@@ -550,6 +569,19 @@ watch(
       <Icon name="lucide:triangle-alert" class="h-4 w-4" />
       <AlertTitle>Falha na integração</AlertTitle>
       <AlertDescription>{{ lastError }}</AlertDescription>
+    </Alert>
+
+    <Alert v-if="isConnected('meta') && metaPublishIssues.length">
+      <Icon name="lucide:info" class="h-4 w-4" />
+      <AlertTitle>Meta conectada, mas publicação incompleta</AlertTitle>
+      <AlertDescription class="space-y-1">
+        <p v-for="issue in metaPublishIssues" :key="issue">
+          {{ issue }}
+        </p>
+        <p>
+          Clique em <strong>Conectar conta</strong> novamente, aceite todas as permissões e selecione a Página vinculada ao Instagram.
+        </p>
+      </AlertDescription>
     </Alert>
 
     <div class="grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
@@ -662,11 +694,26 @@ watch(
           </p>
           <div
             v-if="isConnected('meta')"
-            class="mt-6 flex items-center gap-2 text-sm text-muted-foreground"
+            class="mt-6 flex items-center gap-2 text-sm"
+            :class="metaPublishReady ? 'text-muted-foreground' : 'text-amber-600 dark:text-amber-400'"
           >
-            <span class="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
-            <span>Conectado</span>
+            <span
+              class="h-2 w-2 shrink-0 rounded-full"
+              :class="metaPublishReady ? 'bg-emerald-500' : 'bg-amber-500'"
+              aria-hidden="true"
+            />
+            <span>{{ metaPublishReady ? 'Pronto para publicar' : 'Conectado — falta configurar publicação' }}</span>
           </div>
+          <Button
+            v-if="isConnected('meta') && !metaPublishReady"
+            variant="outline"
+            size="sm"
+            class="mt-3 rounded-full"
+            :disabled="primaryDisabled('meta')"
+            @click="connectProvider('meta')"
+          >
+            Reconectar Meta
+          </Button>
         </CardContent>
       </Card>
 

@@ -61,17 +61,25 @@ export default defineEventHandler(async (event) => {
     if (!clientId) {
       throw createError({ statusCode: 500, statusMessage: 'META_APP_ID não configurado' })
     }
+    // Facebook Login for Business / Instagram Graph API with Facebook Login.
+    // End users (any tenant) authorize THEIR pages/IG — not only app admins.
+    // Advanced Access in Meta App Review is required for non-tester accounts.
     const scopes = [
+      'public_profile',
+      'email',
+      'business_management',
       'ads_read',
       'ads_management',
-      'business_management',
       'read_insights',
       'pages_show_list',
       'pages_read_engagement',
+      'pages_manage_metadata',
       'pages_manage_posts',
+      'pages_read_user_content',
       'instagram_basic',
       'instagram_content_publish',
       'instagram_manage_insights',
+      'instagram_manage_comments',
     ].join(',')
     const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
     const url = new URL(`https://www.facebook.com/${graphVersion}/dialog/oauth`)
@@ -79,6 +87,9 @@ export default defineEventHandler(async (event) => {
     url.searchParams.set('redirect_uri', callbackUrl)
     url.searchParams.set('state', state)
     url.searchParams.set('scope', scopes)
+    // Force permission dialog again so previously connected tenants re-grant publish scopes.
+    url.searchParams.set('auth_type', 'rerequest')
+    url.searchParams.set('response_type', 'code')
     return { redirectTo: url.toString() }
   }
 
