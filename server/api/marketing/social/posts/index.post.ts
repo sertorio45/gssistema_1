@@ -8,7 +8,7 @@ import { validateSocialPostAssets } from '~/server/utils/social-post-assets'
 const variantSchema = z.object({
   accountId: z.string().uuid(),
   platform: z.enum(['facebook', 'instagram', 'linkedin']),
-  format: z.enum(['static', 'carousel', 'video']).default('static'),
+  format: z.enum(['static', 'carousel', 'video', 'story']).default('static'),
   caption: z.string().max(5000).default(''),
   linkUrl: z.string().url().nullable().optional(),
   hashtags: z.array(z.string().max(100)).max(30).default([]),

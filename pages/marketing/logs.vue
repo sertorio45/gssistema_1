@@ -17,6 +17,8 @@ const actionLabels: Record<string, string> = {
   'social_post.updated': 'Publicação atualizada',
   'social_post.deleted': 'Publicação excluída',
   'social_post.scheduled': 'Publicação agendada',
+  'social_post.publish_now': 'Publicar agora',
+  'social_post.stories_share': 'Compartilhado nos Stories',
   'social_post.submitted': 'Enviado para aprovação',
   'social_post.channel_published': 'Canal publicado',
   'social_post.published': 'Publicação concluída',

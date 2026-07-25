@@ -160,13 +160,22 @@ export async function submitPostForApproval(
   }
   for (const variant of variants) {
     const assetCount = assetCountByVariant.get(variant.id) || 0
+    if (variant.format === 'story' && !['facebook', 'instagram'].includes(variant.platform)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Stories só está disponível no Facebook e Instagram',
+      })
+    }
     const minimumAssets = variant.format === 'carousel' ? 2 : 1
-    if (assetCount < minimumAssets) {
+    const maximumAssets = variant.format === 'story' ? 1 : variant.format === 'carousel' ? 10 : 10
+    if (assetCount < minimumAssets || assetCount > maximumAssets) {
       throw createError({
         statusCode: 400,
         statusMessage: variant.format === 'carousel'
           ? 'Cada carrossel precisa de pelo menos duas peças'
-          : 'Cada canal precisa de uma peça final',
+          : variant.format === 'story'
+            ? 'Stories precisa de exatamente uma peça'
+            : 'Cada canal precisa de uma peça final',
       })
     }
   }
@@ -334,16 +343,99 @@ export async function decideApproval(
       .eq('id', request.post_id)
 
     const post = Array.isArray(request.social_posts) ? request.social_posts[0] : request.social_posts
+    let scheduleResult: {
+      autoScheduled: boolean
+      needsScheduleChoice: boolean
+      scheduledAt: string | null
+      reason: 'future' | 'past' | 'missing' | 'enqueue_failed' | null
+    } = {
+      autoScheduled: false,
+      needsScheduleChoice: false,
+      scheduledAt: null,
+      reason: null,
+    }
+
+    if (resolvedStatus === 'approved') {
+      const { data: fullPost } = await client
+        .from('social_posts')
+        .select('scheduled_at')
+        .eq('tenant_id', input.tenantId)
+        .eq('id', request.post_id)
+        .maybeSingle()
+
+      const scheduledAt = fullPost?.scheduled_at ? String(fullPost.scheduled_at) : null
+      scheduleResult.scheduledAt = scheduledAt
+
+      if (scheduledAt && new Date(scheduledAt).getTime() > Date.now() + 15_000) {
+        try {
+          await enqueueApprovedPost(client, {
+            tenantId: input.tenantId,
+            postId: request.post_id,
+            scheduledAt,
+          })
+          scheduleResult = {
+            autoScheduled: true,
+            needsScheduleChoice: false,
+            scheduledAt,
+            reason: 'future',
+          }
+        }
+        catch {
+          scheduleResult = {
+            autoScheduled: false,
+            needsScheduleChoice: true,
+            scheduledAt,
+            reason: 'enqueue_failed',
+          }
+        }
+      }
+      else if (scheduledAt) {
+        scheduleResult = {
+          autoScheduled: false,
+          needsScheduleChoice: true,
+          scheduledAt,
+          reason: 'past',
+        }
+      }
+      else {
+        scheduleResult = {
+          autoScheduled: false,
+          needsScheduleChoice: true,
+          scheduledAt: null,
+          reason: 'missing',
+        }
+      }
+    }
+
     if (post?.created_by) {
+      const scheduleHint = scheduleResult.autoScheduled
+        ? ' A publicação foi agendada automaticamente.'
+        : scheduleResult.reason === 'past'
+          ? ' O horário definido já passou — publique agora ou escolha outro horário.'
+          : scheduleResult.needsScheduleChoice
+            ? ' Defina um horário ou publique agora.'
+            : ''
+
       await createSocialNotification(client, {
         tenantId: input.tenantId,
         userId: post.created_by,
         type: resolvedStatus,
         title: resolvedStatus === 'approved' ? 'Arte aprovada' : 'Ajustes solicitados',
-        body: `${post.title} recebeu uma nova decisão.`,
+        body: `${post.title} recebeu uma nova decisão.${scheduleHint}`,
         actionUrl: `/marketing/production/${request.post_id}`,
-        metadata: { postId: request.post_id, requestId: request.id },
+        metadata: {
+          postId: request.post_id,
+          requestId: request.id,
+          scheduleResult,
+        },
       })
+    }
+
+    return {
+      status: resolvedStatus,
+      approvedCount,
+      approverCount: approverCount || 0,
+      scheduleResult,
     }
   }
 
@@ -356,6 +448,7 @@ export async function enqueueApprovedPost(
     tenantId: string
     postId: string
     scheduledAt?: string | null
+    publishNow?: boolean
   },
 ) {
   const { data: post, error: postError } = await client
@@ -367,10 +460,19 @@ export async function enqueueApprovedPost(
 
   if (postError || !post)
     throw createError({ statusCode: 404, statusMessage: 'Publicação não encontrada' })
-  if (post.status !== 'approved' || !post.approved_version_id)
+  if (!post.approved_version_id)
     throw createError({ statusCode: 409, statusMessage: 'A versão atual ainda não foi aprovada' })
+  if (!['approved', 'scheduled', 'failed'].includes(post.status)) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Só é possível publicar posts aprovados, agendados ou com falha',
+    })
+  }
 
-  const scheduledAt = input.scheduledAt || post.scheduled_at || new Date().toISOString()
+  const scheduledAt = input.publishNow
+    ? new Date().toISOString()
+    : (input.scheduledAt || post.scheduled_at || new Date().toISOString())
+
   const { data: variants, error: variantsError } = await client
     .from('social_post_variants')
     .select('id, account_id')
@@ -380,23 +482,71 @@ export async function enqueueApprovedPost(
   if (variantsError || !variants?.length)
     throw createError({ statusCode: 400, statusMessage: 'Adicione ao menos um canal de publicação' })
 
-  const rows = variants.map((variant: { id: string, account_id: string }) => ({
-    tenant_id: input.tenantId,
-    post_id: input.postId,
-    variant_id: variant.id,
-    version_id: post.approved_version_id,
-    account_id: variant.account_id,
-    scheduled_at: scheduledAt,
-    idempotency_key: `${input.postId}:${post.approved_version_id}:${variant.id}`,
-  }))
-
-  const { data: jobs, error: jobsError } = await client
+  const { data: existingJobs } = await client
     .from('publication_jobs')
-    .upsert(rows, { onConflict: 'idempotency_key', ignoreDuplicates: true })
-    .select('*')
+    .select('id, variant_id, status, idempotency_key')
+    .eq('tenant_id', input.tenantId)
+    .eq('post_id', input.postId)
+    .eq('version_id', post.approved_version_id)
 
-  if (jobsError)
-    throw createError({ statusCode: 400, statusMessage: jobsError.message })
+  const publishedVariantIds = new Set(
+    (existingJobs || [])
+      .filter((job: any) => job.status === 'published' || job.status === 'processing')
+      .map((job: any) => String(job.variant_id)),
+  )
+
+  const rows = variants
+    .filter((variant: { id: string }) => !publishedVariantIds.has(String(variant.id)))
+    .map((variant: { id: string, account_id: string }) => ({
+      tenant_id: input.tenantId,
+      post_id: input.postId,
+      variant_id: variant.id,
+      version_id: post.approved_version_id,
+      account_id: variant.account_id,
+      scheduled_at: scheduledAt,
+      status: 'pending',
+      next_attempt_at: null,
+      last_error_code: null,
+      last_error_message: null,
+      locked_at: null,
+      locked_by: null,
+      attempts: 0,
+      idempotency_key: `${input.postId}:${post.approved_version_id}:${variant.id}`,
+    }))
+
+  if (!rows.length && publishedVariantIds.size === variants.length) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Todos os canais desta versão já foram publicados',
+    })
+  }
+
+  let jobs: any[] = []
+  if (rows.length) {
+    const { data, error: jobsError } = await client
+      .from('publication_jobs')
+      .upsert(rows, { onConflict: 'idempotency_key' })
+      .select('*')
+    if (jobsError)
+      throw createError({ statusCode: 400, statusMessage: jobsError.message })
+    jobs = data || []
+  }
+
+  await client
+    .from('publication_jobs')
+    .update({
+      scheduled_at: scheduledAt,
+      status: 'pending',
+      next_attempt_at: null,
+      last_error_code: null,
+      last_error_message: null,
+      locked_at: null,
+      locked_by: null,
+    })
+    .eq('tenant_id', input.tenantId)
+    .eq('post_id', input.postId)
+    .eq('version_id', post.approved_version_id)
+    .in('status', ['pending', 'retrying', 'failed'])
 
   await client
     .from('social_posts')
@@ -404,5 +554,5 @@ export async function enqueueApprovedPost(
     .eq('tenant_id', input.tenantId)
     .eq('id', input.postId)
 
-  return jobs || []
+  return jobs
 }

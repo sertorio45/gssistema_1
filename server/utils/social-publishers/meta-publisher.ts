@@ -12,6 +12,13 @@ interface MetaPublishInput {
   assets: any[]
 }
 
+interface MetaDeleteInput {
+  client: any
+  tenantId: string
+  account: any
+  externalPostId: string
+}
+
 async function waitForInstagramContainer(
   graphBase: string,
   containerId: string,
@@ -45,7 +52,72 @@ async function getSignedAssetUrls(client: any, assets: any[]) {
   }))
 }
 
+async function resolveMetaPageToken(client: any, tenantId: string, platform: string) {
+  const { data: integration } = await client
+    .from('marketing_integrations')
+    .select('config')
+    .eq('tenant_id', tenantId)
+    .eq('provider', 'meta')
+    .eq('is_active', true)
+    .maybeSingle()
+
+  const config = integration?.config || {}
+  const pageToken = decryptSecret(config.page_access_token_enc)
+  const userToken = decryptSecret(config.access_token_enc)
+  const token = pageToken || (platform === 'facebook' ? userToken : null)
+  if (!token) {
+    throw createError({
+      statusCode: 401,
+      statusMessage: platform === 'instagram'
+        ? 'Integração Meta sem token da Página. Selecione novamente a Página do Facebook vinculada ao Instagram.'
+        : 'Integração Meta sem token válido',
+    })
+  }
+  return {
+    token,
+    pageId: String(config.page_id || ''),
+    graphVersion: process.env.META_GRAPH_VERSION || 'v20.0',
+  }
+}
+
+async function publishInstagramStory(input: MetaPublishInput, token: string, graphBase: string) {
+  const media = await getSignedAssetUrls(input.client, input.assets)
+  if (media.length !== 1)
+    throw createError({ statusCode: 400, statusMessage: 'Stories do Instagram aceitam exatamente uma peça' })
+
+  const asset = media[0]
+  const isVideo = String(asset.mime_type).startsWith('video/')
+  const body: Record<string, unknown> = {
+    access_token: token,
+    media_type: 'STORIES',
+  }
+  if (isVideo)
+    body.video_url = asset.signedUrl
+  else
+    body.image_url = asset.signedUrl
+
+  const container = await $fetch<any>(
+    `${graphBase}/${input.account.external_account_id}/media`,
+    { method: 'POST', body },
+  )
+  await waitForInstagramContainer(graphBase, container.id, token)
+  const published = await $fetch<any>(
+    `${graphBase}/${input.account.external_account_id}/media_publish`,
+    {
+      method: 'POST',
+      body: { creation_id: container.id, access_token: token },
+    },
+  )
+  return {
+    externalPostId: String(published.id),
+    externalPostUrl: null,
+  }
+}
+
 async function publishInstagram(input: MetaPublishInput, token: string, graphBase: string) {
+  if (input.variant.format === 'story')
+    return publishInstagramStory(input, token, graphBase)
+
   const media = await getSignedAssetUrls(input.client, input.assets)
   if (!media.length)
     throw createError({ statusCode: 400, statusMessage: 'Instagram exige ao menos uma mídia' })
@@ -112,7 +184,70 @@ async function publishInstagram(input: MetaPublishInput, token: string, graphBas
   }
 }
 
+async function publishFacebookStory(input: MetaPublishInput, token: string, graphBase: string) {
+  const media = await getSignedAssetUrls(input.client, input.assets)
+  if (media.length !== 1)
+    throw createError({ statusCode: 400, statusMessage: 'Stories do Facebook aceitam exatamente uma peça' })
+
+  const asset = media[0]
+  const isVideo = String(asset.mime_type).startsWith('video/')
+  const pageId = input.account.external_account_id
+
+  if (isVideo) {
+    const session = await $fetch<any>(`${graphBase}/${pageId}/video_stories`, {
+      method: 'POST',
+      body: { upload_phase: 'start', access_token: token },
+    })
+    if (!session?.video_id || !session?.upload_url) {
+      throw createError({ statusCode: 502, statusMessage: 'Não foi possível iniciar o upload do story de vídeo' })
+    }
+
+    await $fetch(session.upload_url, {
+      method: 'POST',
+      headers: { file_url: String(asset.signedUrl) },
+    })
+
+    const published = await $fetch<any>(`${graphBase}/${pageId}/video_stories`, {
+      method: 'POST',
+      body: {
+        upload_phase: 'finish',
+        video_id: session.video_id,
+        access_token: token,
+      },
+    })
+    return {
+      externalPostId: String(published.post_id || session.video_id),
+      externalPostUrl: null,
+    }
+  }
+
+  // Facebook Stories cannot reuse a photo already published to feed.
+  // Always upload a fresh unpublished photo, then publish as story.
+  const uploaded = await $fetch<any>(`${graphBase}/${pageId}/photos`, {
+    method: 'POST',
+    body: {
+      url: asset.signedUrl,
+      published: false,
+      access_token: token,
+    },
+  })
+  const published = await $fetch<any>(`${graphBase}/${pageId}/photo_stories`, {
+    method: 'POST',
+    body: {
+      photo_id: uploaded.id,
+      access_token: token,
+    },
+  })
+  return {
+    externalPostId: String(published.post_id || uploaded.id),
+    externalPostUrl: null,
+  }
+}
+
 async function publishFacebook(input: MetaPublishInput, token: string, graphBase: string) {
+  if (input.variant.format === 'story')
+    return publishFacebookStory(input, token, graphBase)
+
   const media = await getSignedAssetUrls(input.client, input.assets)
   const message = [
     input.variant.caption || '',
@@ -178,32 +313,37 @@ async function publishFacebook(input: MetaPublishInput, token: string, graphBase
 }
 
 export async function publishToMeta(input: MetaPublishInput) {
-  const { data: integration } = await input.client
-    .from('marketing_integrations')
-    .select('config')
-    .eq('tenant_id', input.tenantId)
-    .eq('provider', 'meta')
-    .eq('is_active', true)
-    .maybeSingle()
-
-  const config = integration?.config || {}
-  // Instagram Graph API (Facebook Login) and Facebook Page publishing both require
-  // a Page access token of the Page linked to the Instagram professional account.
-  const pageToken = decryptSecret(config.page_access_token_enc)
-  const userToken = decryptSecret(config.access_token_enc)
-  const token = pageToken || (input.account.platform === 'facebook' ? userToken : null)
-  if (!token) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: input.account.platform === 'instagram'
-        ? 'Integração Meta sem token da Página. Selecione novamente a Página do Facebook vinculada ao Instagram.'
-        : 'Integração Meta sem token válido',
-    })
-  }
-
-  const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
+  const { token, graphVersion } = await resolveMetaPageToken(input.client, input.tenantId, input.account.platform)
   const graphBase = `https://graph.facebook.com/${graphVersion}`
   if (input.account.platform === 'instagram')
     return publishInstagram(input, token, graphBase)
   return publishFacebook(input, token, graphBase)
+}
+
+export async function deleteFromMeta(input: MetaDeleteInput) {
+  const { token, graphVersion } = await resolveMetaPageToken(input.client, input.tenantId, input.account.platform)
+  const graphBase = `https://graph.facebook.com/${graphVersion}`
+  const externalPostId = String(input.externalPostId || '').trim()
+  if (!externalPostId)
+    return { deleted: false, skipped: true }
+
+  try {
+    await $fetch(`${graphBase}/${externalPostId}`, {
+      method: 'DELETE',
+      query: { access_token: token },
+    })
+    return { deleted: true, skipped: false }
+  }
+  catch (error: any) {
+    const message = String(
+      error?.data?.error?.message
+      || error?.statusMessage
+      || error?.message
+      || 'Falha ao excluir na Meta',
+    )
+    // Already gone / expired stories should not block local deletion.
+    if (/does not exist|unsupported get request|object with id/i.test(message))
+      return { deleted: false, skipped: true, message }
+    throw createError({ statusCode: 502, statusMessage: message })
+  }
 }

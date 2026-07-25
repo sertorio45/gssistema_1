@@ -80,6 +80,7 @@ export default defineEventHandler(async (event) => {
       'instagram_content_publish',
       'instagram_manage_insights',
       'instagram_manage_comments',
+      'instagram_manage_contents',
     ].join(',')
     const graphVersion = process.env.META_GRAPH_VERSION || 'v20.0'
     const url = new URL(`https://www.facebook.com/${graphVersion}/dialog/oauth`)

@@ -1,10 +1,13 @@
-import { getRouterParam } from 'h3'
+import { getRouterParam, getQuery } from 'h3'
 
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
+import { deleteRemoteSocialPosts } from '~/server/utils/social-remote-delete'
 
 export default defineEventHandler(async (event) => {
   const postId = String(getRouterParam(event, 'id'))
+  const query = getQuery(event)
+  const deleteRemote = String(query.delete_remote || 'true') !== 'false'
   const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.create')
 
   const { data: post, error: postError } = await client
@@ -23,6 +26,19 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  let remoteResults: Awaited<ReturnType<typeof deleteRemoteSocialPosts>> = []
+  if (deleteRemote) {
+    remoteResults = await deleteRemoteSocialPosts(client, { tenantId, postId })
+    const hardFailures = remoteResults.filter(result => !result.deleted && !result.skipped && result.error)
+    if (hardFailures.length && String(query.force || 'false') !== 'true') {
+      throw createError({
+        statusCode: 502,
+        statusMessage: `Não foi possível excluir em ${hardFailures.map(item => item.platform).join(', ')}. Tente novamente ou force a exclusão local.`,
+        data: { remoteResults },
+      })
+    }
+  }
+
   const { data: deleted, error } = await client.rpc('marketing_delete_social_post', {
     p_tenant_id: tenantId,
     p_post_id: postId,
@@ -38,7 +54,8 @@ export default defineEventHandler(async (event) => {
     entityType: 'social_post',
     entityId: postId,
     before: post,
+    after: { remoteResults, deleteRemote },
   })
 
-  return { success: true }
+  return { success: true, remoteResults }
 })

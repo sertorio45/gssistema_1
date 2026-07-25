@@ -14,7 +14,7 @@ export type SocialPostStatus
 export type ApprovalPolicy = 'any' | 'all' | 'minimum'
 export type ApprovalDecision = 'approved' | 'changes_requested'
 export type MediaAssetPurpose = 'reference' | 'publication'
-export type SocialPostFormat = 'static' | 'carousel' | 'video'
+export type SocialPostFormat = 'static' | 'carousel' | 'video' | 'story'
 
 export interface SocialAccount {
   id: string

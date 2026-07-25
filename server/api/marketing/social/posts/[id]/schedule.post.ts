@@ -7,6 +7,7 @@ import { enqueueApprovedPost } from '~/server/utils/social-workflow'
 
 const schema = z.object({
   scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
+  publishNow: z.boolean().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -18,15 +19,20 @@ export default defineEventHandler(async (event) => {
     tenantId,
     postId,
     scheduledAt: input.scheduledAt,
+    publishNow: Boolean(input.publishNow),
   })
 
   await recordSocialAudit(event, client, {
     tenantId,
     actorId: user.id,
-    action: 'social_post.scheduled',
+    action: input.publishNow ? 'social_post.publish_now' : 'social_post.scheduled',
     entityType: 'social_post',
     entityId: postId,
-    after: { jobIds: jobs.map((job: any) => job.id), scheduledAt: input.scheduledAt },
+    after: {
+      jobIds: jobs.map((job: any) => job.id),
+      scheduledAt: input.publishNow ? new Date().toISOString() : input.scheduledAt,
+      publishNow: Boolean(input.publishNow),
+    },
   })
 
   return { data: jobs }

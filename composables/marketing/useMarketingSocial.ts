@@ -46,10 +46,25 @@ export function useMarketingSocial() {
     return response.data
   }
 
-  async function deletePost(id: string) {
+  async function deletePost(id: string, options?: { force?: boolean, deleteRemote?: boolean }) {
     return $fetch(`/api/marketing/social/posts/${id}`, {
       method: 'DELETE',
-      query: tenantQuery(),
+      query: tenantQuery({
+        force: options?.force ? 'true' : 'false',
+        delete_remote: options?.deleteRemote === false ? 'false' : 'true',
+      }),
+    })
+  }
+
+  async function shareToStories(id: string, options?: { publishNow?: boolean, scheduledAt?: string | null, accountIds?: string[] }) {
+    return $fetch<{ data: { storyPostId: string } }>(`/api/marketing/social/posts/${id}/share-stories`, {
+      method: 'POST',
+      body: {
+        tenant_id: tenantId.value || undefined,
+        publishNow: options?.publishNow !== false,
+        scheduledAt: options?.scheduledAt || null,
+        accountIds: options?.accountIds,
+      },
     })
   }
 
@@ -68,12 +83,13 @@ export function useMarketingSocial() {
     return response.data
   }
 
-  async function schedulePost(id: string, scheduledAt?: string | null) {
+  async function schedulePost(id: string, scheduledAt?: string | null, options?: { publishNow?: boolean }) {
     return $fetch(`/api/marketing/social/posts/${id}/schedule`, {
       method: 'POST',
       body: {
         tenant_id: tenantId.value || undefined,
-        scheduledAt: scheduledAt || null,
+        scheduledAt: options?.publishNow ? null : (scheduledAt || null),
+        publishNow: Boolean(options?.publishNow),
       },
     })
   }
@@ -173,6 +189,7 @@ export function useMarketingSocial() {
     createPost,
     updatePost,
     deletePost,
+    shareToStories,
     submitForApproval,
     schedulePost,
     listApprovals,
