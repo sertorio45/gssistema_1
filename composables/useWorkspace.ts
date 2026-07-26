@@ -4,6 +4,7 @@ import type { WorkspaceContextResponse } from '~/types/workspace'
 import { createSharedComposable } from '@vueuse/core'
 import { computed, ref } from 'vue'
 
+import { holdsCapability } from '~/constants/workspace'
 import { useTenantStore } from '~/stores/tenant'
 
 const STORAGE_TENANT_KEY = 'current-tenant-id'
@@ -104,9 +105,12 @@ function _useWorkspace() {
   const isPlatformStaff = computed(() => context.value?.is_platform_staff ?? false)
   const effectiveRole = computed(() => context.value?.effective_role ?? null)
   const organizationType = computed(() => context.value?.organization?.type ?? null)
+  const organizationRelationshipType = computed(
+    () => context.value?.organization_relationship_type ?? null,
+  )
 
   function can(capability: WorkspaceCapability): boolean {
-    return capabilities.value.includes(capability)
+    return holdsCapability(capabilities.value, capability)
   }
 
   /** Portfolio features only make sense for an agency serving other companies. */
@@ -116,16 +120,41 @@ function _useWorkspace() {
     tenants.value.filter(item => item.relationship_type === 'managed'),
   )
 
+  const showOrganizationSwitcher = computed(() =>
+    isPlatformStaff.value || organizations.value.length > 1,
+  )
+
+  /** Client portfolio switcher — never for direct customers or single-tenant end users. */
+  const showClientSwitcher = computed(() => {
+    if (organizationType.value === 'direct')
+      return false
+    if (isAgencyWorkspace.value)
+      return managedTenants.value.length > 0
+    return false
+  })
+
   const showTenantSwitcher = computed(() =>
-    isPlatformStaff.value || tenants.value.length > 1,
+    showOrganizationSwitcher.value
+    || showClientSwitcher.value
+    || (isPlatformStaff.value && tenants.value.length > 0)
+    || (!isAgencyWorkspace.value && tenants.value.length > 1),
   )
 
   const showAgencyPortfolio = computed(() =>
-    isPlatformStaff.value || (isAgencyWorkspace.value && managedTenants.value.length > 0),
+    isAgencyWorkspace.value && can('agency.clients.read'),
   )
 
   const showOrganizationTeam = computed(() =>
-    can('organization.members.manage') && !!organization.value,
+    can('organization.team.manage') && !!organization.value,
+  )
+
+  const showAgencyOpsMenu = computed(() =>
+    isAgencyWorkspace.value && (
+      can('agency.clients.read')
+      || can('organization.team.manage')
+      || can('organization.roles.read')
+      || can('organization.manage')
+    ),
   )
 
   return {
@@ -136,6 +165,7 @@ function _useWorkspace() {
     organization,
     organizations,
     organizationType,
+    organizationRelationshipType,
     tenant,
     tenants,
     managedTenants,
@@ -144,9 +174,12 @@ function _useWorkspace() {
     isPlatformStaff,
     effectiveRole,
     isAgencyWorkspace,
+    showOrganizationSwitcher,
+    showClientSwitcher,
     showTenantSwitcher,
     showAgencyPortfolio,
     showOrganizationTeam,
+    showAgencyOpsMenu,
     can,
   }
 }

@@ -505,24 +505,73 @@ export const navMenuAdmin: NavMenu[] = [
 ]
 
 /**
- * Organization scope. Portfolio items are limited to agencies so a direct
- * customer never sees the client selector or the agency dashboards.
+ * Agency / organization scope. Agency-only entries stay invisible for direct
+ * customers. Marketing screens are reused with the current tenant context —
+ * open a client workspace from Clientes when an org-wide view is needed.
  */
 export const navMenuOrganization: NavMenu[] = [
   {
-    heading: 'Organização',
+    heading: 'Agência',
     items: [
       {
-        title: 'Equipe da organização',
-        icon: 'i-lucide-users-round',
-        link: '/organization/team',
-        capability: 'organization.members.manage',
+        title: 'Visão geral',
+        icon: 'i-lucide-layout-dashboard',
+        link: '/organization',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
       },
       {
-        title: 'Carteira de clientes',
+        title: 'Clientes',
         icon: 'i-lucide-network',
-        link: '/organization/portfolio',
-        capability: 'organization.tenants.read',
+        link: '/organization/clients',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
+      },
+      {
+        title: 'Equipe',
+        icon: 'i-lucide-users-round',
+        link: '/organization/team',
+        capability: 'organization.team.manage',
+      },
+      {
+        title: 'Cargos e permissões',
+        icon: 'i-lucide-shield',
+        link: '/organization/roles',
+        capability: 'organization.roles.read',
+      },
+      {
+        title: 'Aprovações',
+        icon: 'i-lucide-badge-check',
+        link: '/marketing/approvals',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
+      },
+      {
+        title: 'Produção',
+        icon: 'i-lucide-panels-top-left',
+        link: '/marketing/production',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
+      },
+      {
+        title: 'Calendário geral',
+        icon: 'i-lucide-calendar-days',
+        link: '/marketing/calendar',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
+      },
+      {
+        title: 'Relatórios',
+        icon: 'i-lucide-bar-chart-3',
+        link: '/marketing/reports',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
+      },
+      {
+        title: 'Configurações da agência',
+        icon: 'i-lucide-settings',
+        link: '/organization/settings',
+        capability: 'organization.manage',
         organizationTypes: ['agency'],
       },
     ],

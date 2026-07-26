@@ -1,5 +1,9 @@
-import { deleteFromMeta } from '~/server/utils/social-publishers/meta-publisher'
+import { deleteMetaRemoteObject } from '~/server/utils/social-publishers/meta-delete'
 
+/**
+ * Legacy helper kept for callers that still iterate variants directly.
+ * Prefer `executeSocialPostDeletion` for the full tombstone + audit flow.
+ */
 export async function deleteRemoteSocialPosts(
   client: any,
   input: {
@@ -12,8 +16,14 @@ export async function deleteRemoteSocialPosts(
     .select(`
       id,
       platform,
+      format,
       provider,
       external_post_id,
+      external_object_type,
+      external_container_id,
+      external_media_id,
+      external_permalink,
+      remote_identifiers,
       social_accounts!social_post_variants_account_id_fkey (
         id,
         platform,
@@ -26,68 +36,48 @@ export async function deleteRemoteSocialPosts(
     .eq('post_id', input.postId)
     .not('external_post_id', 'is', null)
 
-  const results: Array<{
-    variantId: string
-    platform: string
-    externalPostId: string
-    deleted: boolean
-    skipped?: boolean
-    error?: string
-  }> = []
+  const results = []
 
   for (const variant of variants || []) {
     const account = Array.isArray(variant.social_accounts)
       ? variant.social_accounts[0]
       : variant.social_accounts
-    const externalPostId = String(variant.external_post_id || '')
-    if (!externalPostId || !account) {
+    if (!account || account.provider !== 'meta') {
       results.push({
         variantId: variant.id,
         platform: variant.platform,
-        externalPostId,
+        externalPostId: variant.external_post_id,
         deleted: false,
         skipped: true,
+        error: 'Provedor sem exclusão remota',
       })
       continue
     }
 
-    try {
-      if (account.provider === 'meta') {
-        const result = await deleteFromMeta({
-          client,
-          tenantId: input.tenantId,
-          account,
-          externalPostId,
-        })
-        results.push({
-          variantId: variant.id,
-          platform: variant.platform,
-          externalPostId,
-          deleted: Boolean(result.deleted),
-          skipped: Boolean(result.skipped),
-          error: result.message,
-        })
-      }
-      else {
-        results.push({
-          variantId: variant.id,
-          platform: variant.platform,
-          externalPostId,
-          deleted: false,
-          skipped: true,
-          error: 'Exclusão remota ainda não suportada neste provedor',
-        })
-      }
-    }
-    catch (error: any) {
-      results.push({
-        variantId: variant.id,
-        platform: variant.platform,
-        externalPostId,
-        deleted: false,
-        error: error?.statusMessage || error?.message || 'Falha ao excluir remotamente',
-      })
-    }
+    const result = await deleteMetaRemoteObject({
+      client,
+      tenantId: input.tenantId,
+      account,
+      format: variant.format,
+      externalPostId: variant.external_post_id,
+      externalObjectType: variant.external_object_type,
+      externalContainerId: variant.external_container_id,
+      externalMediaId: variant.external_media_id,
+      externalPermalink: variant.external_permalink,
+      remoteIdentifiers: variant.remote_identifiers,
+    })
+
+    results.push({
+      variantId: variant.id,
+      platform: variant.platform,
+      externalPostId: result.externalObjectId,
+      deleted: result.deleted,
+      skipped: result.status === 'skipped',
+      status: result.status,
+      error: result.message || undefined,
+      retryable: result.retryable,
+      manualActionRequired: result.manualActionRequired,
+    })
   }
 
   return results

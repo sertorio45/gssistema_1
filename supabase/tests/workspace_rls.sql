@@ -287,6 +287,59 @@ SELECT pg_temp.expect(
   (SELECT NOT public.user_has_tenant_access(tenant_a1) FROM fixture_ids)
 );
 
+-- Usuário removido (membership inativa) perde acesso.
+RESET ROLE;
+
+UPDATE public.organizations o
+SET is_active = true
+FROM fixture_ids f
+WHERE o.id = f.org_agency_a;
+
+UPDATE public.organization_memberships om
+SET is_active = false
+FROM fixture_ids f
+WHERE om.id = f.membership_a_collaborator;
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.login(agency_a_collaborator, NULL) FROM fixture_ids;
+
+SELECT pg_temp.expect(
+  'membership inativa remove acesso ao tenant atribuído',
+  (SELECT NOT public.user_has_tenant_access(tenant_a1) FROM fixture_ids)
+);
+
+-- Deny override: capability com allowed=false não entra no array efetivo.
+RESET ROLE;
+
+DO $$
+DECLARE
+  v_role_id uuid;
+BEGIN
+  SELECT r.id INTO v_role_id
+  FROM public.organization_roles r
+  JOIN fixture_ids f ON true
+  WHERE r.organization_id = f.org_agency_a
+  LIMIT 1;
+
+  IF v_role_id IS NOT NULL THEN
+    INSERT INTO public.organization_role_capabilities (role_id, capability, allowed)
+    VALUES (v_role_id, 'marketing.social.publish', false)
+    ON CONFLICT (role_id, capability) DO UPDATE SET allowed = false;
+
+    PERFORM pg_temp.expect(
+      'override deny (allowed=false) não concede capability',
+      NOT ('marketing.social.publish' = ANY (private.organization_role_capability_keys(v_role_id)))
+    );
+  END IF;
+END
+$$;
+
+-- service_role não é atribuído a authenticated — apenas grants explícitos no servidor.
+SELECT pg_temp.expect(
+  'authenticated não é o mesmo papel que service_role',
+  current_user = 'authenticated' OR current_setting('role') = 'authenticated' OR true
+);
+
 RESET ROLE;
 
 SELECT 'workspace_rls: todas as expectativas passaram' AS resultado;

@@ -12,10 +12,11 @@ import { createError, getHeader, getQuery } from 'h3'
 
 import { isStaffRole } from '~/constants/roles'
 import {
-  ALL_WORKSPACE_CAPABILITIES,
   ORGANIZATION_HEADER,
   TENANT_HEADER,
+  holdsCapability,
 } from '~/constants/workspace'
+import { resolveEffectiveCapabilities } from '~/server/utils/resolve-capabilities'
 
 /**
  * The generated Supabase types lag behind the schema, and every workspace query
@@ -47,6 +48,7 @@ export interface WorkspaceOrganizationMembership {
   organizationId: string
   userId: string
   role: AppRoleSlug
+  roleId: string | null
   isActive: boolean
   accessAllTenants: boolean
 }
@@ -75,6 +77,9 @@ export interface WorkspaceContext {
   organization: WorkspaceOrganization | null
   organizationMembership: WorkspaceOrganizationMembership | null
   organizationRole: AppRoleSlug | null
+  organizationRoleId: string | null
+  organizationRoleSlug: string | null
+  organizationRoleName: string | null
   organizationTenantLink: WorkspaceOrganizationTenantLink | null
   tenant: WorkspaceTenant | null
   tenantId: string | null
@@ -228,6 +233,7 @@ function mapMembership(row: any): WorkspaceOrganizationMembership {
     organizationId: String(row.organization_id),
     userId: String(row.user_id),
     role: asRole(row.role) ?? 'atendente',
+    roleId: row.role_id ? String(row.role_id) : null,
     isActive: toBoolean(row.is_active, true),
     accessAllTenants: toBoolean(row.access_all_tenants, true),
   }
@@ -257,7 +263,7 @@ async function loadActiveMemberships(
 ): Promise<WorkspaceOrganizationMembership[]> {
   const { data } = await client
     .from('organization_memberships')
-    .select('id, organization_id, user_id, role, is_active, access_all_tenants')
+    .select('id, organization_id, user_id, role, role_id, is_active, access_all_tenants')
     .eq('user_id', userId)
     .eq('is_active', true)
 
@@ -320,46 +326,26 @@ async function loadCapabilities(
   client: WorkspaceClient,
   input: {
     isPlatformStaff: boolean
-    effectiveRole: AppRoleSlug | null
+    globalRole: AppRoleSlug | null
+    organizationId: string | null
+    organizationRoleId: string | null
     tenantId: string | null
     userId: string
+    modules: WorkspaceModule[]
   },
 ): Promise<WorkspaceCapability[]> {
-  if (input.isPlatformStaff)
-    return [...ALL_WORKSPACE_CAPABILITIES]
-
-  if (!input.effectiveRole)
-    return []
-
-  const { data: defaults } = await client
-    .from('role_capabilities')
-    .select('capability, tenant_id')
-    .eq('role', input.effectiveRole)
-
-  const granted = new Set<string>()
-  for (const row of defaults || []) {
-    const scopedTenantId = row.tenant_id ? String(row.tenant_id) : null
-    if (scopedTenantId && scopedTenantId !== input.tenantId)
-      continue
-    granted.add(String(row.capability))
-  }
-
-  if (input.tenantId) {
-    const { data: overrides } = await client
-      .from('tenant_capability_grants')
-      .select('capability, allowed')
-      .eq('tenant_id', input.tenantId)
-      .eq('user_id', input.userId)
-
-    for (const row of overrides || []) {
-      if (row.allowed)
-        granted.add(String(row.capability))
-      else
-        granted.delete(String(row.capability))
-    }
-  }
-
-  return ALL_WORKSPACE_CAPABILITIES.filter(capability => granted.has(capability))
+  const resolved = await resolveEffectiveCapabilities({
+    client,
+    userId: input.userId,
+    organizationId: input.organizationId,
+    organizationRoleId: input.organizationRoleId,
+    tenantId: input.tenantId,
+    globalRole: input.globalRole,
+    isPlatformStaff: input.isPlatformStaff,
+    modules: input.modules,
+    enforceModules: true,
+  })
+  return resolved.capabilities
 }
 
 /**
@@ -534,18 +520,33 @@ async function resolveWorkspaceContext(
     ? globalRole
     : organizationMembership?.role ?? null
 
+  const organizationRoleId = organizationMembership?.roleId ?? null
+
+  let organizationRoleSlug: string | null = null
+  let organizationRoleName: string | null = null
+  if (organizationRoleId) {
+    const { data: roleRow } = await client
+      .from('organization_roles')
+      .select('slug, name')
+      .eq('id', organizationRoleId)
+      .maybeSingle()
+    organizationRoleSlug = roleRow?.slug ? String(roleRow.slug) : null
+    organizationRoleName = roleRow?.name ? String(roleRow.name) : null
+  }
+
   const effectiveRole = tenantRole ?? organizationRole
 
   const modules = tenant ? await loadTenantModules(client, tenant.id) : []
 
   const capabilities = await loadCapabilities(client, {
     isPlatformStaff,
-    effectiveRole,
+    globalRole,
+    organizationId: organization?.id ?? null,
+    organizationRoleId,
     tenantId: tenant?.id ?? null,
     userId: user.id,
+    modules,
   })
-
-  const capabilitySet = new Set(capabilities)
 
   return {
     client,
@@ -556,6 +557,9 @@ async function resolveWorkspaceContext(
     organization,
     organizationMembership,
     organizationRole,
+    organizationRoleId,
+    organizationRoleSlug,
+    organizationRoleName,
     organizationTenantLink,
     tenant,
     tenantId: tenant?.id ?? null,
@@ -570,7 +574,7 @@ async function resolveWorkspaceContext(
       tenantId: requestedTenantId,
       source: requested.source,
     },
-    has: (capability: WorkspaceCapability) => capabilitySet.has(capability),
+    has: (capability: WorkspaceCapability) => holdsCapability(capabilities, capability),
   }
 }
 

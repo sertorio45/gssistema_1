@@ -1,43 +1,20 @@
 import type { SocialCapability } from '~/server/utils/social-context'
+
+import { holdsCapability, MARKETING_SOCIAL_CAPABILITIES } from '~/constants/workspace'
 import { requireSocialContext } from '~/server/utils/social-context'
 
-const ALL_CAPABILITIES: SocialCapability[] = [
-  'marketing.social.read',
-  'marketing.social.create',
-  'marketing.social.comment',
-  'marketing.social.approve',
-  'marketing.social.publish',
-  'marketing.social.integrations',
-  'marketing.social.manage',
-]
-
+/** Exposes the already-resolved workspace capabilities — no second role matrix. */
 export default defineEventHandler(async (event) => {
   const context = await requireSocialContext(event, 'marketing.social.read')
-  const base = context.isPlatformStaff || ['admin', 'funcionario', 'cliente'].includes(context.role)
-    ? new Set(ALL_CAPABILITIES)
-    : new Set<SocialCapability>([
-      'marketing.social.read',
-      'marketing.social.create',
-      'marketing.social.comment',
-    ])
 
-  const { data: overrides } = await context.client
-    .from('tenant_capability_grants')
-    .select('capability, allowed')
-    .eq('tenant_id', context.tenantId)
-    .eq('user_id', context.user.id)
-
-  for (const override of overrides || []) {
-    const capability = override.capability as SocialCapability
-    if (override.allowed)
-      base.add(capability)
-    else
-      base.delete(capability)
-  }
+  const capabilities = (MARKETING_SOCIAL_CAPABILITIES as readonly SocialCapability[])
+    .filter(capability => holdsCapability(context.workspace.capabilities, capability))
 
   return {
     tenantId: context.tenantId,
     role: context.role,
-    capabilities: [...base],
+    organizationRoleId: context.workspace.organizationRoleId,
+    organizationRoleSlug: context.workspace.organizationRoleSlug,
+    capabilities,
   }
 })

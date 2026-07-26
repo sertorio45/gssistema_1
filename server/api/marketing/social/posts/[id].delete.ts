@@ -1,61 +1,113 @@
-import { getRouterParam, getQuery } from 'h3'
+import { getRouterParam, readBody } from 'h3'
+import { z } from 'zod'
 
+import { executeSocialPostDeletion } from '~/server/utils/social-deletion-domain'
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
-import { deleteRemoteSocialPosts } from '~/server/utils/social-remote-delete'
 
+const bodySchema = z.object({
+  mode: z.enum(['cancel_draft', 'system_and_remote', 'system_only', 'retry_remote']),
+  reason: z.string().trim().max(2000).nullable().optional(),
+  confirmRemoteDeletion: z.boolean().optional(),
+  confirmLocalOnly: z.boolean().optional(),
+  forceCompleteLocal: z.boolean().optional(),
+  manualConfirmations: z.array(z.object({
+    variantId: z.string().uuid(),
+    confirmed: z.boolean(),
+  })).optional(),
+  tenant_id: z.string().uuid().optional(),
+})
+
+/**
+ * Soft-delete + optional remote Meta deletion.
+ * Capabilities are re-validated in the domain layer (UI may only hide buttons).
+ */
 export default defineEventHandler(async (event) => {
   const postId = String(getRouterParam(event, 'id'))
-  const query = getQuery(event)
-  const deleteRemote = String(query.delete_remote || 'true') !== 'false'
-  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.create')
+  const body = bodySchema.parse(await readBody(event) || {})
 
-  const { data: post, error: postError } = await client
-    .from('social_posts')
-    .select('*')
-    .eq('tenant_id', tenantId)
-    .eq('id', postId)
-    .maybeSingle()
+  // Preliminary gate — domain re-checks the precise capability matrix.
+  const preliminaryCapability
+    = body.mode === 'retry_remote'
+      ? 'marketing.social.delete.retry'
+      : body.mode === 'system_and_remote'
+        ? 'marketing.social.delete.remote'
+        : 'marketing.social.delete.local'
 
-  if (postError || !post)
-    throw createError({ statusCode: 404, statusMessage: 'Publicação não encontrada' })
-  if (post.status === 'publishing') {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'Aguarde o término da publicação antes de excluir',
-    })
-  }
+  const { client, tenantId, user, workspace, isPlatformStaff } = await requireSocialContext(
+    event,
+    preliminaryCapability as any,
+    body.tenant_id,
+  )
 
-  let remoteResults: Awaited<ReturnType<typeof deleteRemoteSocialPosts>> = []
-  if (deleteRemote) {
-    remoteResults = await deleteRemoteSocialPosts(client, { tenantId, postId })
-    const hardFailures = remoteResults.filter(result => !result.deleted && !result.skipped && result.error)
-    if (hardFailures.length && String(query.force || 'false') !== 'true') {
-      throw createError({
-        statusCode: 502,
-        statusMessage: `Não foi possível excluir em ${hardFailures.map(item => item.platform).join(', ')}. Tente novamente ou force a exclusão local.`,
-        data: { remoteResults },
-      })
-    }
-  }
-
-  const { data: deleted, error } = await client.rpc('marketing_delete_social_post', {
-    p_tenant_id: tenantId,
-    p_post_id: postId,
+  const outcome = await executeSocialPostDeletion(client, {
+    tenantId,
+    postId,
+    userId: user.id,
+    mode: body.mode,
+    reason: body.reason,
+    confirmRemoteDeletion: body.confirmRemoteDeletion,
+    confirmLocalOnly: body.confirmLocalOnly,
+    forceCompleteLocal: body.forceCompleteLocal,
+    manualConfirmations: body.manualConfirmations,
+    capabilities: workspace.capabilities,
+    isPlatformStaff,
+    lockOwner: `user:${user.id}`,
   })
-
-  if (error || !deleted)
-    throw createError({ statusCode: 400, statusMessage: error?.message || 'Não foi possível excluir a publicação' })
 
   await recordSocialAudit(event, client, {
     tenantId,
     actorId: user.id,
-    action: 'social_post.deleted',
+    action: `social_post.deletion.${body.mode}`,
     entityType: 'social_post',
     entityId: postId,
-    before: post,
-    after: { remoteResults, deleteRemote },
+    after: {
+      mode: body.mode,
+      reason: body.reason || null,
+      forceCompleteLocal: Boolean(body.forceCompleteLocal),
+      confirmRemoteDeletion: Boolean(body.confirmRemoteDeletion),
+      confirmLocalOnly: Boolean(body.confirmLocalOnly),
+      overallStatus: outcome.overallStatus,
+      localDeleted: outcome.localDeleted,
+      remoteDeletionStatus: outcome.remoteDeletionStatus,
+      platforms: outcome.platforms.map(item => ({
+        platform: item.platform,
+        format: item.format,
+        status: item.status,
+        externalObjectId: item.externalObjectId,
+        providerCode: item.providerCode,
+        manualActionRequired: item.manualActionRequired,
+        // Never audit tokens or raw provider secrets.
+      })),
+      canRetry: outcome.canRetry,
+    },
   })
 
-  return { success: true, remoteResults }
+  const payload = {
+    status: outcome.overallStatus,
+    overallStatus: outcome.overallStatus,
+    mode: outcome.mode,
+    localDeleted: outcome.localDeleted,
+    remoteDeletionStatus: outcome.remoteDeletionStatus,
+    platforms: outcome.platforms,
+    deleted: outcome.deleted,
+    alreadyAbsent: outcome.alreadyAbsent,
+    failed: outcome.failed,
+    manualActions: outcome.manualActions,
+    canRetry: outcome.canRetry,
+    canForceLocal: outcome.canForceLocal,
+  }
+
+  // Business failure without local completion must not look like HTTP success.
+  if (!outcome.localDeleted && (outcome.overallStatus === 'failed' || outcome.overallStatus === 'partial')) {
+    throw createError({
+      statusCode: 422,
+      statusMessage: outcome.overallStatus === 'failed'
+        ? 'Não foi possível concluir a exclusão'
+        : 'Exclusão incompleta nas redes sociais',
+      data: payload,
+    })
+  }
+
+  return { data: payload }
 })

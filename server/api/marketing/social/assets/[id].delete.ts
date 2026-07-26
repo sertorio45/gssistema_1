@@ -5,7 +5,7 @@ import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
   const assetId = String(getRouterParam(event, 'id'))
-  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.create')
+  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.update')
 
   const { data: asset, error: assetError } = await client
     .from('media_assets')

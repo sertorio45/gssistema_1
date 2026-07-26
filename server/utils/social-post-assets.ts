@@ -1,6 +1,6 @@
 interface VariantAssetInput {
   platform?: 'facebook' | 'instagram' | 'linkedin'
-  format: 'static' | 'carousel' | 'video'
+  format: 'static' | 'carousel' | 'video' | 'story'
   assetIds: string[]
 }
 

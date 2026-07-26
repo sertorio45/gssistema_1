@@ -60,7 +60,7 @@ class FakeQuery implements PromiseLike<{ data: any, error: null }> {
     return this
   }
 
-  order(column: string) {
+  order(column: string, _options?: { ascending?: boolean }) {
     this.orderBy = column
     return this
   }

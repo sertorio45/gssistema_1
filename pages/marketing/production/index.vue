@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { SocialContentBoardItem } from '@/utils/marketing-social-preview'
 import type { SocialPostStatus } from '~/types/marketing-social'
+import DeletePostDialog from '@/components/marketing/social/DeletePostDialog.vue'
 import SocialContentBoard from '@/components/marketing/social/SocialContentBoard.vue'
 import SocialViewToggle from '@/components/marketing/social/SocialViewToggle.vue'
 import { uniquePostPreviewAssets } from '@/utils/marketing-social-preview'
-import { toast } from 'vue-sonner'
+import { useWorkspace } from '~/composables/useWorkspace'
 import { SOCIAL_STATUS_LABELS } from '~/types/marketing-social'
 
 definePageMeta({
@@ -14,12 +15,16 @@ definePageMeta({
 
 const route = useRoute()
 const social = useMarketingSocial()
+const { can } = useWorkspace()
 const search = ref(String(route.query.search || ''))
 const status = ref(String(route.query.status || 'all'))
 const viewMode = ref<'thumb' | 'list'>('thumb')
 const deleteDialogOpen = ref(false)
-const deleting = ref(false)
 const postToDelete = ref<any>(null)
+
+const canDelete = computed(() =>
+  can('marketing.social.delete.local') || can('marketing.social.delete.remote'),
+)
 
 const { data: response, pending, refresh } = await useAsyncData(
   () => `marketing-social-posts-${social.tenantId.value}-${status.value}-${search.value}`,
@@ -58,25 +63,6 @@ const boardItems = computed<SocialContentBoardItem[]>(() =>
 function openDelete(post: any) {
   postToDelete.value = post
   deleteDialogOpen.value = true
-}
-
-async function deletePost() {
-  if (!postToDelete.value)
-    return
-  deleting.value = true
-  try {
-    await social.deletePost(postToDelete.value.id)
-    toast.success('Publicação excluída')
-    deleteDialogOpen.value = false
-    postToDelete.value = null
-    await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível excluir')
-  }
-  finally {
-    deleting.value = false
-  }
 }
 </script>
 
@@ -135,6 +121,7 @@ async function deletePost() {
     >
       <template #actions="{ item }">
         <Button
+          v-if="canDelete"
           variant="ghost"
           size="icon"
           class="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -152,24 +139,10 @@ async function deletePost() {
       </Button>
     </div>
 
-    <Dialog v-model:open="deleteDialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Excluir publicação?</DialogTitle>
-          <DialogDescription>
-            “{{ postToDelete?.title }}” e todo o histórico de aprovações, comentários e agendamentos serão removidos. Os arquivos continuarão disponíveis na biblioteca.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" :disabled="deleting" @click="deleteDialogOpen = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" :disabled="deleting" @click="deletePost">
-            <Icon v-if="deleting" name="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
-            {{ deleting ? 'Excluindo...' : 'Excluir publicação' }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DeletePostDialog
+      v-model:open="deleteDialogOpen"
+      :post="postToDelete"
+      @deleted="refresh()"
+    />
   </div>
 </template>

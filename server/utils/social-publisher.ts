@@ -53,9 +53,20 @@ export async function processPublicationJob(
     .maybeSingle()
   const { data: post } = await client
     .from('social_posts')
-    .select('title, created_by')
+    .select('title, created_by, deleted_at, publication_status, deletion_status')
     .eq('id', claimed.post_id)
     .maybeSingle()
+
+  if (post?.deleted_at || ['deletion_pending', 'deleted'].includes(String(post?.publication_status || ''))) {
+    await client.from('publication_jobs').update({
+      status: 'failed',
+      last_error_code: 'deletion_in_progress',
+      last_error_message: 'Publicação cancelada: exclusão em andamento ou concluída',
+      locked_at: null,
+      locked_by: null,
+    }).eq('id', claimed.id)
+    return { skipped: true, reason: 'deletion_in_progress' }
+  }
 
   const snapshot = version?.snapshot || {}
   const variant = (snapshot.variants || []).find((row: any) => row.id === claimed.variant_id)
@@ -131,6 +142,11 @@ export async function processPublicationJob(
     await client.from('social_post_variants').update({
       external_post_id: result.externalPostId,
       external_post_url: result.externalPostUrl,
+      external_object_type: (result as any).externalObjectType || null,
+      external_container_id: (result as any).externalContainerId || null,
+      external_media_id: (result as any).externalMediaId || result.externalPostId || null,
+      external_permalink: (result as any).externalPermalink || result.externalPostUrl || null,
+      remote_identifiers: (result as any).remoteIdentifiers || {},
     }).eq('id', claimed.variant_id)
 
     await writeSocialAudit(client, {

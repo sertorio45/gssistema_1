@@ -30,7 +30,7 @@ const inputSchema = z.object({
 export default defineEventHandler(async (event) => {
   const postId = String(getRouterParam(event, 'id'))
   const input = inputSchema.parse(await readBody(event))
-  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.create')
+  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.update')
   await validateSocialPostAssets(client, tenantId, input.variants, input.referenceAssetIds)
 
   const { data: existing } = await client
@@ -42,15 +42,16 @@ export default defineEventHandler(async (event) => {
 
   if (!existing)
     throw createError({ statusCode: 404, statusMessage: 'Publicação não encontrada' })
-  if (['publishing', 'published'].includes(existing.status))
-    throw createError({ statusCode: 409, statusMessage: 'Uma publicação enviada não pode ser alterada' })
+  if (['publishing', 'published'].includes(existing.status) || existing.deleted_at) {
+    throw createError({ statusCode: 409, statusMessage: 'Uma publicação enviada ou excluída não pode ser alterada' })
+  }
+  if (['deletion_pending', 'deleted'].includes(String(existing.publication_status || ''))) {
+    throw createError({ statusCode: 409, statusMessage: 'Publicação em exclusão não pode ser alterada' })
+  }
 
-  await client
-    .from('approval_requests')
-    .update({ status: 'cancelled', resolved_at: new Date().toISOString() })
-    .eq('tenant_id', tenantId)
-    .eq('post_id', postId)
-    .eq('status', 'pending')
+  // Material edit → domain revision (supersedes open approval, returns to draft).
+  const { createRevision } = await import('~/server/utils/social-approval-domain')
+  await createRevision(client, { tenantId, postId })
 
   await client
     .from('publication_jobs')
@@ -69,11 +70,13 @@ export default defineEventHandler(async (event) => {
       timezone: input.timezone,
       approval_policy: input.approvalPolicy,
       minimum_approvals: input.minimumApprovals,
-      status: 'draft',
+      editorial_status: 'draft',
+      approval_bypassed: false,
       approved_version_id: null,
     })
     .eq('tenant_id', tenantId)
     .eq('id', postId)
+    .is('deleted_at', null)
     .select('*')
     .single()
 

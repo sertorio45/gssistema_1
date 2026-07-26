@@ -26,6 +26,8 @@ async function openNotification(notification: any) {
   }
   if (notification.action_url)
     await navigateTo(notification.action_url)
+  else if (notification.entity_type === 'approval_request' && notification.entity_id)
+    await navigateTo(`/marketing/approvals?request=${notification.entity_id}`)
 }
 </script>
 

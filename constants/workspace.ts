@@ -7,7 +7,7 @@
  * - `direct`: empresa que contratou o sistema para si mesma.
  *
  * Cargos profissionais (Designer, Social Media, Aprovador...) são expressos por
- * capabilities, nunca pelo enum global `app_role`.
+ * `organization_roles` + capabilities, nunca pelo enum global `app_role`.
  */
 
 export type OrganizationType = 'platform' | 'agency' | 'direct'
@@ -35,22 +35,42 @@ export const PLATFORM_CAPABILITIES = [
   'platform.audit.read',
 ] as const
 
+/** Organization-scoped capabilities. Legacy keys stay for backward compatibility. */
 export const ORGANIZATION_CAPABILITIES = [
   'organization.read',
   'organization.manage',
+  'organization.team.read',
+  'organization.team.manage',
+  'organization.roles.read',
+  'organization.roles.manage',
   'organization.members.manage',
   'organization.tenants.read',
   'organization.approvals.read',
+  'agency.clients.read',
+  'agency.clients.manage',
 ] as const
 
 export const MARKETING_SOCIAL_CAPABILITIES = [
   'marketing.social.read',
   'marketing.social.create',
+  'marketing.social.update',
   'marketing.social.comment',
-  'marketing.social.approve',
+  'marketing.social.approval.submit',
+  'marketing.social.approval.internal',
+  'marketing.social.approval.client',
+  'marketing.social.approval.bypass',
+  'marketing.social.workflow.manage',
+  'marketing.social.schedule',
   'marketing.social.publish',
+  'marketing.social.delete.local',
+  'marketing.social.delete.remote',
+  'marketing.social.delete.force',
+  'marketing.social.delete.retry',
   'marketing.social.integrations',
+  'marketing.social.reports',
   'marketing.social.manage',
+  // Legacy keys kept so existing endpoints keep working while they migrate.
+  'marketing.social.approve',
 ] as const
 
 export type PlatformCapability = typeof PLATFORM_CAPABILITIES[number]
@@ -67,6 +87,104 @@ export const ALL_WORKSPACE_CAPABILITIES: WorkspaceCapability[] = [
   ...MARKETING_SOCIAL_CAPABILITIES,
 ]
 
+/**
+ * Bidirectional aliases so a check for either the legacy or the new key succeeds
+ * when the other is present in the effective set.
+ */
+export const CAPABILITY_ALIASES: Record<string, readonly string[]> = {
+  'organization.members.manage': ['organization.team.manage'],
+  'organization.team.manage': ['organization.members.manage'],
+  'organization.tenants.read': ['agency.clients.read'],
+  'agency.clients.read': ['organization.tenants.read'],
+  'marketing.social.approve': [
+    'marketing.social.approval.internal',
+    'marketing.social.approval.client',
+  ],
+  'marketing.social.approval.internal': ['marketing.social.approve'],
+  'marketing.social.approval.client': ['marketing.social.approve'],
+  'marketing.social.create': ['marketing.social.update'],
+}
+
+/** Capability groups used by the roles UI. */
+export const CAPABILITY_GROUPS: Array<{
+  key: string
+  label: string
+  capabilities: readonly WorkspaceCapability[]
+}> = [
+  {
+    key: 'organization',
+    label: 'Organização',
+    capabilities: [
+      'organization.read',
+      'organization.manage',
+      'organization.team.read',
+      'organization.team.manage',
+      'organization.roles.read',
+      'organization.roles.manage',
+      'agency.clients.read',
+      'agency.clients.manage',
+      'organization.approvals.read',
+    ],
+  },
+  {
+    key: 'marketing',
+    label: 'Marketing social',
+    capabilities: [
+      'marketing.social.read',
+      'marketing.social.create',
+      'marketing.social.update',
+      'marketing.social.comment',
+      'marketing.social.approval.submit',
+      'marketing.social.approval.internal',
+      'marketing.social.approval.client',
+      'marketing.social.approval.bypass',
+      'marketing.social.workflow.manage',
+      'marketing.social.schedule',
+      'marketing.social.publish',
+      'marketing.social.delete.local',
+      'marketing.social.delete.remote',
+      'marketing.social.delete.force',
+      'marketing.social.delete.retry',
+      'marketing.social.integrations',
+      'marketing.social.reports',
+      'marketing.social.manage',
+    ],
+  },
+]
+
+export const CAPABILITY_LABELS: Partial<Record<WorkspaceCapability, string>> = {
+  'organization.read': 'Visualizar organização',
+  'organization.manage': 'Administrar organização',
+  'organization.team.read': 'Visualizar equipe',
+  'organization.team.manage': 'Gerenciar equipe',
+  'organization.roles.read': 'Visualizar cargos',
+  'organization.roles.manage': 'Gerenciar cargos',
+  'organization.members.manage': 'Gerenciar membros (legado)',
+  'organization.tenants.read': 'Visualizar empresas',
+  'organization.approvals.read': 'Acompanhar aprovações',
+  'agency.clients.read': 'Visualizar clientes',
+  'agency.clients.manage': 'Gerenciar clientes',
+  'marketing.social.read': 'Visualizar posts',
+  'marketing.social.create': 'Criar conteúdo',
+  'marketing.social.update': 'Editar conteúdo',
+  'marketing.social.comment': 'Comentar',
+  'marketing.social.approval.submit': 'Enviar para aprovação',
+  'marketing.social.approval.internal': 'Aprovar etapa interna',
+  'marketing.social.approval.client': 'Aprovar como cliente',
+  'marketing.social.approval.bypass': 'Ignorar aprovação (com justificativa)',
+  'marketing.social.workflow.manage': 'Gerenciar fluxo de aprovação',
+  'marketing.social.schedule': 'Agendar publicação',
+  'marketing.social.publish': 'Publicar',
+  'marketing.social.delete.local': 'Excluir localmente',
+  'marketing.social.delete.remote': 'Excluir nas redes',
+  'marketing.social.delete.force': 'Forçar exclusão local após falha remota',
+  'marketing.social.delete.retry': 'Repetir exclusão remota',
+  'marketing.social.integrations': 'Gerenciar integrações',
+  'marketing.social.reports': 'Ver relatórios',
+  'marketing.social.manage': 'Administrar marketing social',
+  'marketing.social.approve': 'Aprovar (legado)',
+}
+
 /** Header carrying the organization the client is asking for. Always revalidated server-side. */
 export const ORGANIZATION_HEADER = 'X-Organization-Id'
 /** Header carrying the tenant the client is asking for. Always revalidated server-side. */
@@ -79,3 +197,44 @@ export function isAgencyOrganization(type?: OrganizationType | null): boolean {
 export function isPlatformOrganization(type?: OrganizationType | null): boolean {
   return type === 'platform'
 }
+
+/**
+ * Expands a capability set with its aliases so a check for either key succeeds.
+ */
+export function expandCapabilityAliases(capabilities: Iterable<string>): Set<string> {
+  const result = new Set<string>()
+  for (const capability of capabilities) {
+    result.add(capability)
+    for (const alias of CAPABILITY_ALIASES[capability] ?? [])
+      result.add(alias)
+  }
+  return result
+}
+
+export function holdsCapability(
+  capabilities: Iterable<string> | ReadonlySet<string>,
+  required: string,
+): boolean {
+  const set = capabilities instanceof Set ? capabilities : new Set(capabilities)
+  if (set.has(required))
+    return true
+  for (const alias of CAPABILITY_ALIASES[required] ?? []) {
+    if (set.has(alias))
+      return true
+  }
+  return false
+}
+
+/** Ordered steps for the agency client onboarding wizard. */
+export const AGENCY_ONBOARDING_STEPS = [
+  'client_data',
+  'tenant',
+  'modules',
+  'agency_owners',
+  'client_invite',
+  'approval_flow',
+  'social_connect',
+  'review',
+] as const
+
+export type AgencyOnboardingStep = typeof AGENCY_ONBOARDING_STEPS[number]

@@ -9,6 +9,7 @@ import { useModule } from '~/composables/useModule'
 import { useWorkspace } from '~/composables/useWorkspace'
 import { navMenu, navMenuAdmin, navMenuBottom, navMenuOrganization, navMenuTenant } from '~/constants/menus'
 import { isTenantScopedRole } from '~/constants/roles'
+import { holdsCapability } from '~/constants/workspace'
 import { canEnterWorkspaceRoute } from '~/utils/workspace-guard'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
@@ -49,9 +50,12 @@ const { currentRole, updateUserRole } = useAuth()
 const capabilities = computed(() => new Set<string>(workspaceContext.value?.capabilities ?? []))
 const showAdminSection = computed(() => hasRole(['admin', 'funcionario']))
 const showTenantTeamSection = computed(() => hasRole(['admin', 'funcionario', 'cliente']))
+const organizationMenuHeading = computed(() =>
+  organizationType.value === 'agency' ? 'Agência' : 'Organização',
+)
 
 function hasCapability(item: NavLink | NavGroup | NavSectionTitle) {
-  return !('capability' in item) || !item.capability || capabilities.value.has(item.capability)
+  return !('capability' in item) || !item.capability || holdsCapability(capabilities.value, item.capability)
 }
 
 /** Agency-only entries must stay invisible for direct customers. */
@@ -233,7 +237,7 @@ onMounted(async () => {
           class="border-t pt-2"
           :class="{ 'mt-auto': !showAdminSection }"
         >
-          <SidebarGroupLabel>{{ navMenuOrganization[0].heading }}</SidebarGroupLabel>
+          <SidebarGroupLabel>{{ organizationMenuHeading }}</SidebarGroupLabel>
           <component
             :is="resolveNavItemComponent(item)"
             v-for="(item, index) in organizationMenuItems"

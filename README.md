@@ -4,6 +4,27 @@
 
 ---
 
+## Modelo de agências (workspace)
+
+Documentação completa: [`docs/agency-workspace.md`](docs/agency-workspace.md)
+
+Resumo:
+
+- **Plataforma** administra o SaaS; **organização** é a conta comercial (`agency` / `direct` / `platform`); **tenant** é a empresa operacional.
+- Autorização por **cargos** (`organization_roles`) + **capabilities** — não por `app_role` hardcoded nas APIs novas.
+- Marketing social: aprovação multi-etapa, comentários internal/shared, exclusão soft + remota Meta.
+- Relatório SQL de saúde do backfill: `supabase/reports/agency_model_validation.sql`
+- Testes RLS: `supabase/tests/workspace_rls.sql`, `supabase/tests/agency_security_rls.sql`
+
+```bash
+pnpm test          # unitários (inclui matriz de acesso)
+pnpm run typecheck
+pnpm run lint
+pnpm run build
+```
+
+---
+
 ## 1. Visão Geral
 
 O **Blimber** é uma plataforma SaaS e ERP multi-tenant (**Hub de soluções**) para gestão de empresas e agências. Unifica CRM, WhatsApp, artigos e autenticação via Supabase, com suporte nativo a múltiplos tenants, construído sobre Nuxt 3 com Shadcn/ui.

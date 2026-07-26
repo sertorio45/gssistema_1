@@ -14,7 +14,15 @@ const schema = z.object({
 export default defineEventHandler(async (event) => {
   const sourcePostId = String(getRouterParam(event, 'id'))
   const input = schema.parse(await readBody(event) || {})
-  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.create')
+  const { client, tenantId, user, workspace, isPlatformStaff } = await requireSocialContext(event, 'marketing.social.publish')
+  const { holdsCapability } = await import('~/constants/workspace')
+  if (
+    !isPlatformStaff
+    && !holdsCapability(workspace.capabilities, 'marketing.social.publish')
+    && !holdsCapability(workspace.capabilities, 'marketing.social.schedule')
+  ) {
+    throw createError({ statusCode: 403, statusMessage: 'Sem permissão para publicar Stories' })
+  }
 
   const { data: source, error: sourceError } = await client
     .from('social_posts')

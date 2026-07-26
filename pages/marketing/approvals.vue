@@ -1,303 +1,486 @@
 <script setup lang="ts">
-import type { SocialContentBoardItem } from '@/utils/marketing-social-preview'
-import SocialContentBoard from '@/components/marketing/social/SocialContentBoard.vue'
-import SocialViewToggle from '@/components/marketing/social/SocialViewToggle.vue'
-import { uniqueApprovalPreviewAssets } from '@/utils/marketing-social-preview'
-import { toast } from 'vue-sonner'
+import ApprovalReviewSheet from '@/components/marketing/social/ApprovalReviewSheet.vue'
+import ApprovalMediaPreview from '@/components/marketing/social/ApprovalMediaPreview.vue'
+import {
+  APPROVAL_REQUEST_STATUS_LABELS,
+  APPROVAL_STAGE_LABELS,
+} from '~/types/marketing-social'
+import { uniqueApprovalPreviewAssets, platformIcon } from '@/utils/marketing-social-preview'
+import { useWorkspace } from '~/composables/useWorkspace'
 
 definePageMeta({
   middleware: ['auth'],
   title: 'Aprovações',
 })
 
+const route = useRoute()
 const social = useMarketingSocial()
-const status = ref('pending')
-const viewMode = ref<'thumb' | 'list'>('thumb')
-const decisionDialogOpen = ref(false)
-const reviewDialogOpen = ref(false)
-const activeRequest = ref<any>(null)
-const decision = ref<'approved' | 'changes_requested'>('approved')
-const comment = ref('')
-const saving = ref(false)
+const {
+  can,
+  isAgencyWorkspace,
+  organization,
+  managedTenants,
+  organizationRelationshipType,
+} = useWorkspace()
 
-const { data: approvals, pending, refresh } = await useAsyncData(
-  () => `marketing-social-approvals-${social.tenantId.value}-${status.value}`,
-  () => social.listApprovals(status.value),
-  { watch: [social.tenantId, status], default: () => [] },
+const isClientPortal = computed(() =>
+  !can('agency.clients.read')
+  && (organizationRelationshipType.value === 'managed' || !isAgencyWorkspace.value),
 )
 
-function openDecision(request: any, value: 'approved' | 'changes_requested') {
-  activeRequest.value = request
-  decision.value = value
-  comment.value = ''
-  decisionDialogOpen.value = true
-}
+const isAgencyBoard = computed(() =>
+  isAgencyWorkspace.value && can('agency.clients.read'),
+)
 
-async function submitDecision() {
-  if (!activeRequest.value)
-    return
-  saving.value = true
-  try {
-    await social.decide(activeRequest.value.id, decision.value, comment.value)
-    decisionDialogOpen.value = false
-    toast.success(decision.value === 'approved' ? 'Arte aprovada' : 'Ajustes solicitados')
-    await refresh()
+const filters = reactive({
+  bucket: 'assigned' as string,
+  clientTenantId: 'all' as string,
+  platform: 'all' as string,
+  format: 'all' as string,
+  responsibleId: 'all' as string,
+  search: '',
+  from: '',
+  to: '',
+})
+
+const reviewOpen = ref(false)
+const activeId = ref<string | null>(null)
+const activeTenantId = ref<string | null>(null)
+
+const listQuery = computed(() => {
+  const q: Record<string, unknown> = {}
+
+  if (isAgencyBoard.value && organization.value?.id) {
+    q.organizationId = organization.value.id
+    if (filters.clientTenantId !== 'all')
+      q.tenantIdFilter = filters.clientTenantId
   }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível registrar a decisão')
+
+  switch (filters.bucket) {
+    case 'assigned':
+      q.assignedToMe = true
+      q.status = 'pending'
+      break
+    case 'internal':
+      q.status = 'pending'
+      q.stage = 'internal'
+      break
+    case 'client':
+      q.status = 'pending'
+      q.stage = 'client'
+      break
+    case 'changes':
+      q.status = 'changes_requested'
+      break
+    case 'approved':
+      q.status = 'approved'
+      break
+    case 'overdue':
+      q.status = 'overdue'
+      break
+    default:
+      q.status = 'all'
   }
-  finally {
-    saving.value = false
-  }
-}
 
-function requestPost(request: any) {
-  return Array.isArray(request.social_posts) ? request.social_posts[0] : request.social_posts
-}
+  if (filters.platform !== 'all')
+    q.platform = filters.platform
+  if (filters.format !== 'all')
+    q.format = filters.format
+  if (filters.responsibleId !== 'all')
+    q.responsibleId = filters.responsibleId
+  if (filters.search.trim())
+    q.search = filters.search.trim()
+  if (filters.from)
+    q.from = new Date(filters.from).toISOString()
+  if (filters.to)
+    q.to = new Date(`${filters.to}T23:59:59`).toISOString()
 
-function requestVersion(request: any) {
-  return Array.isArray(request.content_versions) ? request.content_versions[0] : request.content_versions
-}
-
-function requestAssets(request: any, purpose: 'publication' | 'reference' = 'publication') {
-  return uniqueApprovalPreviewAssets(request, purpose)
-}
-
-function openReview(request: any) {
-  activeRequest.value = request
-  reviewDialogOpen.value = true
-}
-
-function decideFromReview(value: 'approved' | 'changes_requested') {
-  const request = activeRequest.value
-  reviewDialogOpen.value = false
-  openDecision(request, value)
-}
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovada',
-  changes_requested: 'Ajustes solicitados',
-}
-
-const boardItems = computed<SocialContentBoardItem[]>(() =>
-  ((approvals.value || []) as any[]).map((request) => {
-    const post = requestPost(request)
-    const version = requestVersion(request)
-    const platforms = (version?.snapshot?.variants || [])
-      .map((variant: any) => variant.platform)
-      .filter(Boolean)
-
+  // Client portal: only what matters — pending assigned to them by default
+  if (isClientPortal.value) {
     return {
-      id: request.id,
-      title: post?.title || 'Sem título',
-      caption: post?.content || 'Sem texto-base',
-      status: request.status,
-      statusLabel: statusLabels[request.status] || request.status,
-      platforms: platforms.length
-        ? [...new Set(platforms)] as string[]
-        : [],
-      previewAssets: uniqueApprovalPreviewAssets(request, 'publication'),
-      meta: version?.version ? `Versão ${version.version}` : null,
-      raw: request,
+      status: filters.bucket === 'approved' ? 'approved' : filters.bucket === 'all' ? 'all' : 'pending',
+      assignedToMe: filters.bucket !== 'all' && filters.bucket !== 'approved',
     }
-  }),
+  }
+
+  return q
+})
+
+const { data: listResponse, pending, refresh } = await useAsyncData(
+  () => `approvals-board-${JSON.stringify(listQuery.value)}-${social.tenantId.value}-${organization.value?.id || ''}`,
+  () => social.listApprovals(listQuery.value),
+  {
+    watch: [listQuery, () => social.tenantId.value, () => organization.value?.id],
+    default: () => ({ data: [], meta: {} }),
+  },
 )
 
-function isPendingItem(item: SocialContentBoardItem) {
-  return (item.raw as any)?.status === 'pending'
+const items = computed(() => listResponse.value?.data || [])
+
+/** Unique assignees seen in the current board — used for the responsável filter. */
+const responsibleOptions = computed(() => {
+  const ids = new Set<string>()
+  for (const item of items.value) {
+    for (const id of item.approver_ids || [])
+      ids.add(id)
+    if (item.assigned_to)
+      ids.add(item.assigned_to)
+  }
+  return [...ids]
+})
+
+function openItem(item: any) {
+  activeId.value = item.id
+  activeTenantId.value = item.tenant_id
+  reviewOpen.value = true
 }
 
-function onSelectItem(item: SocialContentBoardItem) {
-  openReview(item.raw)
+function onDecided(payload?: { id: string, status: string }) {
+  if (payload?.id && listResponse.value?.data) {
+    const row = listResponse.value.data.find((item: any) => item.id === payload.id)
+    if (row)
+      row.status = payload.status
+  }
+  refresh()
 }
+
+function statusLabel(status: string) {
+  return APPROVAL_REQUEST_STATUS_LABELS[status] || status
+}
+
+onMounted(() => {
+  const requestId = typeof route.query.request === 'string' ? route.query.request : null
+  if (requestId) {
+    activeId.value = requestId
+    reviewOpen.value = true
+  }
+})
+
+function waitingLabel(ms: number | null | undefined) {
+  if (ms == null)
+    return '—'
+  const hours = Math.floor(ms / 3_600_000)
+  if (hours < 1)
+    return '<1h'
+  if (hours < 24)
+    return `${hours}h`
+  return `${Math.floor(hours / 24)}d`
+}
+
+function nextAction(item: any) {
+  if (item.status === 'pending')
+    return item.stage === 'internal' ? 'Revisar internamente' : 'Aprovar ou solicitar ajustes'
+  if (item.status === 'changes_requested')
+    return 'Aguardando nova versão'
+  if (item.status === 'approved')
+    return 'Agendar / publicar'
+  return '—'
+}
+
+const emptyCopy = computed(() => {
+  if (isClientPortal.value) {
+    return {
+      title: 'Nada para aprovar agora',
+      description: 'Quando a agência enviar peças, elas aparecerão aqui em cards grandes.',
+    }
+  }
+  return {
+    title: 'Nenhuma aprovação neste filtro',
+    description: 'Ajuste os filtros ou aguarde novos envios da produção.',
+  }
+})
+
+const agencyBuckets = [
+  { value: 'assigned', label: 'Atribuídos a mim' },
+  { value: 'internal', label: 'Revisão interna' },
+  { value: 'client', label: 'Aguardando cliente' },
+  { value: 'changes', label: 'Alterações solicitadas' },
+  { value: 'approved', label: 'Aprovados' },
+  { value: 'overdue', label: 'Atrasados' },
+  { value: 'all', label: 'Todos' },
+]
+
+const clientBuckets = [
+  { value: 'assigned', label: 'Pendentes' },
+  { value: 'approved', label: 'Aprovados' },
+  { value: 'all', label: 'Histórico' },
+]
 </script>
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          Aprovações
+          {{ isClientPortal ? 'Aprovar conteúdos' : 'Aprovações' }}
         </h1>
         <p class="mt-1 text-muted-foreground">
-          Revise exatamente a versão que será usada na publicação.
+          {{ isClientPortal
+            ? 'Revise a peça exata enviada para você — poucos cliques.'
+            : 'Gargalos por cliente, etapa e prazo. Sempre na versão correta.' }}
         </p>
       </div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Select v-model="status">
-          <SelectTrigger class="w-full sm:w-56">
-            <SelectValue />
+      <Button variant="outline" size="sm" :disabled="pending" @click="refresh()">
+        Atualizar
+      </Button>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-col gap-3">
+      <div class="flex gap-2 overflow-x-auto pb-1">
+        <Button
+          v-for="bucket in (isClientPortal ? clientBuckets : agencyBuckets)"
+          :key="bucket.value"
+          size="sm"
+          :variant="filters.bucket === bucket.value ? 'default' : 'outline'"
+          class="shrink-0"
+          @click="filters.bucket = bucket.value"
+        >
+          {{ bucket.label }}
+        </Button>
+      </div>
+
+      <div
+        v-if="!isClientPortal"
+        class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <Select v-if="isAgencyBoard" v-model="filters.clientTenantId">
+          <SelectTrigger>
+            <SelectValue placeholder="Cliente" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="pending">
-              Pendentes
-            </SelectItem>
-            <SelectItem value="approved">
-              Aprovadas
-            </SelectItem>
-            <SelectItem value="changes_requested">
-              Ajustes solicitados
-            </SelectItem>
             <SelectItem value="all">
-              Todas
+              Todos os clientes
+            </SelectItem>
+            <SelectItem
+              v-for="tenant in managedTenants"
+              :key="tenant.id"
+              :value="tenant.id"
+            >
+              {{ tenant.name }}
             </SelectItem>
           </SelectContent>
         </Select>
-        <SocialViewToggle v-model="viewMode" />
+
+        <Select v-model="filters.platform">
+          <SelectTrigger>
+            <SelectValue placeholder="Rede" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Todas as redes
+            </SelectItem>
+            <SelectItem value="instagram">
+              Instagram
+            </SelectItem>
+            <SelectItem value="facebook">
+              Facebook
+            </SelectItem>
+            <SelectItem value="linkedin">
+              LinkedIn
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="filters.format">
+          <SelectTrigger>
+            <SelectValue placeholder="Formato" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Todos os formatos
+            </SelectItem>
+            <SelectItem value="static">
+              Estático
+            </SelectItem>
+            <SelectItem value="carousel">
+              Carrossel
+            </SelectItem>
+            <SelectItem value="video">
+              Vídeo / Reel
+            </SelectItem>
+            <SelectItem value="story">
+              Story
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="filters.responsibleId">
+          <SelectTrigger>
+            <SelectValue placeholder="Responsável" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Qualquer responsável
+            </SelectItem>
+            <SelectItem
+              v-for="id in responsibleOptions"
+              :key="id"
+              :value="id"
+            >
+              {{ id.slice(0, 8) }}…
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Input v-model="filters.search" placeholder="Buscar título ou cliente…" />
+      </div>
+
+      <div
+        v-if="!isClientPortal"
+        class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      >
+        <div class="space-y-1">
+          <Label class="text-xs">
+            De
+          </Label>
+          <Input v-model="filters.from" type="date" />
+        </div>
+        <div class="space-y-1">
+          <Label class="text-xs">
+            Até
+          </Label>
+          <Input v-model="filters.to" type="date" />
+        </div>
       </div>
     </div>
 
-    <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-      <Skeleton v-for="index in 8" :key="index" class="aspect-square" />
+    <!-- Loading -->
+    <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <Skeleton v-for="n in 6" :key="n" class="h-72 rounded-xl" />
     </div>
 
-    <SocialContentBoard
-      v-else
-      :items="boardItems"
-      :view-mode="viewMode"
-      as-button
-      empty-title="Nenhuma aprovação encontrada"
-      empty-description="As artes enviadas para você aparecerão aqui."
-      @select="onSelectItem"
+    <!-- Empty -->
+    <div
+      v-else-if="!items.length"
+      class="rounded-xl border border-dashed p-12 text-center"
     >
-      <template #actions="{ item }">
-        <template v-if="isPendingItem(item)">
-          <Button size="sm" @click="openDecision(item.raw, 'approved')">
-            <Icon name="lucide:check" class="mr-2 h-4 w-4" />
-            Aprovar
-          </Button>
-          <Button size="sm" variant="outline" @click="openDecision(item.raw, 'changes_requested')">
-            <Icon name="lucide:message-square-warning" class="mr-2 h-4 w-4" />
-            Ajustes
-          </Button>
-        </template>
-      </template>
-    </SocialContentBoard>
+      <Icon name="lucide:badge-check" class="mx-auto h-10 w-10 text-muted-foreground" />
+      <p class="mt-3 font-medium">
+        {{ emptyCopy.title }}
+      </p>
+      <p class="mt-1 text-sm text-muted-foreground">
+        {{ emptyCopy.description }}
+      </p>
+    </div>
 
-    <Dialog v-model:open="reviewDialogOpen">
-      <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>{{ requestPost(activeRequest)?.title || 'Revisar publicação' }}</DialogTitle>
-          <DialogDescription>
-            Confira todas as peças desta versão antes de registrar sua decisão.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div v-if="activeRequest" class="space-y-6">
-          <div
-            class="grid gap-3"
-            :class="requestAssets(activeRequest).length === 1 ? 'grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3'"
-          >
-            <div
-              v-for="asset in requestAssets(activeRequest)"
-              :key="asset.id"
-              class="overflow-hidden border rounded-xl bg-muted"
-            >
-              <img
-                v-if="asset.mime_type?.startsWith('image/')"
-                :src="asset.preview_url || undefined"
-                :alt="asset.name"
-                class="max-h-[65vh] w-full object-contain"
-              >
-              <video
-                v-else-if="asset.mime_type?.startsWith('video/')"
-                :src="asset.preview_url || undefined"
-                class="max-h-[65vh] w-full"
-                controls
-              />
-              <div v-else class="h-48 flex items-center justify-center">
-                <Icon name="lucide:file" class="h-10 w-10 text-muted-foreground" />
-              </div>
-              <p class="truncate border-t bg-background px-3 py-2 text-xs">
-                {{ asset.name }}
-              </p>
-            </div>
-          </div>
-
-          <div v-if="requestAssets(activeRequest, 'reference').length" class="space-y-3">
-            <div>
-              <h3 class="text-sm font-semibold">
-                Referências
-              </h3>
-              <p class="text-xs text-muted-foreground">
-                Materiais de apoio — não serão publicados.
-              </p>
-            </div>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div
-                v-for="asset in requestAssets(activeRequest, 'reference')"
-                :key="asset.id"
-                class="overflow-hidden border rounded-lg bg-muted"
-              >
-                <img
-                  v-if="asset.mime_type?.startsWith('image/')"
-                  :src="asset.preview_url || undefined"
-                  :alt="asset.name"
-                  class="aspect-square w-full object-cover"
-                >
-                <div v-else class="aspect-square flex items-center justify-center">
-                  <Icon name="lucide:paperclip" class="h-7 w-7 text-muted-foreground" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="border rounded-xl bg-muted/30 p-4">
-            <p class="whitespace-pre-wrap text-sm">
-              {{ requestPost(activeRequest)?.content || 'Sem texto-base' }}
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter v-if="activeRequest?.status === 'pending'" class="gap-2">
-          <Button
-            variant="outline"
-            @click="decideFromReview('changes_requested')"
-          >
-            Solicitar ajustes
-          </Button>
-          <Button @click="decideFromReview('approved')">
-            Aprovar publicação
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog v-model:open="decisionDialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            {{ decision === 'approved' ? 'Aprovar arte' : 'Solicitar ajustes' }}
-          </DialogTitle>
-          <DialogDescription>
-            Sua decisão ficará registrada no histórico desta versão.
-          </DialogDescription>
-        </DialogHeader>
-        <div class="py-2 space-y-2">
-          <Label for="decision-comment">
-            {{ decision === 'approved' ? 'Comentário opcional' : 'Descreva os ajustes necessários' }}
-          </Label>
-          <Textarea
-            id="decision-comment"
-            v-model="comment"
-            class="min-h-28"
-            :required="decision === 'changes_requested'"
+    <!-- Cards -->
+    <div
+      v-else
+      class="grid gap-4"
+      :class="isClientPortal ? 'sm:grid-cols-1 lg:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-3'"
+    >
+      <button
+        v-for="item in items"
+        :key="item.id"
+        type="button"
+        class="overflow-hidden rounded-xl border bg-card text-left transition hover:border-primary/40 hover:shadow-sm"
+        @click="openItem(item)"
+      >
+        <div :class="isClientPortal ? 'aspect-[4/3]' : 'aspect-square'">
+          <ApprovalMediaPreview
+            :assets="uniqueApprovalPreviewAssets(item.raw || item)"
+            :format="item.formats?.[0]"
           />
         </div>
-        <DialogFooter>
-          <Button variant="outline" @click="decisionDialogOpen = false">
-            Cancelar
-          </Button>
-          <Button
-            :variant="decision === 'approved' ? 'default' : 'destructive'"
-            :disabled="saving || (decision === 'changes_requested' && !comment.trim())"
-            @click="submitDecision"
-          >
-            Confirmar decisão
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div class="space-y-2 p-4">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              <p v-if="!isClientPortal && item.client?.name" class="truncate text-xs text-muted-foreground">
+                {{ item.client.name }}
+              </p>
+              <h3 class="truncate font-semibold">
+                {{ item.title }}
+              </h3>
+            </div>
+            <Badge
+              :variant="item.overdue ? 'destructive' : item.status === 'pending' ? 'default' : 'secondary'"
+              class="shrink-0"
+            >
+              {{ item.overdue ? 'Atrasado' : statusLabel(item.status) }}
+            </Badge>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5">
+            <Badge
+              v-for="platform in item.platforms || []"
+              :key="platform"
+              variant="outline"
+              class="gap-1"
+            >
+              <Icon :name="platformIcon(platform)" class="h-3 w-3" />
+              {{ platform }}
+            </Badge>
+            <Badge v-if="item.stage" variant="secondary">
+              {{ APPROVAL_STAGE_LABELS[item.stage as 'internal' | 'client'] }}
+            </Badge>
+            <Badge v-if="item.version_number" variant="outline">
+              v{{ item.version_number }}
+            </Badge>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+            <div>
+              <dt>Prazo</dt>
+              <dd class="font-medium text-foreground">
+                {{ item.due_at ? new Date(item.due_at).toLocaleDateString('pt-BR') : '—' }}
+              </dd>
+            </div>
+            <div>
+              <dt>Aguardando</dt>
+              <dd class="font-medium text-foreground">
+                {{ waitingLabel(item.waiting_ms) }}
+              </dd>
+            </div>
+            <div>
+              <dt>Responsáveis</dt>
+              <dd class="font-medium text-foreground">
+                {{ (item.approver_ids || []).length || '—' }}
+              </dd>
+            </div>
+            <div>
+              <dt>Versão</dt>
+              <dd class="font-medium text-foreground">
+                v{{ item.version_number || '—' }}
+              </dd>
+            </div>
+          </dl>
+
+          <p class="text-xs font-medium text-primary">
+            {{ nextAction(item) }}
+          </p>
+        </div>
+      </button>
+    </div>
+
+    <!-- Quick links for client portal -->
+    <div
+      v-if="isClientPortal"
+      class="grid gap-3 sm:grid-cols-2"
+    >
+      <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/calendar')">
+        <Icon name="lucide:calendar-days" class="mr-3 h-5 w-5" />
+        <span class="text-left">
+          <span class="block font-medium">Calendário aprovado</span>
+          <span class="block text-xs text-muted-foreground">Veja o que está agendado</span>
+        </span>
+      </Button>
+      <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/production?status=published')">
+        <Icon name="lucide:circle-check" class="mr-3 h-5 w-5" />
+        <span class="text-left">
+          <span class="block font-medium">Conteúdo publicado</span>
+          <span class="block text-xs text-muted-foreground">Peças já no ar</span>
+        </span>
+      </Button>
+    </div>
+
+    <ApprovalReviewSheet
+      v-model:open="reviewOpen"
+      :request-id="activeId"
+      :tenant-id="activeTenantId"
+      :organization-id="isAgencyBoard ? organization?.id : null"
+      :client-mode="isClientPortal"
+      @decided="onDecided"
+    />
   </div>
 </template>

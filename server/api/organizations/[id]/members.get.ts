@@ -12,12 +12,15 @@ export default defineEventHandler(async (event) => {
 
   const context = await requireWorkspaceContext(event, {
     organizationId,
-    capability: 'organization.members.manage',
+    capability: 'organization.team.manage',
   })
 
   const { data: members, error } = await context.client
     .from('organization_memberships')
-    .select('id, user_id, role, is_active, access_all_tenants, created_at, updated_at')
+    .select(`
+      id, user_id, role, role_id, is_active, access_all_tenants, created_at, updated_at,
+      organization_role:role_id (id, name, slug, is_protected, is_system)
+    `)
     .eq('organization_id', organizationId)
     .order('created_at')
 
@@ -33,12 +36,29 @@ export default defineEventHandler(async (event) => {
         .eq('is_active', true)
     : { data: [] }
 
-  return {
-    data: (members || []).map((member: any) => ({
+  const enriched = await Promise.all((members || []).map(async (member: any) => {
+    let email: string | null = null
+    let lastSignInAt: string | null = null
+    try {
+      const { data } = await context.client.auth.admin.getUserById(String(member.user_id))
+      email = data.user?.email ?? null
+      lastSignInAt = (data.user as any)?.last_sign_in_at ?? null
+    }
+    catch {
+      // Auth lookup is best-effort for display only.
+    }
+
+    return {
       ...member,
+      email,
+      last_sign_in_at: lastSignInAt,
+      role_name: member.organization_role?.name || member.role,
+      role_slug: member.organization_role?.slug || null,
       tenants: (assignments || []).filter(
         (row: any) => String(row.organization_membership_id) === String(member.id),
       ),
-    })),
-  }
+    }
+  }))
+
+  return { data: enriched }
 })

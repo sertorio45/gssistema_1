@@ -39,6 +39,7 @@ export default defineEventHandler(async (event) => {
       )
     `, { count: 'exact' })
     .eq('tenant_id', tenantId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .range(from, to)
 

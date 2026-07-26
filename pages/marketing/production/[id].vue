@@ -2,10 +2,16 @@
 import type { SocialPostInput, SocialPostStatus } from '~/types/marketing-social'
 
 import { toast } from 'vue-sonner'
+import DeletePostDialog from '~/components/marketing/social/DeletePostDialog.vue'
 import SocialDateTimePicker from '~/components/marketing/social/SocialDateTimePicker.vue'
 import SocialPostForm from '~/components/marketing/social/SocialPostForm.vue'
 import { ROLE_LABELS } from '~/constants/roles'
-import { SOCIAL_STATUS_LABELS } from '~/types/marketing-social'
+import { useWorkspace } from '~/composables/useWorkspace'
+import {
+  SOCIAL_EDITORIAL_STATUS_LABELS,
+  SOCIAL_PUBLICATION_STATUS_LABELS,
+  SOCIAL_STATUS_LABELS,
+} from '~/types/marketing-social'
 
 definePageMeta({
   middleware: ['auth'],
@@ -14,16 +20,26 @@ definePageMeta({
 
 const route = useRoute()
 const social = useMarketingSocial()
+const { can } = useWorkspace()
 const postId = computed(() => String(route.params.id))
 const saving = ref(false)
 const approvalDialogOpen = ref(false)
 const scheduleDialogOpen = ref(false)
 const pastScheduleDialogOpen = ref(false)
 const deleteDialogOpen = ref(false)
+const bypassDialogOpen = ref(false)
 const selectedApprovers = ref<string[]>([])
+const selectedWorkflowId = ref<string>('default')
+const bypassJustification = ref('')
 const scheduleAt = ref('')
 const newComment = ref('')
 const pastPromptDismissed = ref(false)
+
+const { data: workflows } = await useAsyncData(
+  () => `marketing-social-workflows-${social.tenantId.value}`,
+  () => social.listWorkflows(),
+  { watch: [social.tenantId], default: () => [] },
+)
 
 const { data: members } = await useAsyncData(
   () => `marketing-social-approvers-${social.tenantId.value}`,
@@ -74,6 +90,19 @@ const formValue = computed<SocialPostInput | undefined>(() => {
 })
 
 const postStatus = computed(() => String((post.value as any)?.status || ''))
+const editorialStatus = computed(() => String((post.value as any)?.editorial_status || ''))
+const publicationStatus = computed(() => String((post.value as any)?.publication_status || ''))
+const editorialLabel = computed(() =>
+  SOCIAL_EDITORIAL_STATUS_LABELS[editorialStatus.value as keyof typeof SOCIAL_EDITORIAL_STATUS_LABELS] || null,
+)
+const publicationLabel = computed(() =>
+  SOCIAL_PUBLICATION_STATUS_LABELS[publicationStatus.value as keyof typeof SOCIAL_PUBLICATION_STATUS_LABELS] || null,
+)
+const isBypassed = computed(() => Boolean((post.value as any)?.approval_bypassed))
+const canBypass = computed(() =>
+  ['internal_review', 'client_review', 'changes_requested'].includes(editorialStatus.value),
+)
+const selectableWorkflows = computed(() => (workflows.value || []) as any[])
 const scheduledAtValue = computed(() => {
   const value = (post.value as any)?.scheduled_at
   return value ? String(value) : null
@@ -108,9 +137,6 @@ const canShareStories = computed(() => {
     return false
   return variants.some((variant: any) => variant.platform === 'facebook' || variant.platform === 'instagram')
 })
-const hasRemotePosts = computed(() =>
-  ((post.value as any)?.social_post_variants || []).some((variant: any) => Boolean(variant.external_post_id)),
-)
 
 watch(
   () => [postStatus.value, scheduledAtValue.value, pastPromptDismissed.value] as const,
@@ -166,7 +192,12 @@ async function submitApproval() {
     return
   saving.value = true
   try {
-    await social.submitForApproval(postId.value, selectedApprovers.value)
+    await social.submitForApproval(
+      postId.value,
+      selectedApprovers.value,
+      null,
+      selectedWorkflowId.value && selectedWorkflowId.value !== 'default' ? selectedWorkflowId.value : null,
+    )
     approvalDialogOpen.value = false
     selectedApprovers.value = []
     toast.success('Conteúdo enviado para aprovação')
@@ -174,6 +205,25 @@ async function submitApproval() {
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível enviar')
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+async function confirmBypass() {
+  if (bypassJustification.value.trim().length < 5)
+    return
+  saving.value = true
+  try {
+    await social.bypassApproval(postId.value, bypassJustification.value.trim())
+    bypassDialogOpen.value = false
+    bypassJustification.value = ''
+    toast.success('Aprovação ignorada — publicação liberada')
+    await refresh()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível ignorar a aprovação')
   }
   finally {
     saving.value = false
@@ -256,41 +306,8 @@ async function addComment() {
   }
 }
 
-async function deletePost() {
-  saving.value = true
-  try {
-    await social.deletePost(postId.value, { deleteRemote: true })
-    toast.success(hasRemotePosts.value
-      ? 'Publicação excluída no sistema e nas redes'
-      : 'Publicação excluída')
-    await navigateTo('/marketing/production')
-  }
-  catch (error: any) {
-    const message = error?.data?.statusMessage || error?.message || 'Não foi possível excluir'
-    if (error?.statusCode === 502 || error?.data?.statusCode === 502) {
-      toast.error(`${message} Você pode forçar a exclusão só no sistema.`)
-      return
-    }
-    toast.error(message)
-  }
-  finally {
-    saving.value = false
-  }
-}
-
-async function forceDeleteLocal() {
-  saving.value = true
-  try {
-    await social.deletePost(postId.value, { deleteRemote: true, force: true })
-    toast.success('Publicação excluída no sistema (redes com falha foram ignoradas)')
-    await navigateTo('/marketing/production')
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível excluir')
-  }
-  finally {
-    saving.value = false
-  }
+function onDeleted() {
+  navigateTo('/marketing/production')
 }
 </script>
 
@@ -306,8 +323,17 @@ async function forceDeleteLocal() {
           <h1 class="text-2xl font-bold tracking-tight">
             {{ (post as any)?.title || 'Publicação' }}
           </h1>
-          <Badge v-if="post" variant="secondary">
+          <Badge v-if="post && editorialLabel" variant="secondary">
+            {{ editorialLabel }}
+          </Badge>
+          <Badge v-if="post && publicationLabel && publicationStatus !== 'not_scheduled'" variant="outline">
+            {{ publicationLabel }}
+          </Badge>
+          <Badge v-else-if="post && !editorialLabel" variant="secondary">
             {{ SOCIAL_STATUS_LABELS[(post as any).status as SocialPostStatus] || (post as any).status }}
+          </Badge>
+          <Badge v-if="isBypassed" variant="destructive">
+            Aprovação ignorada
           </Badge>
         </div>
         <p v-if="scheduledAtValue" class="mt-2 text-sm text-muted-foreground">
@@ -317,17 +343,21 @@ async function forceDeleteLocal() {
       </div>
       <div class="flex flex-wrap gap-2">
         <Button
-          v-if="post"
+          v-if="post && (can('marketing.social.delete.local') || can('marketing.social.delete.remote'))"
           variant="ghost"
           class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           @click="deleteDialogOpen = true"
         >
           <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-          Excluir
+          Excluir publicação
         </Button>
         <Button v-if="canSubmit" variant="outline" @click="approvalDialogOpen = true">
           <Icon name="lucide:send" class="mr-2 h-4 w-4" />
           Enviar para aprovação
+        </Button>
+        <Button v-if="canBypass" variant="outline" @click="bypassDialogOpen = true">
+          <Icon name="lucide:fast-forward" class="mr-2 h-4 w-4" />
+          Ignorar aprovação
         </Button>
         <Button v-if="canReschedule" variant="outline" @click="openScheduleDialog()">
           <Icon name="lucide:calendar-clock" class="mr-2 h-4 w-4" />
@@ -432,6 +462,26 @@ async function forceDeleteLocal() {
             A versão atual será congelada e enviada aos usuários selecionados.
           </DialogDescription>
         </DialogHeader>
+        <div v-if="selectableWorkflows.length" class="space-y-2">
+          <Label>Fluxo de aprovação</Label>
+          <Select v-model="selectedWorkflowId">
+            <SelectTrigger>
+              <SelectValue placeholder="Fluxo padrão da empresa" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">
+                Fluxo padrão da empresa
+              </SelectItem>
+              <SelectItem
+                v-for="workflow in selectableWorkflows"
+                :key="workflow.id"
+                :value="workflow.id"
+              >
+                {{ workflow.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div class="max-h-80 overflow-y-auto py-2 space-y-2">
           <button
             v-for="member in members"
@@ -461,6 +511,38 @@ async function forceDeleteLocal() {
           </Button>
           <Button :disabled="saving || !selectedApprovers.length" @click="submitApproval">
             Enviar para aprovação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="bypassDialogOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Ignorar aprovação</DialogTitle>
+          <DialogDescription>
+            A publicação será aprovada sem passar pelo fluxo. A justificativa fica registrada na auditoria.
+          </DialogDescription>
+        </DialogHeader>
+        <div class="py-2 space-y-2">
+          <Label for="bypass-reason">Justificativa</Label>
+          <Textarea
+            id="bypass-reason"
+            v-model="bypassJustification"
+            class="min-h-28"
+            placeholder="Explique por que a aprovação está sendo ignorada"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="bypassDialogOpen = false">
+            Cancelar
+          </Button>
+          <Button
+            variant="destructive"
+            :disabled="saving || bypassJustification.trim().length < 5"
+            @click="confirmBypass"
+          >
+            Ignorar e liberar
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -529,36 +611,10 @@ async function forceDeleteLocal() {
       </DialogContent>
     </Dialog>
 
-    <Dialog v-model:open="deleteDialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Excluir esta publicação?</DialogTitle>
-          <DialogDescription>
-            {{ hasRemotePosts
-              ? 'Vamos tentar apagar também no Instagram/Facebook quando houver ID externo. O histórico local será removido.'
-              : 'O histórico de aprovações, comentários e agendamentos também será removido. As imagens permanecerão na biblioteca.' }}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter class="gap-2 sm:justify-between">
-          <Button variant="outline" :disabled="saving" @click="deleteDialogOpen = false">
-            Cancelar
-          </Button>
-          <div class="flex flex-wrap gap-2">
-            <Button
-              v-if="hasRemotePosts"
-              variant="secondary"
-              :disabled="saving"
-              @click="forceDeleteLocal"
-            >
-              Só no sistema
-            </Button>
-            <Button variant="destructive" :disabled="saving" @click="deletePost">
-              <Icon v-if="saving" name="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
-              {{ saving ? 'Excluindo...' : (hasRemotePosts ? 'Excluir nas redes e no sistema' : 'Excluir publicação') }}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <DeletePostDialog
+      v-model:open="deleteDialogOpen"
+      :post="post"
+      @deleted="onDeleted"
+    />
   </div>
 </template>

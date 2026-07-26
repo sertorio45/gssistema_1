@@ -12,6 +12,7 @@ const paramsSchema = z.object({
 /**
  * Ends the relationship without deleting history. The access resolver stops
  * honouring the link immediately, so the workspace disappears for the members.
+ * Platform staff and agency operators with `agency.clients.manage` may unlink.
  */
 export default defineEventHandler(async (event) => {
   const params = paramsSchema.parse({
@@ -21,9 +22,18 @@ export default defineEventHandler(async (event) => {
 
   const context = await requireWorkspaceContext(event, {
     organizationId: params.id,
-    platformOnly: true,
-    capability: 'platform.organizations.manage',
   })
+
+  const canUnlink = context.isPlatformStaff
+    || context.has('platform.organizations.manage')
+    || context.has('agency.clients.manage')
+
+  if (!canUnlink) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Sem permissão para desativar o vínculo do cliente',
+    })
+  }
 
   const { data: link } = await context.client
     .from('organization_tenants')
@@ -35,8 +45,12 @@ export default defineEventHandler(async (event) => {
   if (!link)
     throw createError({ statusCode: 404, statusMessage: 'Vínculo não encontrado' })
 
-  if (link.relationship_type === 'owner')
-    throw createError({ statusCode: 409, statusMessage: 'A empresa principal não pode ser removida da organização' })
+  if (link.relationship_type === 'owner') {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'A empresa principal não pode ser removida da organização',
+    })
+  }
 
   const { data, error } = await context.client
     .from('organization_tenants')

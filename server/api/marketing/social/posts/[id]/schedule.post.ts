@@ -1,9 +1,10 @@
-import { getRouterParam, readBody } from 'h3'
+import { createError, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
+import { holdsCapability } from '~/constants/workspace'
+import { enqueueApprovedPost } from '~/server/utils/social-approval-domain'
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
-import { enqueueApprovedPost } from '~/server/utils/social-workflow'
 
 const schema = z.object({
   scheduledAt: z.string().datetime({ offset: true }).nullable().optional(),
@@ -13,25 +14,36 @@ const schema = z.object({
 export default defineEventHandler(async (event) => {
   const postId = String(getRouterParam(event, 'id'))
   const input = schema.parse(await readBody(event))
-  const { client, tenantId, user } = await requireSocialContext(event, 'marketing.social.publish')
+  const context = await requireSocialContext(event, 'marketing.social.read')
 
-  const jobs = await enqueueApprovedPost(client, {
-    tenantId,
+  const capabilities = context.workspace.capabilities
+  const publishNow = Boolean(input.publishNow)
+  const required = publishNow ? 'marketing.social.publish' : 'marketing.social.schedule'
+  const canRelease = context.isPlatformStaff
+    || holdsCapability(capabilities, required)
+    || holdsCapability(capabilities, 'marketing.social.publish')
+  if (!canRelease)
+    throw createError({ statusCode: 403, statusMessage: 'Sem permissão para agendar ou publicar' })
+
+  const jobs = await enqueueApprovedPost(context.client, {
+    tenantId: context.tenantId,
     postId,
     scheduledAt: input.scheduledAt,
-    publishNow: Boolean(input.publishNow),
+    publishNow,
+    capabilities: [...capabilities],
+    isPlatformStaff: context.isPlatformStaff,
   })
 
-  await recordSocialAudit(event, client, {
-    tenantId,
-    actorId: user.id,
-    action: input.publishNow ? 'social_post.publish_now' : 'social_post.scheduled',
+  await recordSocialAudit(event, context.client, {
+    tenantId: context.tenantId,
+    actorId: context.user.id,
+    action: publishNow ? 'social_post.publish_now' : 'social_post.scheduled',
     entityType: 'social_post',
     entityId: postId,
     after: {
       jobIds: jobs.map((job: any) => job.id),
-      scheduledAt: input.publishNow ? new Date().toISOString() : input.scheduledAt,
-      publishNow: Boolean(input.publishNow),
+      scheduledAt: publishNow ? new Date().toISOString() : input.scheduledAt,
+      publishNow,
     },
   })
 

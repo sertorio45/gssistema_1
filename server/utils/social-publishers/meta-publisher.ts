@@ -17,6 +17,12 @@ interface MetaDeleteInput {
   tenantId: string
   account: any
   externalPostId: string
+  format?: string | null
+  externalObjectType?: string | null
+  externalContainerId?: string | null
+  externalMediaId?: string | null
+  externalPermalink?: string | null
+  remoteIdentifiers?: Record<string, unknown> | null
 }
 
 async function waitForInstagramContainer(
@@ -111,6 +117,13 @@ async function publishInstagramStory(input: MetaPublishInput, token: string, gra
   return {
     externalPostId: String(published.id),
     externalPostUrl: null,
+    externalObjectType: 'instagram_story' as const,
+    externalContainerId: String(container.id),
+    externalMediaId: String(published.id),
+    remoteIdentifiers: {
+      publishedMediaId: String(published.id),
+      containerId: String(container.id),
+    },
   }
 }
 
@@ -178,9 +191,21 @@ async function publishInstagram(input: MetaPublishInput, token: string, graphBas
     },
   )
 
+  const isVideo = String(media[0]?.mime_type || '').startsWith('video/')
+  const objectType = children.length > 1
+    ? 'instagram_carousel'
+    : (isVideo ? 'instagram_reel' : 'instagram_media')
   return {
     externalPostId: String(published.id),
     externalPostUrl: null,
+    externalObjectType: objectType as 'instagram_carousel' | 'instagram_reel' | 'instagram_media',
+    externalContainerId: String(creationId),
+    externalMediaId: String(published.id),
+    remoteIdentifiers: {
+      publishedMediaId: String(published.id),
+      containerId: String(creationId),
+      childContainers: children,
+    },
   }
 }
 
@@ -218,6 +243,12 @@ async function publishFacebookStory(input: MetaPublishInput, token: string, grap
     return {
       externalPostId: String(published.post_id || session.video_id),
       externalPostUrl: null,
+      externalObjectType: 'facebook_story' as const,
+      externalMediaId: String(published.post_id || session.video_id),
+      remoteIdentifiers: {
+        storyPostId: published.post_id || null,
+        videoId: session.video_id,
+      },
     }
   }
 
@@ -241,6 +272,12 @@ async function publishFacebookStory(input: MetaPublishInput, token: string, grap
   return {
     externalPostId: String(published.post_id || uploaded.id),
     externalPostUrl: null,
+    externalObjectType: 'facebook_story' as const,
+    externalMediaId: String(published.post_id || uploaded.id),
+    remoteIdentifiers: {
+      storyPostId: published.post_id || null,
+      photoId: uploaded.id,
+    },
   }
 }
 
@@ -263,7 +300,7 @@ async function publishFacebook(input: MetaPublishInput, token: string, graphBase
         access_token: token,
       },
     })
-    return { externalPostId: String(post.id), externalPostUrl: null }
+    return { externalPostId: String(post.id), externalPostUrl: null, externalObjectType: 'facebook_feed_post' as const, externalMediaId: String(post.id), remoteIdentifiers: { pagePostId: String(post.id) } }
   }
 
   if (media.length > 1) {
@@ -295,7 +332,13 @@ async function publishFacebook(input: MetaPublishInput, token: string, graphBase
         },
       },
     )
-    return { externalPostId: String(post.id), externalPostUrl: null }
+    return {
+      externalPostId: String(post.id),
+      externalPostUrl: null,
+      externalObjectType: 'facebook_feed_post' as const,
+      externalMediaId: String(post.id),
+      remoteIdentifiers: { pagePostId: String(post.id), attachedMedia },
+    }
   }
 
   const first = media[0]
@@ -309,7 +352,19 @@ async function publishFacebook(input: MetaPublishInput, token: string, graphBase
     { method: 'POST', body },
   )
 
-  return { externalPostId: String(post.post_id || post.id), externalPostUrl: null }
+  const publishedId = String(post.post_id || post.id)
+  const objectType = isVideo ? 'facebook_video' : 'facebook_photo'
+  return {
+    externalPostId: publishedId,
+    externalPostUrl: null,
+    externalObjectType: objectType as 'facebook_video' | 'facebook_photo',
+    externalMediaId: publishedId,
+    remoteIdentifiers: {
+      pagePostId: post.post_id ? String(post.post_id) : null,
+      mediaId: String(post.id),
+      publishedMediaId: publishedId,
+    },
+  }
 }
 
 export async function publishToMeta(input: MetaPublishInput) {
@@ -321,29 +376,17 @@ export async function publishToMeta(input: MetaPublishInput) {
 }
 
 export async function deleteFromMeta(input: MetaDeleteInput) {
-  const { token, graphVersion } = await resolveMetaPageToken(input.client, input.tenantId, input.account.platform)
-  const graphBase = `https://graph.facebook.com/${graphVersion}`
-  const externalPostId = String(input.externalPostId || '').trim()
-  if (!externalPostId)
-    return { deleted: false, skipped: true }
-
-  try {
-    await $fetch(`${graphBase}/${externalPostId}`, {
-      method: 'DELETE',
-      query: { access_token: token },
-    })
-    return { deleted: true, skipped: false }
-  }
-  catch (error: any) {
-    const message = String(
-      error?.data?.error?.message
-      || error?.statusMessage
-      || error?.message
-      || 'Falha ao excluir na Meta',
-    )
-    // Already gone / expired stories should not block local deletion.
-    if (/does not exist|unsupported get request|object with id/i.test(message))
-      return { deleted: false, skipped: true, message }
-    throw createError({ statusCode: 502, statusMessage: message })
-  }
+  const { deleteMetaRemoteObject } = await import('~/server/utils/social-publishers/meta-delete')
+  return deleteMetaRemoteObject({
+    client: input.client,
+    tenantId: input.tenantId,
+    account: input.account,
+    format: input.format,
+    externalPostId: input.externalPostId,
+    externalObjectType: input.externalObjectType,
+    externalContainerId: input.externalContainerId,
+    externalMediaId: input.externalMediaId,
+    externalPermalink: input.externalPermalink,
+    remoteIdentifiers: input.remoteIdentifiers,
+  })
 }

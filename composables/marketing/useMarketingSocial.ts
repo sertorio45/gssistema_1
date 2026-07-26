@@ -4,6 +4,7 @@ import type {
   MediaAsset,
   MediaAssetPurpose,
   SocialAccount,
+  SocialApprovalWorkflow,
   SocialPost,
   SocialPostInput,
 } from '~/types/marketing-social'
@@ -46,13 +47,36 @@ export function useMarketingSocial() {
     return response.data
   }
 
-  async function deletePost(id: string, options?: { force?: boolean, deleteRemote?: boolean }) {
+  async function deletePost(id: string, options?: {
+    mode?: 'cancel_draft' | 'system_and_remote' | 'system_only' | 'retry_remote'
+    reason?: string | null
+    confirmRemoteDeletion?: boolean
+    confirmLocalOnly?: boolean
+    forceCompleteLocal?: boolean
+    manualConfirmations?: Array<{ variantId: string, confirmed: boolean }>
+    /** @deprecated use mode */
+    force?: boolean
+    /** @deprecated use mode */
+    deleteRemote?: boolean
+  }) {
+    const mode = options?.mode
+      || (options?.deleteRemote === false
+        ? 'system_only'
+        : options?.force
+          ? 'system_and_remote'
+          : 'system_and_remote')
+
     return $fetch(`/api/marketing/social/posts/${id}`, {
       method: 'DELETE',
-      query: tenantQuery({
-        force: options?.force ? 'true' : 'false',
-        delete_remote: options?.deleteRemote === false ? 'false' : 'true',
-      }),
+      body: {
+        tenant_id: tenantId.value || undefined,
+        mode,
+        reason: options?.reason || null,
+        confirmRemoteDeletion: options?.confirmRemoteDeletion ?? (mode === 'system_and_remote'),
+        confirmLocalOnly: options?.confirmLocalOnly ?? (mode === 'system_only'),
+        forceCompleteLocal: options?.forceCompleteLocal ?? Boolean(options?.force),
+        manualConfirmations: options?.manualConfirmations,
+      },
     })
   }
 
@@ -68,8 +92,13 @@ export function useMarketingSocial() {
     })
   }
 
-  async function submitForApproval(id: string, approverIds: string[], dueAt?: string | null) {
-    const response = await $fetch<{ data: ApprovalRequest }>(
+  async function submitForApproval(
+    id: string,
+    approverIds: string[],
+    dueAt?: string | null,
+    workflowId?: string | null,
+  ) {
+    const response = await $fetch<{ data: ApprovalRequest, meta: { mode: string, workflowId: string } }>(
       `/api/marketing/social/posts/${id}/submit`,
       {
         method: 'POST',
@@ -77,9 +106,37 @@ export function useMarketingSocial() {
           tenant_id: tenantId.value || undefined,
           approverIds,
           dueAt: dueAt || null,
+          workflowId: workflowId || null,
         },
       },
     )
+    return response.data
+  }
+
+  async function bypassApproval(id: string, justification: string) {
+    return $fetch(`/api/marketing/social/posts/${id}/bypass`, {
+      method: 'POST',
+      body: {
+        tenant_id: tenantId.value || undefined,
+        justification,
+      },
+    })
+  }
+
+  async function cancelApproval(id: string, reason?: string | null, options?: { tenantId?: string | null }) {
+    return $fetch(`/api/marketing/social/posts/${id}/cancel-approval`, {
+      method: 'POST',
+      body: {
+        tenant_id: options?.tenantId || tenantId.value || undefined,
+        reason: reason || null,
+      },
+    })
+  }
+
+  async function listWorkflows() {
+    const response = await $fetch<{ data: SocialApprovalWorkflow[] }>('/api/marketing/social/workflows', {
+      query: tenantQuery(),
+    })
     return response.data
   }
 
@@ -94,9 +151,16 @@ export function useMarketingSocial() {
     })
   }
 
-  async function listApprovals(status = 'all') {
-    const response = await $fetch<{ data: ApprovalRequest[] }>('/api/marketing/social/approvals', {
-      query: tenantQuery({ status }),
+  async function listApprovals(filters: Record<string, unknown> = {}) {
+    const response = await $fetch<{ data: any[], meta?: Record<string, unknown> }>('/api/marketing/social/approvals', {
+      query: tenantQuery(filters),
+    })
+    return response
+  }
+
+  async function getApproval(id: string, extra: Record<string, unknown> = {}) {
+    const response = await $fetch<{ data: any }>(`/api/marketing/social/approvals/${id}`, {
+      query: tenantQuery(extra),
     })
     return response.data
   }
@@ -105,13 +169,35 @@ export function useMarketingSocial() {
     requestId: string,
     decision: ApprovalDecision,
     comment?: string | null,
+    options?: { changeCategory?: string | null, tenantId?: string | null },
   ) {
     return $fetch(`/api/marketing/social/approvals/${requestId}/decision`, {
       method: 'POST',
       body: {
-        tenant_id: tenantId.value || undefined,
+        tenant_id: options?.tenantId || tenantId.value || undefined,
         decision,
         comment: comment || null,
+        changeCategory: options?.changeCategory || null,
+      },
+    })
+  }
+
+  async function addComment(
+    postId: string,
+    body: string,
+    options?: {
+      versionId?: string | null
+      visibility?: 'internal' | 'shared'
+      tenantId?: string | null
+    },
+  ) {
+    return $fetch(`/api/marketing/social/posts/${postId}/comments`, {
+      method: 'POST',
+      body: {
+        tenant_id: options?.tenantId || tenantId.value || undefined,
+        body,
+        versionId: options?.versionId || null,
+        visibility: options?.visibility || 'shared',
       },
     })
   }
@@ -191,9 +277,14 @@ export function useMarketingSocial() {
     deletePost,
     shareToStories,
     submitForApproval,
+    bypassApproval,
+    cancelApproval,
+    listWorkflows,
     schedulePost,
     listApprovals,
+    getApproval,
     decide,
+    addComment,
     listAssets,
     uploadAsset,
     deleteAsset,

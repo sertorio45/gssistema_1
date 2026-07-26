@@ -8,7 +8,10 @@ const agencyOwnerScope = {
     'organization.read',
     'organization.manage',
     'organization.members.manage',
+    'organization.team.manage',
+    'organization.roles.read',
     'organization.tenants.read',
+    'agency.clients.read',
   ],
   organizationType: 'agency' as const,
 }
@@ -27,13 +30,13 @@ describe('guarda de rotas por tipo de organização', () => {
   })
 
   it('a carteira de clientes fica invisível para cliente direto', () => {
-    const portfolio = navMenuOrganization[0]!.items.find(
-      item => 'link' in item && item.link === '/organization/portfolio',
+    const clients = navMenuOrganization[0]!.items.find(
+      item => 'link' in item && item.link === '/organization/clients',
     )!
 
     const requirements = {
-      capability: 'capability' in portfolio ? portfolio.capability : null,
-      organizationTypes: 'organizationTypes' in portfolio ? portfolio.organizationTypes : null,
+      capability: 'capability' in clients ? clients.capability : null,
+      organizationTypes: 'organizationTypes' in clients ? clients.organizationTypes : null,
     }
 
     expect(canEnterWorkspaceRoute(agencyOwnerScope, requirements)).toBe(true)

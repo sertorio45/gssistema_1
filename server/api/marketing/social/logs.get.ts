@@ -1,16 +1,22 @@
 import { getQuery } from 'h3'
 
-import { requireAuthenticatedUser } from '~/server/utils/admin-auth'
+import { holdsCapability } from '~/constants/workspace'
 import { requireSocialContext } from '~/server/utils/social-context'
 
 export default defineEventHandler(async (event) => {
-  const user = await requireAuthenticatedUser(event)
-  const globalRole = (user.app_metadata as { role?: string } | undefined)?.role
-  if (globalRole !== 'admin')
-    throw createError({ statusCode: 403, statusMessage: 'Apenas superadministradores podem ver os logs' })
-
-  const { client, tenantId } = await requireSocialContext(event, 'marketing.social.read')
   const query = getQuery(event)
+  // Audit logs require manage — never gate on legacy app_role === 'admin'.
+  const { client, tenantId, workspace, isPlatformStaff } = await requireSocialContext(
+    event,
+    'marketing.social.manage',
+  )
+
+  const canReadAudit = isPlatformStaff
+    || holdsCapability(workspace.capabilities, 'marketing.social.manage')
+    || holdsCapability(workspace.capabilities, 'platform.audit.read')
+  if (!canReadAudit)
+    throw createError({ statusCode: 403, statusMessage: 'Sem permissão para ver auditoria' })
+
   const page = Math.max(1, Number(query.page || 1))
   const pageSize = Math.min(100, Math.max(1, Number(query.page_size || 50)))
   const action = String(query.action || '').trim()
@@ -39,7 +45,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: error.message })
 
   const rows = data || []
-  const actorIds = [...new Set(rows.map((row: any) => row.actor_id).filter(Boolean))]
+  // Never expose integration secrets accidentally stored in after_data.
+  const sanitized = rows.map((row: any) => ({
+    ...row,
+    after_data: scrubSecrets(row.after_data),
+    before_data: scrubSecrets(row.before_data),
+  }))
+
+  const actorIds = [...new Set(sanitized.map((row: any) => row.actor_id).filter(Boolean))]
   const actors = new Map<string, { name: string, email: string }>()
 
   await Promise.all(actorIds.map(async (actorId) => {
@@ -54,7 +67,7 @@ export default defineEventHandler(async (event) => {
   }))
 
   return {
-    data: rows.map((row: any) => ({
+    data: sanitized.map((row: any) => ({
       ...row,
       actor: row.actor_id ? actors.get(String(row.actor_id)) || null : null,
     })),
@@ -66,3 +79,21 @@ export default defineEventHandler(async (event) => {
     },
   }
 })
+
+function scrubSecrets(payload: unknown) {
+  if (!payload || typeof payload !== 'object')
+    return payload
+  const clone = JSON.parse(JSON.stringify(payload))
+  const walk = (node: any) => {
+    if (!node || typeof node !== 'object')
+      return
+    for (const key of Object.keys(node)) {
+      if (/token|secret|password|access_token|page_access_token/i.test(key))
+        node[key] = '[redacted]'
+      else
+        walk(node[key])
+    }
+  }
+  walk(clone)
+  return clone
+}

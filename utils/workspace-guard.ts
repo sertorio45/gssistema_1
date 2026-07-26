@@ -1,5 +1,7 @@
 import type { OrganizationType, WorkspaceCapability } from '~/constants/workspace'
 
+import { holdsCapability } from '~/constants/workspace'
+
 /**
  * Requirements declared by a route or a menu entry. Both are UX shortcuts: the
  * endpoints behind each screen authorize independently on the server.
@@ -15,12 +17,6 @@ export interface WorkspaceRouteScope {
   organizationType: OrganizationType | null
 }
 
-function holds(scope: WorkspaceRouteScope, capability: string): boolean {
-  return scope.capabilities instanceof Set
-    ? scope.capabilities.has(capability)
-    : (scope.capabilities as readonly string[]).includes(capability)
-}
-
 /**
  * A direct customer must never reach agency-only screens, and nobody reaches a
  * screen whose capability is missing from the resolved scope.
@@ -29,7 +25,7 @@ export function canEnterWorkspaceRoute(
   scope: WorkspaceRouteScope,
   requirements: WorkspaceRouteRequirements,
 ): boolean {
-  if (requirements.capability && !holds(scope, requirements.capability))
+  if (requirements.capability && !holdsCapability(scope.capabilities, requirements.capability))
     return false
 
   const allowedTypes = requirements.organizationTypes

@@ -17,6 +17,9 @@ export interface SerializedWorkspaceContext {
     anchor_tenant_id: string | null
   } | null
   organization_role: string | null
+  organization_role_id: string | null
+  organization_role_slug: string | null
+  organization_role_name: string | null
   organization_relationship_type: string | null
   tenant: {
     id: string
@@ -50,6 +53,9 @@ export function serializeWorkspaceContext(context: WorkspaceContext): Serialized
         }
       : null,
     organization_role: context.organizationRole,
+    organization_role_id: context.organizationRoleId,
+    organization_role_slug: context.organizationRoleSlug,
+    organization_role_name: context.organizationRoleName,
     organization_relationship_type: context.organizationTenantLink?.relationshipType ?? null,
     tenant: context.tenant
       ? {
