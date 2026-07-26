@@ -1,22 +1,27 @@
+import { ORGANIZATION_HEADER, TENANT_HEADER } from '~/constants/workspace'
+
 /**
- * Sends current workspace tenant on API calls so `/api/*` resolves the correct tenant
- * (JWT fallback alone uses the first tenant in app_metadata).
+ * Sends the requested workspace on API calls. These headers are a *request* for
+ * a scope: the Nitro resolver validates both ids against memberships, portfolio
+ * links and contracted modules before honouring them.
  */
 export default defineNuxtPlugin(() => {
   globalThis.$fetch = $fetch.create({
     onRequest({ request, options }) {
-      const tenantStore = useTenantStore()
       const url = typeof request === 'string' ? request : String(request)
       if (!url.includes('/api/'))
         return
-      const tid = tenantStore.tenantId
-      if (!tid)
-        return
+
+      const tenantStore = useTenantStore()
       const headers = new Headers(options.headers as HeadersInit)
-      if (!headers.has('X-Tenant-Id')) {
-        headers.set('X-Tenant-Id', tid)
-        options.headers = headers
-      }
+
+      if (tenantStore.tenantId && !headers.has(TENANT_HEADER))
+        headers.set(TENANT_HEADER, tenantStore.tenantId)
+
+      if (tenantStore.organizationId && !headers.has(ORGANIZATION_HEADER))
+        headers.set(ORGANIZATION_HEADER, tenantStore.organizationId)
+
+      options.headers = headers
     },
   })
 })

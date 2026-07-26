@@ -1,110 +1,37 @@
-import process from 'node:process'
+import { serverSupabaseUser } from '#supabase/server'
 
-import { createClient } from '@supabase/supabase-js'
-import { defineEventHandler, getHeader } from 'h3'
+import { defineEventHandler, getRequestURL } from 'h3'
 
-import { isStaffUser, resolveStaffRole } from '~/server/utils/tenant-role'
+import { requireWorkspaceContext } from '~/server/utils/workspace-context'
 
-// Este middleware adiciona o contexto de tenant às requisições da API
+/**
+ * Publishes the resolved workspace on `event.context.auth` for the legacy CRM and
+ * Articles handlers. Resolution is delegated to `requireWorkspaceContext`, so an
+ * agency collaborator opening a client workspace is scoped the same way here as
+ * in the modern handlers.
+ *
+ * Never throws: authorization belongs to the handlers, this only carries context.
+ */
 export default defineEventHandler(async (event) => {
-  // Obter token do Authorization header
-  const authHeader = getHeader(event, 'Authorization')
-
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (!getRequestURL(event).pathname.startsWith('/api/'))
     return
-  }
-
-  const token = authHeader.substring(7)
-  if (!token) {
-    return
-  }
-
-  const supabase = createClient(process.env.SUPABASE_URL || '', process.env.SUPABASE_KEY || '')
-
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  const service = createClient(process.env.SUPABASE_URL || '', serviceKey)
-
-  const isUuid = (v: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 
   try {
-    // Decodificar JWT para obter as claims
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(token)
-
-    if (!user) {
+    const user = await serverSupabaseUser(event).catch(() => null)
+    if (!user)
       return
-    }
 
-    // Verificar se temos informações de role e tenant_id nas app_metadata
-    const appMetadata = user.app_metadata || {}
-    const tenantRoles = appMetadata.tenant_roles || {}
-    // Buscar tenantId do contexto (ex: header, store, etc) ou pegar o primeiro
-    let tenantId: string | null = null
-    // Tenta pegar do header X-Tenant-Id
-    tenantId = getHeader(event, 'X-Tenant-Id') || null
-    if (!tenantId) {
-      // Fallback: pega o primeiro tenant do objeto
-      const firstTenant = Object.keys(tenantRoles)[0]
-      if (firstTenant) {
-        tenantId = firstTenant
-      }
-    }
-    let role: string | null = null
-    if (isStaffUser(user)) {
-      role = resolveStaffRole(user)
-    }
-    else if (tenantId && tenantRoles[tenantId]) {
-      role = tenantRoles[tenantId]
-    }
-    if (!role && tenantId && isUuid(tenantId)) {
-      const { data: row } = await service.from('tenant').select('slug').eq('id', tenantId).maybeSingle()
-      if (row?.slug && tenantRoles[row.slug])
-        role = tenantRoles[row.slug]
-      if (!role) {
-        const { data: directMembership } = await service
-          .from('user_tenant_role')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('tenant_id', tenantId)
-          .maybeSingle()
-        role = directMembership?.role || null
-      }
-      if (!role) {
-        const { data: portfolio } = await service
-          .from('organization_tenants')
-          .select('organization_id')
-          .eq('tenant_id', tenantId)
-        const organizationIds = (portfolio || []).map(item => item.organization_id)
-        if (organizationIds.length) {
-          const { data: organizationMembership } = await service
-            .from('organization_memberships')
-            .select('role')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .in('organization_id', organizationIds)
-            .limit(1)
-            .maybeSingle()
-          role = organizationMembership?.role || null
-        }
-      }
-    }
-    if (!role) {
-      role = (user.app_metadata as any)?.role || null
-    }
-    // Adicionar essas informações ao evento para que estejam disponíveis nos handlers
+    const context = await requireWorkspaceContext(event)
+
     event.context.auth = {
-      userId: user.id,
-      role,
-      tenantId,
-    }
-    // Se usuário tem role 'cliente', verificamos se possuem tenantId
-    if ((role === 'cliente' || role === 'atendente') && !tenantId) {
-      console.warn(`Usuário ${role} sem tenantId definido: ${user.id}`)
+      userId: context.userId,
+      role: context.effectiveRole,
+      tenantId: context.tenantId,
+      organizationId: context.organization?.id ?? null,
+      isPlatformStaff: context.isPlatformStaff,
     }
   }
-  catch (error) {
-    console.error('Erro ao processar contexto de tenant:', error)
+  catch {
+    // A rejected context simply means the handler will authorize on its own.
   }
 })

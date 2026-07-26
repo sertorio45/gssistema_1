@@ -1,38 +1,57 @@
 import { getQuery } from 'h3'
+import { z } from 'zod'
 
-import { requireOrganizationContext } from '~/server/utils/organization-access'
+import { ORGANIZATION_TYPES } from '~/constants/workspace'
+import { listAccessibleOrganizations, requireWorkspaceContext } from '~/server/utils/workspace-context'
+
+const querySchema = z.object({
+  type: z.enum(ORGANIZATION_TYPES as [string, ...string[]]).optional(),
+})
 
 export default defineEventHandler(async (event) => {
-  const { user, client, isPlatformStaff } = await requireOrganizationContext(event)
-  const query = getQuery(event)
+  const input = querySchema.parse(getQuery(event))
+  const context = await requireWorkspaceContext(event, {
+    organizationId: null,
+    capability: 'organization.read',
+  })
 
-  let request = client
-    .from('organizations')
-    .select(`
-      *,
-      organization_tenants (tenant_id, is_primary, tenant:tenant_id (id, name, slug, is_active)),
-      organization_memberships (id, user_id, role, is_active)
-    `)
-    .order('name')
+  const organizations = await listAccessibleOrganizations(context.client, {
+    userId: context.userId,
+    isPlatformStaff: context.isPlatformStaff,
+    type: (input.type as any) ?? null,
+  })
 
-  if (query.type && ['agency', 'direct', 'platform'].includes(String(query.type)))
-    request = request.eq('type', String(query.type))
+  if (!organizations.length)
+    return { data: [] }
 
-  if (!isPlatformStaff) {
-    const { data: memberships } = await client
+  const organizationIds = organizations.map(organization => organization.id)
+
+  const [{ data: links }, { data: members }] = await Promise.all([
+    context.client
+      .from('organization_tenants')
+      .select('organization_id, tenant_id, is_primary, relationship_type, is_active, started_at, ended_at, tenant:tenant_id (id, name, slug, is_active)')
+      .in('organization_id', organizationIds),
+    context.client
       .from('organization_memberships')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-    const ids = (memberships || []).map((row: any) => row.organization_id)
-    if (!ids.length)
-      return { data: [] }
-    request = request.in('id', ids)
+      .select('id, organization_id, user_id, role, is_active, access_all_tenants')
+      .in('organization_id', organizationIds),
+  ])
+
+  return {
+    data: organizations.map(organization => ({
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      type: organization.type,
+      is_active: organization.isActive,
+      tenant_id: organization.anchorTenantId,
+      settings: organization.settings,
+      organization_tenants: (links || []).filter(
+        (link: any) => String(link.organization_id) === organization.id,
+      ),
+      organization_memberships: (members || []).filter(
+        (member: any) => String(member.organization_id) === organization.id,
+      ),
+    })),
   }
-
-  const { data, error } = await request
-  if (error)
-    throw createError({ statusCode: 400, statusMessage: error.message })
-
-  return { data: data || [] }
 })

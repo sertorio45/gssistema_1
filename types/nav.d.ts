@@ -1,6 +1,8 @@
 export interface NavBase {
   roles?: string[]
   capability?: string
+  /** Restricts the item to specific commercial models (agency, direct, platform). */
+  organizationTypes?: Array<'platform' | 'agency' | 'direct'>
 }
 
 export interface NavLink extends NavBase {

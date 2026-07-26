@@ -1,96 +1,77 @@
 <script setup lang="ts">
+import type { WorkspaceContextTenant } from '~/types/workspace'
 import { Icon } from '#components'
 
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 
-import { isStaffRole } from '~/constants/roles'
-import { useAuth } from '~/composables/useAuth'
-import { useTenant } from '~/composables/useTenant'
+import { useWorkspace } from '~/composables/useWorkspace'
 
 const { toast } = useToast()
-const { listTenants, setCurrentTenantById, currentTenant } = useTenant()
-const { currentRole } = useAuth()
+const {
+  tenant: currentTenant,
+  tenants,
+  organization,
+  isLoading,
+  isPlatformStaff,
+  showTenantSwitcher,
+  switchContext,
+} = useWorkspace()
 
-const tenants = ref<any[]>([])
-const isLoading = ref(true)
 const isOpen = ref(false)
 const searchQuery = ref('')
+const isSwitching = ref(false)
 
-const filteredTenants = computed(() => {
-  if (!searchQuery.value.trim())
-    return tenants.value
-
-  const query = searchQuery.value.toLowerCase()
-  return tenants.value.filter(
-    tenant => tenant.name.toLowerCase().includes(query) || tenant.slug.toLowerCase().includes(query),
-  )
-})
-
-async function loadTenants() {
-  isLoading.value = true
-  try {
-    tenants.value = await listTenants()
-
-    if (!currentTenant.value && tenants.value.length > 0)
-      await setCurrentTenantById(tenants.value[0].id)
-  }
-  catch (error: any) {
-    console.error('Erro ao carregar empresas:', error)
-    toast({
-      title: 'Erro',
-      description: 'Não foi possível carregar a lista de empresas.',
-      variant: 'destructive',
-    })
-  }
-  finally {
-    isLoading.value = false
-  }
+function matchesQuery(tenant: WorkspaceContextTenant) {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query)
+    return true
+  return tenant.name.toLowerCase().includes(query) || tenant.slug.toLowerCase().includes(query)
 }
 
-async function selectTenant(tenant: any) {
-  try {
-    await setCurrentTenantById(tenant.id)
+/** Own workspaces first, then the client portfolio an agency serves. */
+const ownTenants = computed(() =>
+  tenants.value.filter(tenant => tenant.relationship_type !== 'managed').filter(matchesQuery),
+)
 
+const managedTenants = computed(() =>
+  tenants.value.filter(tenant => tenant.relationship_type === 'managed').filter(matchesQuery),
+)
+
+const hasResults = computed(() => ownTenants.value.length > 0 || managedTenants.value.length > 0)
+
+async function selectTenant(tenant: WorkspaceContextTenant) {
+  if (tenant.id === currentTenant.value?.id)
+    return
+
+  isSwitching.value = true
+  try {
+    await switchContext({ tenantId: tenant.id })
+    isOpen.value = false
     toast({
       title: 'Empresa selecionada',
       description: `Você está agora na empresa: ${tenant.name}`,
     })
-
-    isOpen.value = false
-
-    window.dispatchEvent(
-      new CustomEvent('tenant-changed', {
-        detail: { tenantId: tenant.id },
-      }),
-    )
+    window.dispatchEvent(new CustomEvent('tenant-changed', { detail: { tenantId: tenant.id } }))
   }
   catch (error: any) {
-    console.error('Erro ao selecionar empresa:', error)
     toast({
       title: 'Erro',
-      description: 'Não foi possível selecionar a empresa.',
+      description: error?.data?.statusMessage || 'Não foi possível selecionar a empresa.',
       variant: 'destructive',
     })
   }
+  finally {
+    isSwitching.value = false
+  }
 }
-
-onMounted(async () => {
-  if (isStaffRole(currentRole.value))
-    await loadTenants()
-})
-
-watch(currentRole, async (role) => {
-  if (isStaffRole(role))
-    await loadTenants()
-})
 </script>
 
 <template>
-  <div v-if="isStaffRole(currentRole)">
+  <div v-if="showTenantSwitcher">
     <DropdownMenu v-model:open="isOpen">
       <DropdownMenuTrigger
         class="w-full flex items-center rounded-md px-3 py-2 outline-none space-x-2 hover:bg-muted/50 focus:outline-none focus:ring-0"
@@ -102,6 +83,9 @@ watch(currentRole, async (role) => {
             </div>
             <div class="flex flex-col items-start">
               <span class="text-sm font-medium">{{ currentTenant?.name || 'Selecionar empresa' }}</span>
+              <span v-if="organization" class="text-xs text-muted-foreground">
+                {{ organization.name }}
+              </span>
             </div>
           </div>
           <Icon name="lucide:chevron-down" class="h-4 w-4" />
@@ -123,7 +107,7 @@ watch(currentRole, async (role) => {
           </div>
         </div>
         <div class="py-1.5">
-          <template v-if="isLoading">
+          <template v-if="isLoading || isSwitching">
             <div class="px-3 py-2 space-y-2">
               <div class="flex items-center space-x-2">
                 <Skeleton class="h-6 w-6 rounded-full" />
@@ -132,45 +116,59 @@ watch(currentRole, async (role) => {
             </div>
           </template>
           <template v-else>
-            <div class="px-3 py-1 text-xs text-muted-foreground font-semibold">
-              Empresa atual
-            </div>
-            <DropdownMenuItem v-if="currentTenant" class="flex cursor-default items-center px-3 py-1.5 space-x-2">
-              <div class="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <span class="text-xs text-white font-medium">{{ currentTenant.name.charAt(0) }}</span>
-              </div>
-              <span class="text-sm font-medium">{{ currentTenant.name }}</span>
-              <span class="ml-auto text-primary">
-                <Icon name="lucide:check" class="h-3.5 w-3.5" />
-              </span>
-            </DropdownMenuItem>
-            <div class="mt-1.5 px-3 py-1 text-xs text-muted-foreground font-semibold">
-              Empresas
-            </div>
-            <div v-if="filteredTenants.length === 0" class="px-3 py-1.5 text-xs text-muted-foreground italic">
-              Nenhuma empresa encontrada
+            <div v-if="ownTenants.length" class="px-3 py-1 text-xs text-muted-foreground font-semibold">
+              Minhas empresas
             </div>
             <DropdownMenuItem
-              v-for="tenant in filteredTenants"
+              v-for="tenant in ownTenants"
               :key="tenant.id"
-              :disabled="!tenant.is_active || currentTenant?.id === tenant.id"
+              :disabled="!tenant.is_active"
               class="flex items-center px-3 py-1.5 space-x-2"
               @click="selectTenant(tenant)"
             >
               <div class="h-6 w-6 flex items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                <span class="text-xs text-white font-medium">{{ tenant.name.charAt(0) }}</span>
+                <span class="text-xs font-medium">{{ tenant.name.charAt(0) }}</span>
               </div>
               <span class="text-sm font-medium">{{ tenant.name }}</span>
+              <span v-if="currentTenant?.id === tenant.id" class="ml-auto text-primary">
+                <Icon name="lucide:check" class="h-3.5 w-3.5" />
+              </span>
             </DropdownMenuItem>
-            <div class="my-1.5 border-t" />
-            <DropdownMenuItem as-child class="cursor-pointer">
-              <NuxtLink to="/admin/tenants" class="flex items-center px-3 py-1.5 space-x-2">
-                <div class="h-6 w-6 flex items-center justify-center rounded-full bg-muted">
-                  <Icon name="lucide:plus" class="h-3.5 w-3.5" />
-                </div>
-                <span class="text-sm font-medium">Gerenciar empresas</span>
-              </NuxtLink>
+
+            <div v-if="managedTenants.length" class="mt-1.5 px-3 py-1 text-xs text-muted-foreground font-semibold">
+              Clientes atendidos
+            </div>
+            <DropdownMenuItem
+              v-for="tenant in managedTenants"
+              :key="tenant.id"
+              :disabled="!tenant.is_active"
+              class="flex items-center px-3 py-1.5 space-x-2"
+              @click="selectTenant(tenant)"
+            >
+              <div class="h-6 w-6 flex items-center justify-center rounded-full bg-muted">
+                <span class="text-xs font-medium">{{ tenant.name.charAt(0) }}</span>
+              </div>
+              <span class="text-sm font-medium">{{ tenant.name }}</span>
+              <span v-if="currentTenant?.id === tenant.id" class="ml-auto text-primary">
+                <Icon name="lucide:check" class="h-3.5 w-3.5" />
+              </span>
             </DropdownMenuItem>
+
+            <div v-if="!hasResults" class="px-3 py-1.5 text-xs text-muted-foreground italic">
+              Nenhuma empresa encontrada
+            </div>
+
+            <template v-if="isPlatformStaff">
+              <div class="my-1.5 border-t" />
+              <DropdownMenuItem as-child class="cursor-pointer">
+                <NuxtLink to="/admin/tenants" class="flex items-center px-3 py-1.5 space-x-2">
+                  <div class="h-6 w-6 flex items-center justify-center rounded-full bg-muted">
+                    <Icon name="lucide:plus" class="h-3.5 w-3.5" />
+                  </div>
+                  <span class="text-sm font-medium">Gerenciar empresas</span>
+                </NuxtLink>
+              </DropdownMenuItem>
+            </template>
           </template>
         </div>
       </DropdownMenuContent>

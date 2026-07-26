@@ -1,12 +1,20 @@
 /**
- * Restores workspace tenant before pages mount so API calls have tenant_id available.
+ * Resolves the workspace context before pages mount, so API calls already carry
+ * a validated tenant and organization.
  */
 export default defineNuxtPlugin(async () => {
-  const { restoreLastTenant, setTenantFromJWT, tenantId } = useTenant()
+  const user = useSupabaseUser()
+  if (!user.value)
+    return
 
-  restoreLastTenant()
+  const workspace = useWorkspace()
 
-  if (!tenantId.value) {
-    await setTenantFromJWT()
+  try {
+    const context = await workspace.load()
+    if (!context.tenant && context.tenants.length)
+      await workspace.switchContext({ tenantId: context.tenants[0].id })
+  }
+  catch (error) {
+    console.error('Não foi possível resolver o contexto de trabalho:', error)
   }
 })

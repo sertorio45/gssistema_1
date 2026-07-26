@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { useRole } from '@/composables/useRole'
 import { useAuth } from '~/composables/useAuth'
 import { useModule } from '~/composables/useModule'
-import { useTenant } from '~/composables/useTenant'
-import { navMenu, navMenuAdmin, navMenuBottom, navMenuTenant } from '~/constants/menus'
-import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
+import { useWorkspace } from '~/composables/useWorkspace'
+import { navMenu, navMenuAdmin, navMenuBottom, navMenuOrganization, navMenuTenant } from '~/constants/menus'
+import { isTenantScopedRole } from '~/constants/roles'
+import { canEnterWorkspaceRoute } from '~/utils/workspace-guard'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
   if ('children' in item)
@@ -35,49 +36,35 @@ const isLoadingMenu = ref(true)
 // --- Lógica de módulo ---
 const { currentModuleMeta } = useModule()
 
-// --- Lógica de tenant ---
-const { listTenants, tenantId } = useTenant()
-const availableTenants = ref<any[]>([])
-const capabilities = ref(new Set<string>())
-const isLoadingTenants = ref(true)
+// --- Contexto de workspace (organização + empresa + capabilities) ---
+const {
+  context: workspaceContext,
+  isLoading: isLoadingTenants,
+  organizationType,
+  showTenantSwitcher: showTenantSelector,
+  load: loadWorkspace,
+} = useWorkspace()
 const { currentRole, updateUserRole } = useAuth()
-const showTenantSelector = computed(() => isStaffRole(currentRole.value) || availableTenants.value.length > 1)
+
+const capabilities = computed(() => new Set<string>(workspaceContext.value?.capabilities ?? []))
 const showAdminSection = computed(() => hasRole(['admin', 'funcionario']))
 const showTenantTeamSection = computed(() => hasRole(['admin', 'funcionario', 'cliente']))
-
-// Carregar lista de tenants disponíveis
-async function loadTenants() {
-  isLoadingTenants.value = true
-  try {
-    availableTenants.value = await listTenants()
-  }
-  catch (error) {
-    console.error('Error loading tenants:', error)
-  }
-  finally {
-    isLoadingTenants.value = false
-  }
-}
-
-async function loadCapabilities() {
-  if (!tenantId.value) {
-    capabilities.value = new Set()
-    return
-  }
-  try {
-    const response = await $fetch<{ capabilities: string[] }>('/api/marketing/social/access', {
-      query: { tenant_id: tenantId.value },
-    })
-    capabilities.value = new Set(response.capabilities)
-  }
-  catch {
-    capabilities.value = new Set()
-  }
-}
 
 function hasCapability(item: NavLink | NavGroup | NavSectionTitle) {
   return !('capability' in item) || !item.capability || capabilities.value.has(item.capability)
 }
+
+/** Agency-only entries must stay invisible for direct customers. */
+function matchesOrganizationType(item: NavLink | NavGroup | NavSectionTitle) {
+  return canEnterWorkspaceRoute(
+    { capabilities: capabilities.value, organizationType: organizationType.value },
+    { organizationTypes: 'organizationTypes' in item ? item.organizationTypes : null },
+  )
+}
+
+const organizationMenuItems = computed(() =>
+  navMenuOrganization[0].items.filter(item => hasCapability(item) && matchesOrganizationType(item)),
+)
 
 function filterMenuByRoleAndModule(menu: NavMenu[]) {
   const moduleTitle = currentModuleMeta.value?.title
@@ -159,17 +146,10 @@ const showFlatModuleMenu = computed(() => flatModuleLinks.value.length > 0)
 onMounted(async () => {
   await updateUserRole()
   await fetchUserRole()
-  await loadTenants()
-  await loadCapabilities()
+  if (!workspaceContext.value)
+    await loadWorkspace()
   isLoadingMenu.value = false
 })
-
-watch(currentRole, async (role) => {
-  if (isStaffRole(role))
-    await loadTenants()
-})
-
-watch(tenantId, loadCapabilities)
 </script>
 
 <template>
@@ -247,8 +227,22 @@ watch(tenantId, loadCapabilities)
             :item="item"
           />
         </SidebarGroup>
+        <!-- Organization scope: agency portfolio stays hidden for direct customers -->
+        <SidebarGroup
+          v-if="organizationMenuItems.length"
+          class="border-t pt-2"
+          :class="{ 'mt-auto': !showAdminSection }"
+        >
+          <SidebarGroupLabel>{{ navMenuOrganization[0].heading }}</SidebarGroupLabel>
+          <component
+            :is="resolveNavItemComponent(item)"
+            v-for="(item, index) in organizationMenuItems"
+            :key="`organization-${index}`"
+            :item="item"
+          />
+        </SidebarGroup>
         <!-- Tenant users: separate from agency admin -->
-        <SidebarGroup v-if="showTenantTeamSection" class="border-t pt-2" :class="{ 'mt-auto': !showAdminSection }">
+        <SidebarGroup v-if="showTenantTeamSection" class="border-t pt-2" :class="{ 'mt-auto': !showAdminSection && !organizationMenuItems.length }">
           <SidebarGroupLabel>{{ navMenuTenant[0].heading }}</SidebarGroupLabel>
           <component
             :is="resolveNavItemComponent(item)"

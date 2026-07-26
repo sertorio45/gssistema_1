@@ -1,36 +1,28 @@
-import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { createError } from 'h3'
+import type { WorkspaceContext } from '~/server/utils/workspace-context'
 
+import { requireWorkspaceContext } from '~/server/utils/workspace-context'
+
+/**
+ * Organization-scoped gate. Kept as a thin adapter so existing handlers keep
+ * their shape while authorization lives in `requireWorkspaceContext`.
+ */
 export async function requireOrganizationContext(
   event: any,
   organizationId?: string,
   options: { manage?: boolean, platformOnly?: boolean } = {},
 ) {
-  const user = await serverSupabaseUser(event)
-  if (!user)
-    throw createError({ statusCode: 401, statusMessage: 'Não autenticado' })
+  const context: WorkspaceContext = await requireWorkspaceContext(event, {
+    organizationId: organizationId ?? null,
+    platformOnly: options.platformOnly,
+    manageOrganization: options.manage && organizationId ? true : undefined,
+  })
 
-  const client: any = await serverSupabaseServiceRole(event)
-  const globalRole = (user.app_metadata as { role?: string })?.role
-  const isPlatformStaff = globalRole === 'admin' || globalRole === 'funcionario'
-  if (options.platformOnly && !isPlatformStaff)
-    throw createError({ statusCode: 403, statusMessage: 'Acesso exclusivo da plataforma' })
-
-  let membership: any = null
-  if (organizationId && !isPlatformStaff) {
-    const { data } = await client
-      .from('organization_memberships')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-      .maybeSingle()
-    membership = data
-    if (!membership)
-      throw createError({ statusCode: 403, statusMessage: 'Sem acesso a esta organização' })
-    if (options.manage && !['admin', 'cliente'].includes(membership.role))
-      throw createError({ statusCode: 403, statusMessage: 'Sem permissão para gerenciar a organização' })
+  return {
+    user: context.user,
+    client: context.client,
+    isPlatformStaff: context.isPlatformStaff,
+    membership: context.organizationMembership,
+    organization: context.organization,
+    context,
   }
-
-  return { user, client, isPlatformStaff, membership }
 }

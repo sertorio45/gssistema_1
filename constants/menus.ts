@@ -504,6 +504,31 @@ export const navMenuAdmin: NavMenu[] = [
   },
 ]
 
+/**
+ * Organization scope. Portfolio items are limited to agencies so a direct
+ * customer never sees the client selector or the agency dashboards.
+ */
+export const navMenuOrganization: NavMenu[] = [
+  {
+    heading: 'Organização',
+    items: [
+      {
+        title: 'Equipe da organização',
+        icon: 'i-lucide-users-round',
+        link: '/organization/team',
+        capability: 'organization.members.manage',
+      },
+      {
+        title: 'Carteira de clientes',
+        icon: 'i-lucide-network',
+        link: '/organization/portfolio',
+        capability: 'organization.tenants.read',
+        organizationTypes: ['agency'],
+      },
+    ],
+  },
+]
+
 /** Tenant user management: for client owners and staff managing a tenant */
 export const navMenuTenant: NavMenu[] = [
   {
