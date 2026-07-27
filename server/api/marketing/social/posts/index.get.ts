@@ -45,12 +45,31 @@ export default defineEventHandler(async (event) => {
 
   if (query.status && query.status !== 'all')
     request = request.eq('status', String(query.status))
+  if (query.editorial_status && query.editorial_status !== 'all')
+    request = request.eq('editorial_status', String(query.editorial_status))
+  if (query.publication_status && query.publication_status !== 'all')
+    request = request.eq('publication_status', String(query.publication_status))
+  if (query.campaign_id)
+    request = request.eq('campaign_id', String(query.campaign_id))
+  if (query.assigned_to)
+    request = request.eq('assigned_to', String(query.assigned_to))
   if (query.search)
     request = request.ilike('title', `%${String(query.search).trim()}%`)
   if (query.start)
     request = request.gte('scheduled_at', String(query.start))
   if (query.end)
     request = request.lte('scheduled_at', String(query.end))
+  if (query.platform && query.platform !== 'all') {
+    const { data: variantRows } = await client
+      .from('social_post_variants')
+      .select('post_id')
+      .eq('tenant_id', tenantId)
+      .eq('platform', String(query.platform))
+    const postIds = [...new Set((variantRows || []).map((row: any) => row.post_id))]
+    if (!postIds.length)
+      return { data: [], pagination: { page, pageSize, total: 0, pageCount: 0 } }
+    request = request.in('id', postIds)
+  }
 
   const { data, error, count } = await request
   if (error)

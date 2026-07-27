@@ -331,6 +331,72 @@ export function useMarketingSocial() {
     })
   }
 
+  async function reschedulePost(id: string, scheduledAt: string) {
+    const response = await $fetch<{ data: { id: string, scheduled_at: string } }>(
+      `/api/marketing/social/posts/${id}/reschedule`,
+      {
+        method: 'POST',
+        body: { scheduledAt, tenant_id: tenantId.value || undefined },
+      },
+    )
+    return response.data
+  }
+
+  async function duplicatePost(id: string, scheduledAt?: string | null) {
+    const response = await $fetch<{ data: SocialPost }>(
+      `/api/marketing/social/posts/${id}/duplicate`,
+      {
+        method: 'POST',
+        body: { scheduledAt: scheduledAt || null, tenant_id: tenantId.value || undefined },
+      },
+    )
+    return response.data
+  }
+
+  async function listPackages(filters: Record<string, unknown> = {}) {
+    return $fetch<{ data: any[] }>('/api/marketing/social/packages', {
+      query: tenantQuery(filters),
+    })
+  }
+
+  async function createPackage(input: Record<string, unknown>) {
+    const response = await $fetch<{ data: any }>('/api/marketing/social/packages', {
+      method: 'POST',
+      body: { ...input, tenant_id: tenantId.value || undefined },
+    })
+    return response.data
+  }
+
+  async function updatePackage(id: string, input: Record<string, unknown>) {
+    const response = await $fetch<{ data: any }>(`/api/marketing/social/packages/${id}`, {
+      method: 'PUT',
+      body: { ...input, tenant_id: tenantId.value || undefined },
+    })
+    return response.data
+  }
+
+  async function getPackageSla(id: string) {
+    const response = await $fetch<{ data: any[] }>(`/api/marketing/social/packages/${id}/sla`, {
+      query: tenantQuery(),
+    })
+    return response.data
+  }
+
+  async function updatePackageSla(id: string, stages: Array<{ stageKey: string, maxBusinessDays: number }>) {
+    const response = await $fetch<{ data: any[] }>(`/api/marketing/social/packages/${id}/sla`, {
+      method: 'PUT',
+      body: { stages, tenant_id: tenantId.value || undefined },
+    })
+    return response.data
+  }
+
+  async function getOpsMetrics(filters: Record<string, unknown> = {}) {
+    const response = await $fetch<{ data: any }>('/api/marketing/social/ops-metrics', {
+      query: tenantQuery(filters),
+    })
+    return response.data
+  }
+
   return {
     tenantId,
     listPosts,
@@ -344,6 +410,8 @@ export function useMarketingSocial() {
     cancelApproval,
     listWorkflows,
     schedulePost,
+    reschedulePost,
+    duplicatePost,
     listApprovals,
     getApproval,
     decide,
@@ -356,5 +424,11 @@ export function useMarketingSocial() {
     deleteAsset,
     listAccounts,
     listLogs,
+    listPackages,
+    createPackage,
+    updatePackage,
+    getPackageSla,
+    updatePackageSla,
+    getOpsMetrics,
   }
 }

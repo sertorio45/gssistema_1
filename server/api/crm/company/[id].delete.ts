@@ -1,58 +1,44 @@
-import { serverSupabaseServiceRole } from '#supabase/server'
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { getQuery, getRouterParam } from 'h3'
 
 export default defineEventHandler(async (event) => {
+  const user = await serverSupabaseUser(event)
+  if (!user)
+    throw createError({ statusCode: 401, statusMessage: 'Não autenticado' })
+
   const companyId = getRouterParam(event, 'id')
   const query = getQuery(event)
-  const { tenant_id } = query
+  const tenantId = String(query.tenant_id || '')
 
-  if (!companyId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Company ID is required',
-    })
-  }
+  if (!companyId)
+    throw createError({ statusCode: 400, statusMessage: 'ID da empresa é obrigatório' })
 
-  if (!tenant_id) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Tenant ID is required',
-    })
-  }
+  if (!tenantId)
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
 
-  try {
-    const supabase = serverSupabaseServiceRole(event)
+  const supabase = serverSupabaseServiceRole(event)
 
-    const { data, error } = await supabase
-      .from('crm_company')
-      .select('*')
-      .eq('id', companyId)
-      .eq('tenant_id', tenant_id)
-      .single()
+  const { data: existing, error: findError } = await supabase
+    .from('crm_company')
+    .select('id')
+    .eq('id', companyId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        throw createError({
-          statusCode: 404,
-          statusMessage: 'Company not found',
-        })
-      }
-      throw createError({
-        statusCode: 400,
-        statusMessage: error.message,
-      })
-    }
+  if (findError)
+    throw createError({ statusCode: 400, statusMessage: findError.message })
 
-    return {
-      data,
-    }
-  }
-  catch (error: any) {
-    if (error.statusCode) {
-      throw error
-    }
-    throw createError({
-      statusCode: 500,
-      statusMessage: error.message || 'Failed to fetch company',
-    })
-  }
+  if (!existing)
+    throw createError({ statusCode: 404, statusMessage: 'Empresa não encontrada' })
+
+  const { error } = await supabase
+    .from('crm_company')
+    .delete()
+    .eq('id', companyId)
+    .eq('tenant_id', tenantId)
+
+  if (error)
+    throw createError({ statusCode: 400, statusMessage: error.message })
+
+  return { success: true }
 })

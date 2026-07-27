@@ -1,5 +1,6 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
+import { resolveTenantModuleSlugs, TENANT_MODULE_BUNDLE_ALL } from '~/constants/modules'
 import { isStaffRole } from '~/constants/roles'
 
 export default defineEventHandler(async (event) => {
@@ -23,5 +24,36 @@ export default defineEventHandler(async (event) => {
   if (error)
     throw createError({ statusCode: 500, statusMessage: error.message })
 
-  return { tenants: data || [] }
+  const tenants = data || []
+  const tenantIds = tenants.map((row: { id: string }) => row.id)
+  const activeNamesByTenant = new Map<string, string[]>()
+
+  if (tenantIds.length) {
+    const { data: moduleRows, error: modulesError } = await client
+      .from('tenant_modules')
+      .select('tenant_id, module_name, is_active')
+      .in('tenant_id', tenantIds)
+      .eq('is_active', true)
+
+    if (modulesError)
+      throw createError({ statusCode: 500, statusMessage: modulesError.message })
+
+    for (const row of moduleRows || []) {
+      const tenantId = String(row.tenant_id)
+      const list = activeNamesByTenant.get(tenantId) || []
+      list.push(String(row.module_name))
+      activeNamesByTenant.set(tenantId, list)
+    }
+  }
+
+  return {
+    tenants: tenants.map((tenant: { id: string }) => {
+      const activeNames = activeNamesByTenant.get(tenant.id) || []
+      return {
+        ...tenant,
+        modules: resolveTenantModuleSlugs(activeNames),
+        hasAllBundle: activeNames.includes(TENANT_MODULE_BUNDLE_ALL),
+      }
+    }),
+  }
 })

@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import type { NavGroup, NavLink, NavMenu, NavSectionTitle } from '~/types/nav'
 
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 
 import { useRole } from '@/composables/useRole'
 import { useAuth } from '~/composables/useAuth'
+import { useMarketingAudience } from '~/composables/marketing/useMarketingAudience'
 import { useModule } from '~/composables/useModule'
 import { useWorkspace } from '~/composables/useWorkspace'
-import { navMenu, navMenuAdmin, navMenuBottom, navMenuOrganization, navMenuTenant } from '~/constants/menus'
+import { isClientPortalMarketingLink } from '~/constants/marketing-audience'
+import { navMenu, navMenuAdmin, navMenuOrganization, navMenuTenant } from '~/constants/menus'
 import { isTenantScopedRole } from '~/constants/roles'
 import { holdsCapability } from '~/constants/workspace'
-import { canEnterWorkspaceRoute } from '~/utils/workspace-guard'
+import { canEnterWorkspaceRoute, matchesNavAudience } from '~/utils/workspace-guard'
 
 function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): any {
   if ('children' in item)
@@ -30,45 +32,114 @@ const user: {
 
 const { sidebar } = useAppSettings()
 
-// --- Lógica de role ---
 const { fetchUserRole, hasRole } = useRole()
-const isLoadingMenu = ref(true)
+const { currentRole, updateUserRole } = useAuth()
+const { isClientExperience } = useMarketingAudience()
 
-// --- Lógica de módulo ---
-const { currentModuleMeta } = useModule()
-
-// --- Contexto de workspace (organização + empresa + capabilities) ---
 const {
   context: workspaceContext,
   isLoading: isLoadingTenants,
   organizationType,
+  isPlatformStaff,
   showTenantSwitcher: showTenantSelector,
   load: loadWorkspace,
 } = useWorkspace()
-const { currentRole, updateUserRole } = useAuth()
+
+const { currentModuleMeta } = useModule()
+
+/** Menu waits only for workspace context — roles refresh in parallel without blocking UI. */
+const isLoadingMenu = computed(() => !workspaceContext.value)
 
 const capabilities = computed(() => new Set<string>(workspaceContext.value?.capabilities ?? []))
-const showAdminSection = computed(() => hasRole(['admin', 'funcionario']))
-const showTenantTeamSection = computed(() => hasRole(['admin', 'funcionario', 'cliente']))
-const organizationMenuHeading = computed(() =>
-  organizationType.value === 'agency' ? 'Agência' : 'Organização',
+
+/** Platform console — only global staff. */
+const showPlatformSection = computed(() => isPlatformStaff.value || hasRole(['admin', 'funcionario']))
+
+/** Client company team — never for platform staff (they use Agência / Plataforma). */
+const showTenantTeamSection = computed(() =>
+  !showPlatformSection.value && hasRole(['cliente']),
+)
+
+const scopeHeading = computed(() =>
+  organizationType.value === 'agency' ? 'Workspace' : 'Organização',
 )
 
 function hasCapability(item: NavLink | NavGroup | NavSectionTitle) {
   return !('capability' in item) || !item.capability || holdsCapability(capabilities.value, item.capability)
 }
 
-/** Agency-only entries must stay invisible for direct customers. */
+function matchesAudience(item: NavLink | NavGroup | NavSectionTitle) {
+  // Hard whitelist for Marketing on the client portal — ignore stale caps.
+  if (isClientExperience.value && 'link' in item && item.link?.startsWith('/marketing'))
+    return isClientPortalMarketingLink(item.link)
+
+  if (!('audience' in item) || !item.audience)
+    return true
+  return matchesNavAudience(item.audience, isClientExperience.value)
+}
+
+function resolveItemTitle(item: NavLink | NavGroup): string {
+  if (isClientExperience.value && item.clientTitle)
+    return item.clientTitle
+  return item.title
+}
+
 function matchesOrganizationType(item: NavLink | NavGroup | NavSectionTitle) {
   return canEnterWorkspaceRoute(
-    { capabilities: capabilities.value, organizationType: organizationType.value },
-    { organizationTypes: 'organizationTypes' in item ? item.organizationTypes : null },
+    {
+      capabilities: capabilities.value,
+      organizationType: organizationType.value,
+      isClientExperience: isClientExperience.value,
+    },
+    {
+      organizationTypes: 'organizationTypes' in item ? item.organizationTypes : null,
+      audience: 'audience' in item ? item.audience : null,
+    },
   )
 }
 
-const organizationMenuItems = computed(() =>
-  navMenuOrganization[0].items.filter(item => hasCapability(item) && matchesOrganizationType(item)),
-)
+function filterNavChildren(children: NavLink[] = []) {
+  return children
+    .filter(child =>
+      hasCapability(child)
+      && matchesAudience(child)
+      && matchesOrganizationType(child)
+      && (!child.roles || hasRole(child.roles)),
+    )
+    .map(child => ({
+      ...child,
+      title: resolveItemTitle(child),
+    }))
+}
+
+/**
+ * One org group only: "Agência" for agencies, "Organização" for direct.
+ * Children are capability-filtered so empty groups disappear.
+ */
+const organizationMenuItems = computed(() => {
+  // End customers never see the agency portfolio block.
+  if (isClientExperience.value)
+    return []
+
+  const preferredTitle = organizationType.value === 'agency' ? 'Agência' : 'Organização'
+  return navMenuOrganization[0].items
+    .filter((item): item is NavGroup => 'children' in item && item.title === preferredTitle)
+    .map(group => ({
+      ...group,
+      children: filterNavChildren(group.children),
+    }))
+    .filter(group => group.children.length > 0)
+})
+
+const platformMenuItems = computed(() => {
+  if (!showPlatformSection.value)
+    return []
+  return navMenuAdmin[0].items.filter((item) => {
+    if ('roles' in item && item.roles && !hasRole(item.roles))
+      return false
+    return true
+  })
+})
 
 function filterMenuByRoleAndModule(menu: NavMenu[]) {
   const moduleTitle = currentModuleMeta.value?.title
@@ -77,46 +148,47 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
       ...section,
       items: section.items
         .filter((item: NavLink | NavGroup | NavSectionTitle) => {
-          // Filtro por módulo: quando há módulo selecionado, mostrar apenas o grupo com esse título
           if (moduleTitle && 'children' in item && item.children) {
             if (item.title !== moduleTitle)
               return false
           }
-          // Itens sem children (links soltos) são ocultados quando há um módulo selecionado
           if (moduleTitle && !('children' in item))
             return false
-          // Se for cliente, aplica filtro de roles normalmente
           const isTenantUser = isTenantScopedRole(currentRole.value)
           if (isTenantUser) {
             if ('children' in item) {
-              if (item.roles && !hasRole(item.roles)) {
+              if (item.roles && !hasRole(item.roles))
                 return false
-              }
               return item.children?.some(child =>
-                hasCapability(child) && (!child.roles || hasRole(child.roles)),
+                hasCapability(child)
+                && matchesAudience(child)
+                && (!child.roles || hasRole(child.roles)),
               ) ?? false
             }
-            if ('link' in item) {
-              return hasCapability(item) && (!item.roles || hasRole(item.roles))
-            }
+            if ('link' in item)
+              return hasCapability(item) && matchesAudience(item) && (!item.roles || hasRole(item.roles))
             return true
           }
           if ('children' in item) {
             return item.children?.some(child =>
-              hasCapability(child) && (!child.roles || hasRole(child.roles)),
+              hasCapability(child)
+              && matchesAudience(child)
+              && (!child.roles || hasRole(child.roles)),
             ) ?? false
           }
-          return hasCapability(item) && (!('roles' in item) || !item.roles || hasRole(item.roles))
+          return hasCapability(item)
+            && matchesAudience(item)
+            && (!('roles' in item) || !item.roles || hasRole(item.roles))
         })
         .map((item: NavLink | NavGroup | NavSectionTitle) => {
           if ('children' in item) {
             return {
               ...item,
-              children: (item.children || []).filter(child =>
-                hasCapability(child) && (!child.roles || hasRole(child.roles)),
-              ),
+              children: filterNavChildren(item.children || []),
             }
           }
+          if ('link' in item)
+            return { ...item, title: resolveItemTitle(item) }
           return item
         }),
     }))
@@ -125,7 +197,6 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
 
 const filteredMenuComputed = computed(() => filterMenuByRoleAndModule(navMenu))
 
-/** When a module is selected, flatten the module group into a single list of links (no nested/collapsible). */
 const flatModuleLinks = computed((): NavLink[] => {
   const moduleTitle = currentModuleMeta.value?.title
   if (!moduleTitle)
@@ -133,8 +204,8 @@ const flatModuleLinks = computed((): NavLink[] => {
   for (const section of filteredMenuComputed.value) {
     const group = section.items.find((i): i is NavGroup => 'children' in i && i.title === moduleTitle)
     if (group?.children?.length) {
-      return group.children.map((child: any) => ({
-        title: child.title,
+      return group.children.map((child: NavLink) => ({
+        title: resolveItemTitle(child),
         icon: child.icon,
         link: child.link || (child.children?.[0]?.link) || '#',
         roles: child.roles,
@@ -147,12 +218,18 @@ const flatModuleLinks = computed((): NavLink[] => {
 
 const showFlatModuleMenu = computed(() => flatModuleLinks.value.length > 0)
 
-onMounted(async () => {
-  await updateUserRole()
-  await fetchUserRole()
-  if (!workspaceContext.value)
-    await loadWorkspace()
-  isLoadingMenu.value = false
+const showSecondaryNav = computed(() =>
+  organizationMenuItems.value.length > 0
+  || platformMenuItems.value.length > 0
+  || showTenantTeamSection.value,
+)
+
+onMounted(() => {
+  void Promise.all([
+    updateUserRole(),
+    fetchUserRole(),
+    workspaceContext.value ? Promise.resolve() : loadWorkspace(),
+  ]).catch(() => {})
 })
 </script>
 
@@ -163,39 +240,35 @@ onMounted(async () => {
       <Search />
     </SidebarHeader>
     <SidebarContent>
-      <!-- Seletor de Módulo -->
-      <SidebarGroup class="mb-2">
+      <SidebarGroup class="mb-1">
         <TenantModuleDropdown />
       </SidebarGroup>
 
-      <!-- Seletor de Tenant (Apenas admin e funcionario) -->
-      <SidebarGroup v-if="showTenantSelector" class="">
-        <div class="">
-          <div v-if="isLoadingTenants">
-            <SidebarGroup>
-              <SidebarMenuSkeleton show-icon class="mb-1" />
-              <SidebarMenuSkeleton class="mb-1 ml-6" />
-            </SidebarGroup>
-          </div>
-          <div v-else class="mb-3">
-            <!-- Tenant Dropdown -->
-            <TenantDropdown />
-          </div>
+      <SidebarGroup v-if="showTenantSelector">
+        <div v-if="isLoadingTenants">
+          <LayoutSidebarNavSkeleton show-icon class="mb-1" width="72%" />
+          <LayoutSidebarNavSkeleton class="mb-1 ml-6" width="58%" />
+        </div>
+        <div v-else class="mb-2">
+          <TenantDropdown />
         </div>
       </SidebarGroup>
 
-      <!-- Menu Principal -->
       <template v-if="isLoadingMenu">
-        <SidebarGroup v-for="n in 4" :key="n">
-          <SidebarMenuSkeleton show-icon class="mb-1" />
-          <SidebarMenuSkeleton class="mb-1 ml-6" />
-          <SidebarMenuSkeleton class="mb-1 ml-6" />
+        <SidebarGroup v-for="n in 3" :key="n">
+          <LayoutSidebarNavSkeleton show-icon class="mb-1" :width="`${60 + n * 8}%`" />
+          <LayoutSidebarNavSkeleton class="mb-1 ml-6" :width="`${48 + n * 6}%`" />
+          <LayoutSidebarNavSkeleton class="mb-1 ml-6" :width="`${52 + n * 5}%`" />
         </SidebarGroup>
       </template>
+
       <template v-else>
-        <!-- Module selected: flat list (one item per row, no submenus) -->
-        <SidebarGroup v-if="showFlatModuleMenu">
-          <SidebarMenu>
+        <!-- Primary: current module -->
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            {{ currentModuleMeta?.title || 'Módulos' }}
+          </SidebarGroupLabel>
+          <SidebarMenu v-if="showFlatModuleMenu">
             <SidebarMenuItem v-for="(link, idx) in flatModuleLinks" :key="idx">
               <SidebarMenuButton as-child :tooltip="link.title">
                 <NuxtLink :to="link.link">
@@ -211,58 +284,42 @@ onMounted(async () => {
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
+          <template v-else>
+            <component
+              :is="resolveNavItemComponent(item)"
+              v-for="(item, index) in filteredMenuComputed.flatMap(nav => nav.items)"
+              :key="index"
+              :item="item"
+            />
+          </template>
         </SidebarGroup>
-        <!-- No module selected: show full menu with groups -->
-        <template v-else>
-          <SidebarGroup v-for="(nav, indexGroup) in filteredMenuComputed" :key="indexGroup">
-            <SidebarGroupLabel v-if="nav.heading">
-              {{ nav.heading }}
-            </SidebarGroupLabel>
-            <component :is="resolveNavItemComponent(item)" v-for="(item, index) in nav.items" :key="index" :item="item" />
-          </SidebarGroup>
-        </template>
-        <!-- Administration: separate section, only for agency admins -->
-        <SidebarGroup v-if="showAdminSection" class="mt-auto border-t pt-2">
-          <SidebarGroupLabel>Administração</SidebarGroupLabel>
-          <component
-            :is="resolveNavItemComponent(item)"
-            v-for="(item, index) in navMenuAdmin[0].items"
-            :key="index"
-            :item="item"
-          />
-        </SidebarGroup>
-        <!-- Organization scope: agency portfolio stays hidden for direct customers -->
-        <SidebarGroup
-          v-if="organizationMenuItems.length"
-          class="border-t pt-2"
-          :class="{ 'mt-auto': !showAdminSection }"
-        >
-          <SidebarGroupLabel>{{ organizationMenuHeading }}</SidebarGroupLabel>
+
+        <!-- Secondary: org + platform (no marketing duplicates) -->
+        <SidebarGroup v-if="showSecondaryNav" class="mt-auto border-t pt-3">
+          <SidebarGroupLabel>{{ scopeHeading }}</SidebarGroupLabel>
+
           <component
             :is="resolveNavItemComponent(item)"
             v-for="(item, index) in organizationMenuItems"
-            :key="`organization-${index}`"
+            :key="`org-${index}`"
             :item="item"
           />
-        </SidebarGroup>
-        <!-- Tenant users: separate from agency admin -->
-        <SidebarGroup v-if="showTenantTeamSection" class="border-t pt-2" :class="{ 'mt-auto': !showAdminSection && !organizationMenuItems.length }">
-          <SidebarGroupLabel>{{ navMenuTenant[0].heading }}</SidebarGroupLabel>
+
           <component
             :is="resolveNavItemComponent(item)"
-            v-for="(item, index) in navMenuTenant[0].items"
-            :key="`tenant-${index}`"
+            v-for="(item, index) in platformMenuItems"
+            :key="`platform-${index}`"
             :item="item"
           />
-        </SidebarGroup>
-        <SidebarGroup class="mt-auto">
-          <component
-            :is="resolveNavItemComponent(item)"
-            v-for="(item, index) in navMenuBottom"
-            :key="index"
-            :item="item"
-            size="sm"
-          />
+
+          <template v-if="showTenantTeamSection">
+            <component
+              :is="resolveNavItemComponent(item)"
+              v-for="(item, index) in navMenuTenant[0].items"
+              :key="`tenant-${index}`"
+              :item="item"
+            />
+          </template>
         </SidebarGroup>
       </template>
     </SidebarContent>
@@ -272,5 +329,3 @@ onMounted(async () => {
     <SidebarRail />
   </Sidebar>
 </template>
-
-<style scoped></style>

@@ -42,9 +42,7 @@ async function openNotification(notification: any) {
       </p>
     </div>
 
-    <div v-if="pending" class="space-y-3">
-      <Skeleton v-for="index in 5" :key="index" class="h-24" />
-    </div>
+    <MarketingPageSkeleton v-if="pending" variant="list" />
     <div v-else-if="notifications.length" class="space-y-3">
       <button
         v-for="notification in notifications"

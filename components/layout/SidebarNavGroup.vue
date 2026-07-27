@@ -3,7 +3,7 @@ import type { SidebarMenuButtonVariants } from '~/components/ui/sidebar'
 import type { NavGroup } from '~/types/nav'
 import { useSidebar } from '~/components/ui/sidebar'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     item: NavGroup
     size?: SidebarMenuButtonVariants['size']
@@ -15,7 +15,7 @@ withDefaults(
 
 const { setOpenMobile } = useSidebar()
 
-const openCollapsible = ref(false)
+const openCollapsible = ref((props.item.children?.length || 0) <= 6)
 </script>
 
 <template>

@@ -6,6 +6,7 @@ import {
   APPROVAL_STAGE_LABELS,
 } from '~/types/marketing-social'
 import { uniqueApprovalPreviewAssets, platformIcon } from '@/utils/marketing-social-preview'
+import { useMarketingAudience } from '~/composables/marketing/useMarketingAudience'
 import { useWorkspace } from '~/composables/useWorkspace'
 import { toast } from 'vue-sonner'
 
@@ -23,6 +24,14 @@ const {
   managedTenants,
   organizationRelationshipType,
 } = useWorkspace()
+const { isClientExperience } = useMarketingAudience()
+
+if (import.meta.client) {
+  watch(isClientExperience, (client) => {
+    if (client)
+      navigateTo('/marketing')
+  }, { immediate: true })
+}
 
 const isClientPortal = computed(() =>
   !can('agency.clients.read')
@@ -408,9 +417,7 @@ const clientBuckets = [
     </div>
 
     <!-- Loading -->
-    <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="n in 6" :key="n" class="h-72 rounded-xl" />
-    </div>
+    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="6" />
 
     <!-- Empty -->
     <div
@@ -575,7 +582,7 @@ const clientBuckets = [
           <span class="block text-xs text-muted-foreground">Veja o que está agendado</span>
         </span>
       </Button>
-      <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/production?status=published')">
+      <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/posts?status=published')">
         <Icon name="lucide:circle-check" class="mr-3 h-5 w-5" />
         <span class="text-left">
           <span class="block font-medium">Conteúdo publicado</span>

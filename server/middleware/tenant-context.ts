@@ -13,7 +13,13 @@ import { requireWorkspaceContext } from '~/server/utils/workspace-context'
  * Never throws: authorization belongs to the handlers, this only carries context.
  */
 export default defineEventHandler(async (event) => {
-  if (!getRequestURL(event).pathname.startsWith('/api/'))
+  const pathname = getRequestURL(event).pathname
+  if (!pathname.startsWith('/api/'))
+    return
+
+  // Workspace bootstrap resolves (and lists orgs/tenants) on its own — avoid a
+  // duplicate full resolve before the handler runs.
+  if (pathname === '/api/workspace/context' || pathname.startsWith('/api/workspace/context/'))
     return
 
   try {

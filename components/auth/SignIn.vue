@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-vue-next'
 
 import PasswordInput from '~/components/PasswordInput.vue'
 import { useTenant } from '~/composables/useTenant'
+import { resolveSafeRedirect } from '~/utils/safe-redirect'
 
 const email = ref('')
 const password = ref('')
@@ -24,7 +25,7 @@ async function onSubmit(event: Event) {
 
   // Validação básica
   if (!email.value || !password.value) {
-    errorMessage.value = 'Email and password are required'
+    errorMessage.value = 'E-mail e senha são obrigatórios'
     return
   }
 
@@ -34,10 +35,8 @@ async function onSubmit(event: Event) {
 
   if (success) {
     await setTenantFromJWT()
-    // Verifica se há uma rota de redirecionamento na query string
     const route = useRoute()
-    const redirectPath = route.query.redirect as string
-    router.push(redirectPath || '/')
+    router.push(resolveSafeRedirect(route.query.redirect))
   }
 }
 </script>

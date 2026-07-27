@@ -196,6 +196,19 @@ Os slugs abaixo são os valores no banco (`app_role`). Os rótulos na interface 
 | `cliente` | Administrador | Apenas o vinculado | Não | Conforme `tenant_modules` | `/settings/team` — apenas `atendente` |
 | `atendente` | Atendente | Apenas o vinculado | Não | Conforme `tenant_modules` | Sem permissão |
 
+**Marketing — portal do cliente vs agência**
+
+| Superfície | Agência / staff | Administrador (`cliente`) | Atendente |
+|---|---|---|---|
+| Visão geral | Ops completa | Adaptada (postagem / calendário / relatórios) | Adaptada (leitura) |
+| Publicações / Produção (`/marketing/posts`) | Kanban + filas ops (“Produção”) | Criar/editar e **agendar/publicar sem aprovação** (“Publicações”) | Leitura |
+| Calendário (`/marketing/calendar`) | Calendário editorial completo | UX simplificada + criar/abrir posts | Leitura |
+| Relatórios / Integrações | Sim | Sim | Não |
+| Aprovações in-app, Pacotes, Automações, Métricas ops, Campanhas, Briefings, Filas | Sim | Não | Não |
+| Revisão por link (`/review/:token`) | Envia | Aprova fora do app logado | — |
+
+> No portal do cliente (`organization.type = direct` ou role tenant sem portfolio de agência), o agendar/publicar **auto-aprova** a versão atual (`workflow no_approval`) — não há etapa de aprovação humana. O role `cliente` recebe `marketing.social.create` / `update` / `schedule` / `publish`, mas **não** recebe `agency.clients.*` nem capabilities de ops (packages, production.move, automations).
+
 **Onde cada perfil é armazenado:**
 
 | Tipo | Armazenamento | Tabela / campo |

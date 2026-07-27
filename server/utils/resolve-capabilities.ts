@@ -16,6 +16,8 @@ export interface ResolveCapabilitiesInput {
   tenantId?: string | null
   /** When already known, skips a membership lookup. */
   organizationRoleId?: string | null
+  /** Legacy membership role when already known — skips a membership lookup. */
+  legacyRole?: string | null
   /** Global role from app_metadata — never from the client. */
   globalRole?: string | null
   isPlatformStaff?: boolean
@@ -61,9 +63,11 @@ export async function resolveEffectiveCapabilities(
   }
 
   let roleId = input.organizationRoleId ?? null
-  let legacyRole: string | null = null
+  let legacyRole: string | null = input.legacyRole ?? null
+  const membershipAlreadyKnown = input.organizationRoleId !== undefined
+    || input.legacyRole !== undefined
 
-  if (!roleId && input.organizationId) {
+  if (!roleId && !membershipAlreadyKnown && input.organizationId) {
     const { data: membership } = await input.client
       .from('organization_memberships')
       .select('role_id, role, is_active')
@@ -80,27 +84,43 @@ export async function resolveEffectiveCapabilities(
 
   const granted = new Set<string>()
   let source: ResolvedCapabilities['source'] = 'empty'
+  const denied: string[] = []
+
+  // Cap rows and per-user grants are independent — fetch in parallel.
+  const [capabilityRows, overrideRows] = await Promise.all([
+    roleId
+      ? input.client
+          .from('organization_role_capabilities')
+          .select('capability, allowed')
+          .eq('role_id', roleId)
+          .then((result: any) => result.data as Array<{ capability: string, allowed: boolean }> | null)
+      : (!roleId && legacyRole)
+          ? input.client
+              .from('role_capabilities')
+              .select('capability, tenant_id')
+              .eq('role', legacyRole)
+              .then((result: any) => result.data as Array<{ capability: string, tenant_id?: string | null }> | null)
+          : Promise.resolve(null),
+    input.tenantId
+      ? input.client
+          .from('tenant_capability_grants')
+          .select('capability, allowed')
+          .eq('tenant_id', input.tenantId)
+          .eq('user_id', input.userId)
+          .then((result: any) => result.data as Array<{ capability: string, allowed: boolean }> | null)
+      : Promise.resolve(null),
+  ])
 
   if (roleId) {
-    const { data: rows } = await input.client
-      .from('organization_role_capabilities')
-      .select('capability, allowed')
-      .eq('role_id', roleId)
-
-    for (const row of rows || []) {
-      if (row.allowed)
+    for (const row of capabilityRows || []) {
+      if ('allowed' in row && row.allowed)
         granted.add(String(row.capability))
     }
     source = 'organization_role'
   }
   else if (legacyRole) {
-    const { data: rows } = await input.client
-      .from('role_capabilities')
-      .select('capability, tenant_id')
-      .eq('role', legacyRole)
-
-    for (const row of rows || []) {
-      const scopedTenantId = row.tenant_id ? String(row.tenant_id) : null
+    for (const row of capabilityRows || []) {
+      const scopedTenantId = 'tenant_id' in row && row.tenant_id ? String(row.tenant_id) : null
       if (scopedTenantId && scopedTenantId !== input.tenantId)
         continue
       granted.add(String(row.capability))
@@ -108,28 +128,18 @@ export async function resolveEffectiveCapabilities(
     source = 'legacy_app_role'
   }
 
-  const denied: string[] = []
-
-  if (input.tenantId) {
-    const { data: overrides } = await input.client
-      .from('tenant_capability_grants')
-      .select('capability, allowed')
-      .eq('tenant_id', input.tenantId)
-      .eq('user_id', input.userId)
-
-    for (const row of overrides || []) {
-      const capability = String(row.capability)
-      if (row.allowed) {
-        granted.add(capability)
-      }
-      else {
-        granted.delete(capability)
-        denied.push(capability)
-        for (const alias of expandCapabilityAliases([capability])) {
-          if (alias !== capability) {
-            granted.delete(alias)
-            denied.push(alias)
-          }
+  for (const row of overrideRows || []) {
+    const capability = String(row.capability)
+    if (row.allowed) {
+      granted.add(capability)
+    }
+    else {
+      granted.delete(capability)
+      denied.push(capability)
+      for (const alias of expandCapabilityAliases([capability])) {
+        if (alias !== capability) {
+          granted.delete(alias)
+          denied.push(alias)
         }
       }
     }

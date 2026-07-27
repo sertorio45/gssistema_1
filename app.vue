@@ -16,7 +16,6 @@ useHead({
   meta: [
     { key: 'theme-color', name: 'theme-color', content: color },
   ],
-  script: [{ src: '/tinymce/tinymce.min.js' }],
   bodyAttrs: {
     class: computed(() => `theme-${theme.value}`),
     style: computed(() => `--radius: ${radius.value}rem;`),
@@ -53,7 +52,9 @@ const dir = computed(() => (textDirection.value === 'rtl' ? 'rtl' : 'ltr'))
         <NuxtPage :key="route.fullPath" />
       </NuxtLayout>
 
-      <AppSettings />
+      <ClientOnly>
+        <AppSettings />
+      </ClientOnly>
     </div>
 
     <Toaster />

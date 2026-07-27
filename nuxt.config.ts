@@ -55,6 +55,10 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/marketing/production': { redirect: { to: '/marketing/posts', statusCode: 301 } },
+    '/marketing/production/new': { redirect: { to: '/marketing/posts/new', statusCode: 301 } },
+    '/marketing/production/tasks': { redirect: { to: '/marketing/posts/tasks', statusCode: 301 } },
+    '/marketing/production/**': { redirect: { to: '/marketing/posts/**', statusCode: 301 } },
     '/marketing': { ssr: true },
     '/marketing/**': { ssr: true },
     '/whatsapp': { ssr: true },

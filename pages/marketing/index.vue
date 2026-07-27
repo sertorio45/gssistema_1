@@ -1,17 +1,14 @@
 <script setup lang="ts">
+import { useMarketingAudience } from '~/composables/marketing/useMarketingAudience'
+
 definePageMeta({
   middleware: ['auth'],
   title: 'Marketing',
 })
 
 const { tenantId } = useTenant()
-const { isAgencyWorkspace, can, organizationRelationshipType } = useWorkspace()
-
-/** End-user of a managed client: keep the surface simple and approval-first. */
-const isClientExperience = computed(() =>
-  !can('agency.clients.read')
-  && (organizationRelationshipType.value === 'managed' || !isAgencyWorkspace.value),
-)
+const { can } = useWorkspace()
+const { isClientExperience } = useMarketingAudience()
 
 const { data: overview, pending } = await useAsyncData<Record<string, number>>(
   () => `marketing-social-overview-${tenantId.value}`,
@@ -24,25 +21,27 @@ const { data: overview, pending } = await useAsyncData<Record<string, number>>(
   { watch: [tenantId], default: () => ({}) },
 )
 
-const pendingApprovals = computed(() => overview.value.pending_approval || 0)
-
 const cards = computed(() => {
-  const base = [
-    { label: 'Aguardando aprovação', value: overview.value.pending_approval || 0, icon: 'lucide:circle-dashed', link: '/marketing/approvals', highlight: true },
-    { label: 'Agendados', value: overview.value.scheduled || 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar' },
-    { label: 'Publicados', value: overview.value.published || 0, icon: 'lucide:circle-check', link: '/marketing/production?status=published' },
-  ]
-  if (isClientExperience.value)
-    return base
+  if (isClientExperience.value) {
+    return [
+      { label: 'Agendados', value: overview.value.scheduled || 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar', highlight: false },
+      { label: 'Publicados', value: overview.value.published || 0, icon: 'lucide:circle-check', link: '/marketing/calendar', highlight: false },
+      { label: 'Falhas', value: overview.value.failed || 0, icon: 'lucide:circle-alert', link: '/marketing/calendar', highlight: true },
+    ]
+  }
+
   return [
-    { label: 'Rascunhos', value: overview.value.draft || 0, icon: 'lucide:file-pen-line', link: '/marketing/production?status=draft' },
-    ...base,
+    { label: 'Rascunhos', value: overview.value.draft || 0, icon: 'lucide:file-pen-line', link: '/marketing/posts?status=draft', highlight: false },
+    { label: 'Aguardando aprovação', value: overview.value.pending_approval || 0, icon: 'lucide:circle-dashed', link: '/marketing/approvals', highlight: true },
+    { label: 'Agendados', value: overview.value.scheduled || 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar', highlight: false },
+    { label: 'Publicados', value: overview.value.published || 0, icon: 'lucide:circle-check', link: '/marketing/posts?status=published', highlight: false },
   ]
 })
 </script>
 
 <template>
-  <div class="space-y-8">
+  <MarketingPageSkeleton v-if="pending" variant="dashboard" />
+  <div v-else class="space-y-8">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
@@ -50,40 +49,29 @@ const cards = computed(() => {
         </h1>
         <p class="mt-1 text-muted-foreground">
           <template v-if="isClientExperience">
-            Aprovações, calendário e publicações da sua empresa.
+            Acompanhe e publique conteúdo nas suas redes.
           </template>
           <template v-else>
             Produção, aprovação e distribuição de conteúdo em um só fluxo.
           </template>
         </p>
       </div>
-      <Button v-if="!isClientExperience" @click="navigateTo('/marketing/production/new')">
+      <Button v-if="!isClientExperience" @click="navigateTo('/marketing/posts/new')">
         <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
         Nova publicação
       </Button>
-      <Button v-else-if="pendingApprovals > 0" @click="navigateTo('/marketing/approvals')">
-        Revisar aprovações ({{ pendingApprovals }})
+      <Button
+        v-else-if="can('marketing.social.create')"
+        @click="navigateTo('/marketing/posts/new')"
+      >
+        <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
+        Nova publicação
+      </Button>
+      <Button v-else @click="navigateTo('/marketing/calendar')">
+        <Icon name="lucide:calendar-days" class="mr-2 h-4 w-4" />
+        Calendário
       </Button>
     </div>
-
-    <Card
-      v-if="isClientExperience && pendingApprovals > 0"
-      class="border-primary/30 bg-primary/5"
-    >
-      <CardContent class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="font-medium">
-            Você tem {{ pendingApprovals }} publicação(ões) aguardando aprovação
-          </p>
-          <p class="text-sm text-muted-foreground">
-            Revise o conteúdo antes da publicação.
-          </p>
-        </div>
-        <Button @click="navigateTo('/marketing/approvals')">
-          Ir para aprovações
-        </Button>
-      </CardContent>
-    </Card>
 
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <NuxtLink v-for="card in cards" :key="card.label" :to="card.link">
@@ -100,7 +88,7 @@ const cards = computed(() => {
                 {{ card.label }}
               </p>
               <p class="text-2xl font-semibold">
-                {{ pending ? '—' : card.value }}
+                {{ card.value }}
               </p>
             </div>
           </CardContent>
@@ -114,71 +102,102 @@ const cards = computed(() => {
           <CardTitle>{{ isClientExperience ? 'Acesso rápido' : 'Fluxo editorial' }}</CardTitle>
           <CardDescription>
             {{ isClientExperience
-              ? 'Calendário, conteúdo publicado e aprovações.'
+              ? 'Publicações, calendário, relatórios e integrações da sua empresa.'
               : 'Atalhos para as etapas mais usadas pela equipe.' }}
           </CardDescription>
         </CardHeader>
         <CardContent class="grid gap-3 sm:grid-cols-2">
-          <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/approvals')">
-            <Icon name="lucide:badge-check" class="mr-3 h-5 w-5" />
-            <span class="text-left">
-              <span class="block font-medium">Aprovações</span>
-              <span class="block text-xs text-muted-foreground">Revise artes e solicite ajustes</span>
-            </span>
-          </Button>
-          <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/calendar')">
-            <Icon name="lucide:calendar-days" class="mr-3 h-5 w-5" />
-            <span class="text-left">
-              <span class="block font-medium">Calendário</span>
-              <span class="block text-xs text-muted-foreground">Visualize a agenda editorial</span>
-            </span>
-          </Button>
-          <Button
-            v-if="!isClientExperience"
-            variant="outline"
-            class="h-auto justify-start p-4"
-            @click="navigateTo('/marketing/production')"
-          >
-            <Icon name="lucide:layout-list" class="mr-3 h-5 w-5" />
-            <span class="text-left">
-              <span class="block font-medium">Produção</span>
-              <span class="block text-xs text-muted-foreground">Crie e acompanhe as peças</span>
-            </span>
-          </Button>
-          <Button
-            v-if="!isClientExperience"
-            variant="outline"
-            class="h-auto justify-start p-4"
-            @click="navigateTo('/marketing/library')"
-          >
-            <Icon name="lucide:images" class="mr-3 h-5 w-5" />
-            <span class="text-left">
-              <span class="block font-medium">Biblioteca</span>
-              <span class="block text-xs text-muted-foreground">Encontre artes e vídeos</span>
-            </span>
-          </Button>
-          <Button
-            v-else
-            variant="outline"
-            class="h-auto justify-start p-4"
-            @click="navigateTo('/marketing/production?status=published')"
-          >
-            <Icon name="lucide:circle-check" class="mr-3 h-5 w-5" />
-            <span class="text-left">
-              <span class="block font-medium">Publicados</span>
-              <span class="block text-xs text-muted-foreground">Conteúdo já no ar</span>
-            </span>
-          </Button>
+          <template v-if="isClientExperience">
+            <Button
+              v-if="can('marketing.social.create')"
+              variant="outline"
+              class="h-auto justify-start p-4"
+              @click="navigateTo('/marketing/posts')"
+            >
+              <Icon name="lucide:panels-top-left" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Publicações</span>
+                <span class="block text-xs text-muted-foreground">Crie, agende e publique conteúdo</span>
+              </span>
+            </Button>
+            <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/calendar')">
+              <Icon name="lucide:calendar-days" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Calendário</span>
+                <span class="block text-xs text-muted-foreground">Veja o que está agendado e no ar</span>
+              </span>
+            </Button>
+            <Button
+              v-if="can('marketing.social.reports')"
+              variant="outline"
+              class="h-auto justify-start p-4"
+              @click="navigateTo('/marketing/reports')"
+            >
+              <Icon name="lucide:bar-chart-3" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Relatórios</span>
+                <span class="block text-xs text-muted-foreground">Resultados das publicações</span>
+              </span>
+            </Button>
+            <Button
+              v-if="can('marketing.social.integrations')"
+              variant="outline"
+              class="h-auto justify-start p-4"
+              @click="navigateTo('/marketing/integrations')"
+            >
+              <Icon name="lucide:plug" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Integrações</span>
+                <span class="block text-xs text-muted-foreground">Contas e redes conectadas</span>
+              </span>
+            </Button>
+          </template>
+          <template v-else>
+            <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/approvals')">
+              <Icon name="lucide:badge-check" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Aprovações</span>
+                <span class="block text-xs text-muted-foreground">Revise artes e solicite ajustes</span>
+              </span>
+            </Button>
+            <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/calendar')">
+              <Icon name="lucide:calendar-days" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Calendário</span>
+                <span class="block text-xs text-muted-foreground">Visualize a agenda editorial</span>
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              class="h-auto justify-start p-4"
+              @click="navigateTo('/marketing/posts')"
+            >
+              <Icon name="lucide:layout-list" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Produção</span>
+                <span class="block text-xs text-muted-foreground">Crie e acompanhe as peças</span>
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              class="h-auto justify-start p-4"
+              @click="navigateTo('/marketing/library')"
+            >
+              <Icon name="lucide:images" class="mr-3 h-5 w-5" />
+              <span class="text-left">
+                <span class="block font-medium">Biblioteca</span>
+                <span class="block text-xs text-muted-foreground">Encontre artes e vídeos</span>
+              </span>
+            </Button>
+          </template>
         </CardContent>
       </Card>
 
-      <Card v-if="can('marketing.social.reports')">
+      <Card v-if="can('marketing.social.reports') && !isClientExperience">
         <CardHeader>
           <CardTitle>Relatórios</CardTitle>
           <CardDescription>
-            {{ isClientExperience
-              ? 'Resultados permitidos para a sua empresa.'
-              : 'Acompanhe mídia paga, tráfego e resultados das campanhas.' }}
+            Acompanhe mídia paga, tráfego e resultados das campanhas.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
-import { createContentVersion, enqueueApprovedPost } from '~/server/utils/social-workflow'
+import { createContentVersion, enqueueApprovedPost } from '~/server/utils/social-approval-domain'
 
 const schema = z.object({
   accountIds: z.array(z.string().uuid()).min(1).max(20).optional(),

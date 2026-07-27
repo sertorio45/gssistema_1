@@ -1,0 +1,117 @@
+<script setup lang="ts">
+import { toast } from 'vue-sonner'
+import { useWorkspace } from '~/composables/useWorkspace'
+
+definePageMeta({
+  middleware: ['auth'],
+  title: 'Campanha',
+})
+
+const route = useRoute()
+const social = useMarketingSocial()
+const { can } = useWorkspace()
+const campaignId = computed(() => String(route.params.id))
+const canBriefing = computed(() => can('marketing.social.briefing.create'))
+const linkUrl = ref('')
+const creatingLink = ref(false)
+
+const { data, pending, refresh } = await useAsyncData(
+  () => `campaign-${campaignId.value}-${social.tenantId.value}`,
+  () => $fetch<{ data: any }>(`/api/marketing/social/campaigns/${campaignId.value}`, {
+    query: { tenant_id: social.tenantId.value || undefined },
+  }),
+  { watch: [campaignId, social.tenantId] },
+)
+
+const campaign = computed(() => data.value?.data || null)
+
+async function createBriefingLink() {
+  creatingLink.value = true
+  try {
+    const response = await $fetch<{ data: { url: string } }>('/api/marketing/social/briefings/link', {
+      method: 'POST',
+      body: {
+        title: `Briefing · ${campaign.value?.name || 'Campanha'}`,
+        campaignId: campaignId.value,
+        requireEmailConfirm: true,
+      },
+    })
+    linkUrl.value = response.data.url
+    await navigator.clipboard.writeText(response.data.url)
+    toast.success('Link de briefing copiado')
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Falha ao gerar link')
+  }
+  finally {
+    creatingLink.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="mx-auto max-w-4xl space-y-6">
+    <Button variant="ghost" class="-ml-3" @click="navigateTo('/marketing/campaigns')">
+      <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
+      Campanhas
+    </Button>
+
+    <div v-if="pending">
+      <MarketingPageSkeleton variant="detail" />
+    </div>
+
+    <template v-else-if="campaign">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">
+            {{ campaign.name }}
+          </h1>
+          <p class="mt-2 text-muted-foreground">
+            {{ campaign.objective || 'Sem objetivo' }}
+          </p>
+        </div>
+        <Button v-if="canBriefing" :disabled="creatingLink" @click="createBriefingLink">
+          <Icon name="lucide:link" class="mr-2 h-4 w-4" />
+          Link de briefing
+        </Button>
+      </div>
+
+      <Card v-if="linkUrl">
+        <CardContent class="p-4 text-sm">
+          <p class="mb-1 font-medium">
+            Link gerado (Blimber)
+          </p>
+          <code class="break-all text-xs text-muted-foreground">{{ linkUrl }}</code>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Conteúdos da campanha</CardTitle>
+        </CardHeader>
+        <CardContent class="space-y-2">
+          <div
+            v-for="post in campaign.posts || []"
+            :key="post.id"
+            class="flex items-center justify-between rounded-lg border p-3"
+          >
+            <div>
+              <p class="font-medium">
+                {{ post.title }}
+              </p>
+              <p class="text-xs text-muted-foreground">
+                Produção {{ post.production_status }} · Editorial {{ post.editorial_status }}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" @click="navigateTo(`/marketing/posts/${post.id}`)">
+              Abrir
+            </Button>
+          </div>
+          <p v-if="!(campaign.posts || []).length" class="text-sm text-muted-foreground">
+            Nenhum conteúdo vinculado ainda.
+          </p>
+        </CardContent>
+      </Card>
+    </template>
+  </div>
+</template>

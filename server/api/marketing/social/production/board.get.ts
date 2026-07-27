@@ -189,7 +189,7 @@ export default defineEventHandler(async (event) => {
       open_tasks_count: openTasks.length,
       overdue: isProductionOverdue(post.production_due_at, post.production_status),
       preview_url: previewUrl,
-      href: `/marketing/production/${post.id}`,
+      href: `/marketing/posts/${post.id}`,
     }
   })
 

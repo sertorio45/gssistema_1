@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
+import { assertPackageAllowsNewPost } from '~/server/utils/social-packages'
 import { validateSocialPostAssets } from '~/server/utils/social-post-assets'
 
 const variantSchema = z.object({
@@ -45,6 +46,8 @@ export default defineEventHandler(async (event) => {
 
   await validateSocialPostAssets(client, tenantId, input.variants, input.referenceAssetIds)
 
+  const packageGate = await assertPackageAllowsNewPost(client, tenantId)
+
   const { data: post, error: postError } = await client
     .from('social_posts')
     .insert({
@@ -56,6 +59,7 @@ export default defineEventHandler(async (event) => {
       timezone: input.timezone,
       approval_policy: input.approvalPolicy,
       minimum_approvals: input.minimumApprovals,
+      package_id: packageGate.package?.id || null,
       created_by: user.id,
     })
     .select('*')

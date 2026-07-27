@@ -12,12 +12,13 @@ import { SOCIAL_STATUS_LABELS } from '~/types/marketing-social'
 
 definePageMeta({
   middleware: ['auth'],
-  title: 'Produção de conteúdo',
+  title: 'Publicações',
 })
 
 const route = useRoute()
 const social = useMarketingSocial()
 const { toast } = useToast()
+const { isClientExperience } = useMarketingAudience()
 const {
   can,
   organization,
@@ -25,9 +26,20 @@ const {
   isAgencyWorkspace,
 } = useWorkspace()
 
+const pageTitle = computed(() => (isClientExperience.value ? 'Publicações' : 'Produção'))
+const pageDescription = computed(() =>
+  isClientExperience.value
+    ? 'Crie, agende e publique conteúdo nas suas redes.'
+    : 'Kanban operacional separado da aprovação e da publicação.',
+)
+
 const search = ref(String(route.query.search || ''))
 const status = ref(String(route.query.status || 'all'))
-const layout = ref<'kanban' | 'board'>(String(route.query.view || 'kanban') === 'board' ? 'board' : 'kanban')
+const layout = ref<'kanban' | 'board'>(
+  isClientExperience.value || String(route.query.view || '') === 'board'
+    ? 'board'
+    : String(route.query.view || 'kanban') === 'board' ? 'board' : 'kanban',
+)
 const viewMode = ref<'thumb' | 'list'>('thumb')
 const mineOnly = ref(false)
 const overdueOnly = ref(false)
@@ -110,7 +122,7 @@ const boardItems = computed<SocialContentBoardItem[]>(() =>
     platforms: (post.social_post_variants || []).map((variant: any) => variant.platform),
     previewAssets: uniquePostPreviewAssets(post),
     meta: formatDate(post.scheduled_at || post.updated_at),
-    href: `/marketing/production/${post.id}`,
+    href: `/marketing/posts/${post.id}`,
     raw: post,
   })),
 )
@@ -180,18 +192,25 @@ async function confirmBlock() {
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          Produção
+          {{ pageTitle }}
         </h1>
         <p class="mt-1 text-muted-foreground">
-          Kanban operacional separado da aprovação e da publicação.
+          {{ pageDescription }}
         </p>
       </div>
       <div class="flex flex-wrap gap-2">
-        <Button variant="outline" @click="navigateTo('/marketing/production/tasks')">
+        <Button
+          v-if="!isClientExperience"
+          variant="outline"
+          @click="navigateTo('/marketing/posts/tasks')"
+        >
           <Icon name="lucide:list-todo" class="mr-2 h-4 w-4" />
           Filas de tarefas
         </Button>
-        <Button @click="navigateTo('/marketing/production/new')">
+        <Button
+          v-if="can('marketing.social.create')"
+          @click="navigateTo('/marketing/posts/new')"
+        >
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
           Nova publicação
         </Button>
@@ -206,7 +225,7 @@ async function confirmBlock() {
             <Input v-model="search" class="pl-9" placeholder="Buscar por título" />
           </div>
 
-          <div class="flex rounded-md border p-0.5">
+          <div v-if="!isClientExperience" class="flex rounded-md border p-0.5">
             <Button
               size="sm"
               :variant="layout === 'kanban' ? 'secondary' : 'ghost'"
@@ -262,11 +281,11 @@ async function confirmBlock() {
             </SelectContent>
           </Select>
 
-          <label class="flex items-center gap-2 text-sm">
+          <label v-if="!isClientExperience" class="flex items-center gap-2 text-sm">
             <Checkbox v-model:checked="mineOnly" />
             Minhas tarefas
           </label>
-          <label class="flex items-center gap-2 text-sm">
+          <label v-if="!isClientExperience" class="flex items-center gap-2 text-sm">
             <Checkbox v-model:checked="overdueOnly" />
             Somente atrasados
           </label>
@@ -275,9 +294,7 @@ async function confirmBlock() {
     </Card>
 
     <template v-if="layout === 'kanban'">
-      <div v-if="kanbanPending || moving" class="flex gap-3 overflow-x-auto">
-        <Skeleton v-for="index in 6" :key="index" class="h-64 w-72 shrink-0" />
-      </div>
+      <MarketingPageSkeleton v-if="kanbanPending || moving" variant="kanban" />
       <ProductionKanbanBoard
         v-else
         :columns="kanbanResponse?.columns || []"
@@ -288,9 +305,7 @@ async function confirmBlock() {
     </template>
 
     <template v-else>
-      <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        <Skeleton v-for="index in 8" :key="index" class="aspect-square" />
-      </div>
+      <MarketingPageSkeleton v-if="pending" variant="grid" />
 
       <SocialContentBoard
         v-else

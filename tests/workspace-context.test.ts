@@ -231,6 +231,29 @@ describe('ciclo de vida do vínculo', () => {
     }))).toBe(403)
   })
 
+  it('organização inativa no header não bloqueia staff com tenant solicitado', async () => {
+    const db = createWorkspaceDatabase()
+    db.organizations!.find(row => row.id === ids.orgDirect)!.is_active = false
+
+    const event = createFakeEvent({
+      userId: ids.platformStaff,
+      role: 'admin',
+      db,
+      headers: {
+        [ORGANIZATION_HEADER]: ids.orgDirect,
+        [TENANT_HEADER]: ids.tenantClientA1,
+      },
+    })
+
+    const context = await requireWorkspaceContext(event, {
+      organizationId: ids.orgDirect,
+      tenantId: ids.tenantClientA1,
+    })
+
+    expect(context.organization?.id).toBe(ids.orgAgencyA)
+    expect(context.tenant?.id).toBe(ids.tenantClientA1)
+  })
+
   it('membership inativo perde o acesso', async () => {
     const db = createWorkspaceDatabase()
     db.organization_memberships!.find(
@@ -378,7 +401,7 @@ describe('módulos e capabilities', () => {
     })
 
     expect(context.has('marketing.social.publish')).toBe(false)
-    expect(context.has('marketing.social.approve')).toBe(true)
+    expect(context.has('marketing.social.read')).toBe(true)
   })
 
   it('requireTenant e requireOrganization sinalizam contexto faltante', async () => {

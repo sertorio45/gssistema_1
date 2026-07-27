@@ -565,13 +565,13 @@ watch(
       </p>
     </div>
 
-    <Alert v-if="lastError" variant="destructive">
+    <Alert v-if="!pending && lastError" variant="destructive">
       <Icon name="lucide:triangle-alert" class="h-4 w-4" />
       <AlertTitle>Falha na integração</AlertTitle>
       <AlertDescription>{{ lastError }}</AlertDescription>
     </Alert>
 
-    <Alert v-if="isConnected('meta') && metaPublishIssues.length">
+    <Alert v-if="!pending && isConnected('meta') && metaPublishIssues.length">
       <Icon name="lucide:info" class="h-4 w-4" />
       <AlertTitle>Meta conectada, mas publicação incompleta</AlertTitle>
       <AlertDescription class="space-y-1">
@@ -584,7 +584,9 @@ watch(
       </AlertDescription>
     </Alert>
 
-    <div class="grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
+    <MarketingPageSkeleton v-if="pending" variant="integrations" />
+
+    <div v-else class="grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
       <!-- Google Ads -->
       <Card class="relative overflow-hidden border rounded-2xl bg-card shadow-md">
         <Button

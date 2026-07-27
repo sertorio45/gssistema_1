@@ -1,10 +1,10 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, getQuery, readBody } from 'h3'
 
+import { encryptSecret } from '~/server/utils/marketing'
 import {
   buildCloudWebhookUrl,
   buildEvolutionWebhookUrl,
-  encryptSecret,
   generateWebhookSecret,
   resolveWhatsAppTenantContext,
   sanitizeInstanceRow,

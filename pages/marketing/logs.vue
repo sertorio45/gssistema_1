@@ -150,9 +150,7 @@ function prettyJson(value: unknown) {
       </CardContent>
     </Card>
 
-    <div v-if="pending" class="space-y-3">
-      <Skeleton v-for="index in 8" :key="index" class="h-16" />
-    </div>
+    <MarketingPageSkeleton v-if="pending" variant="list" :rows="8" />
 
     <Card v-else-if="response.data.length">
       <div class="overflow-x-auto">

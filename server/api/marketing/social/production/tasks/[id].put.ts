@@ -1,6 +1,7 @@
-import { getRouterParam, readBody } from 'h3'
+import { getRequestURL, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
+import { emitSocialAutomation, triggerForCompletedTask } from '~/server/utils/social-automations'
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
 import { mapProductionTask } from '~/server/utils/social-production'
@@ -110,6 +111,22 @@ export default defineEventHandler(async (event) => {
     entityId: taskId,
     after: { status: data.status },
   })
+
+  if (body.status === 'done' && existing.status !== 'done') {
+    const trigger = triggerForCompletedTask(String(existing.task_type || data.task_type))
+    if (trigger) {
+      await emitSocialAutomation(client, {
+        tenantId,
+        trigger,
+        actorId: user.id,
+        postId: existing.post_id,
+        entityType: 'social_production_task',
+        entityId: taskId,
+        payload: { taskType: existing.task_type },
+        origin: getRequestURL(event).origin,
+      })
+    }
+  }
 
   return { data: mapProductionTask(data) }
 })

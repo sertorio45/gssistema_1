@@ -35,11 +35,11 @@ const cards = computed(() => {
     { label: 'Integração social pendente', value: m?.pending_social_integrations ?? 0, icon: 'lucide:plug-zap', link: '/organization/clients' },
     { label: 'Revisão interna', value: m?.pending_internal_reviews ?? 0, icon: 'lucide:clipboard-check', link: '/marketing/approvals' },
     { label: 'Aguardando cliente', value: m?.pending_client_reviews ?? 0, icon: 'lucide:user-round-check', link: '/marketing/approvals' },
-    { label: 'Alterações solicitadas', value: m?.changes_requested ?? 0, icon: 'lucide:message-square-warning', link: '/marketing/production?status=changes_requested' },
-    { label: 'Aprovados sem agenda', value: m?.approved_awaiting_schedule ?? 0, icon: 'lucide:calendar-plus', link: '/marketing/production?status=approved' },
-    { label: 'Publicações com erro', value: m?.publication_errors ?? 0, icon: 'lucide:circle-alert', link: '/marketing/production?status=failed' },
+    { label: 'Alterações solicitadas', value: m?.changes_requested ?? 0, icon: 'lucide:message-square-warning', link: '/marketing/posts?status=changes_requested' },
+    { label: 'Aprovados sem agenda', value: m?.approved_awaiting_schedule ?? 0, icon: 'lucide:calendar-plus', link: '/marketing/posts?status=approved' },
+    { label: 'Publicações com erro', value: m?.publication_errors ?? 0, icon: 'lucide:circle-alert', link: '/marketing/posts?status=failed' },
     { label: 'Aprovações atrasadas', value: m?.overdue_approvals ?? 0, icon: 'lucide:alarm-clock', link: '/marketing/approvals' },
-    { label: 'Minhas tarefas', value: m?.assigned_tasks ?? 0, icon: 'lucide:list-todo', link: '/marketing/production' },
+    { label: 'Minhas tarefas', value: m?.assigned_tasks ?? 0, icon: 'lucide:list-todo', link: '/marketing/posts' },
     { label: 'Próximos posts agendados', value: m?.upcoming_scheduled_posts ?? 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar' },
   ]
 })

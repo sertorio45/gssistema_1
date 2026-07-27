@@ -538,7 +538,7 @@ async function notifyScheduleReady(
     type: 'approved',
     title: 'Arte aprovada',
     body: `${input.postTitle} está aprovada e pronta para agendar.`,
-    actionUrl: `/marketing/production/${input.postId}`,
+    actionUrl: `/marketing/posts/${input.postId}`,
     metadata: { postId: input.postId, versionId: input.versionId },
     idempotencyKey: `schedule_ready:${input.postId}:${input.versionId}`,
   })
@@ -744,6 +744,17 @@ export async function advanceApprovalStage(client: any, input: AdvanceInput) {
       postTitle: post?.title || 'Publicação',
       versionId: request.version_id,
       userId: post?.created_by ? String(post.created_by) : null,
+    })
+
+    const { emitSocialAutomation } = await import('~/server/utils/social-automations')
+    await emitSocialAutomation(client, {
+      tenantId: input.tenantId,
+      trigger: 'editorial.approved',
+      actorId: request.requested_by || post?.created_by || null,
+      postId: request.post_id,
+      entityType: 'approval_request',
+      entityId: request.id,
+      payload: { versionId: request.version_id },
     })
 
     return { status: 'approved' as const, nextStage: null }
@@ -960,9 +971,22 @@ export async function submitApprovalDecision(client: any, input: SubmitDecisionI
         type: input.decision,
         title: input.decision === 'rejected' ? 'Publicação reprovada' : 'Ajustes solicitados',
         body: `${post.title} recebeu uma nova decisão.`,
-        actionUrl: `/marketing/production/${request.post_id}`,
+        actionUrl: `/marketing/posts/${request.post_id}`,
         metadata: { postId: request.post_id, requestId: request.id, decision: input.decision },
         idempotencyKey: `decision:${request.id}:${input.decision}`,
+      })
+    }
+
+    if (input.decision === 'changes_requested') {
+      const { emitSocialAutomation } = await import('~/server/utils/social-automations')
+      await emitSocialAutomation(client, {
+        tenantId: input.tenantId,
+        trigger: 'approval.changes_requested',
+        actorId: input.userId,
+        postId: request.post_id,
+        entityType: 'approval_request',
+        entityId: request.id,
+        payload: { decision: input.decision },
       })
     }
 
@@ -1122,6 +1146,87 @@ async function assertMediaReady(client: any, tenantId: string, postId: string) {
   }
 }
 
+/**
+ * End-customer (direct org / tenant role without agency portfolio) schedules and
+ * publishes their own content — no human approval round.
+ */
+export function isSelfServeSocialRelease(input: {
+  isPlatformStaff?: boolean
+  organizationType?: string | null
+  effectiveRole?: string | null
+  capabilities?: Iterable<string> | null
+}): boolean {
+  if (input.isPlatformStaff)
+    return false
+  if (input.organizationType === 'direct')
+    return true
+
+  const role = input.effectiveRole
+  if (role !== 'cliente' && role !== 'atendente')
+    return false
+
+  return !holdsAny(input.capabilities, ['agency.clients.read', 'agency.clients.manage'])
+}
+
+/**
+ * Snapshots the current draft and marks it approved so schedule/publish can proceed
+ * without an approval workflow. Agency-managed tenants never take this path.
+ */
+export async function ensureSelfServeApproved(
+  client: any,
+  input: { tenantId: string, postId: string, userId: string },
+) {
+  const { data: post } = await client
+    .from('social_posts')
+    .select('id, editorial_status, approved_version_id, approval_bypassed')
+    .eq('tenant_id', input.tenantId)
+    .eq('id', input.postId)
+    .maybeSingle()
+
+  if (!post)
+    throw createError({ statusCode: 404, statusMessage: 'Publicação não encontrada' })
+
+  if (post.approval_bypassed === true)
+    return
+
+  const latest = await latestContentVersion(client, input.tenantId, input.postId)
+  const alreadyApproved = String(post.editorial_status) === 'approved'
+    && post.approved_version_id
+    && latest
+    && String(latest.id) === String(post.approved_version_id)
+
+  if (alreadyApproved)
+    return
+
+  await assertReadyForSubmission(client, input.tenantId, input.postId)
+
+  await client
+    .from('approval_requests')
+    .update({
+      run_status: 'superseded',
+      status: 'cancelled',
+      resolved_at: new Date().toISOString(),
+      locked_at: null,
+      locked_by: null,
+    })
+    .eq('tenant_id', input.tenantId)
+    .eq('post_id', input.postId)
+    .eq('run_status', 'pending')
+
+  const version = await createContentVersion(client, input.tenantId, input.postId, input.userId)
+
+  await client
+    .from('social_posts')
+    .update({
+      editorial_status: 'approved',
+      approved_version_id: version.id,
+      workflow_id: SYSTEM_WORKFLOW_IDS.noApproval,
+      approval_bypassed: false,
+    })
+    .eq('tenant_id', input.tenantId)
+    .eq('id', input.postId)
+}
+
 interface AssertScheduleInput {
   tenantId: string
   postId: string
@@ -1199,8 +1304,25 @@ export async function enqueueApprovedPost(
     publishNow?: boolean
     capabilities?: string[]
     isPlatformStaff?: boolean
+    /** Client portal: auto-approve current draft before release checks. */
+    selfServe?: boolean
+    userId?: string
   },
 ) {
+  if (input.selfServe) {
+    if (!input.userId) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Usuário obrigatório para publicação sem aprovação',
+      })
+    }
+    await ensureSelfServeApproved(client, {
+      tenantId: input.tenantId,
+      postId: input.postId,
+      userId: input.userId,
+    })
+  }
+
   await assertPostReleasable(client, {
     tenantId: input.tenantId,
     postId: input.postId,
@@ -1376,11 +1498,22 @@ export async function bypassApproval(
       type: 'approval_bypassed',
       title: 'Aprovação ignorada',
       body: `A aprovação de "${post.title}" foi ignorada com justificativa e a publicação está liberada.`,
-      actionUrl: `/marketing/production/${input.postId}`,
+      actionUrl: `/marketing/posts/${input.postId}`,
       metadata: { postId: input.postId, versionId: latest.id, reason: justification },
       idempotencyKey: `bypass:${input.postId}:${latest.id}`,
     })
   }
+
+  const { emitSocialAutomation } = await import('~/server/utils/social-automations')
+  await emitSocialAutomation(client, {
+    tenantId: input.tenantId,
+    trigger: 'editorial.approved',
+    actorId: input.userId,
+    postId: input.postId,
+    entityType: 'social_post',
+    entityId: input.postId,
+    payload: { bypass: true, versionId: latest.id },
+  })
 
   return { versionId: latest.id, reason: justification }
 }

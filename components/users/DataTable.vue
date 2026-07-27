@@ -23,7 +23,7 @@ interface DataTableProps {
   data: User[]
 }
 const props = defineProps<DataTableProps>()
-const emit = defineEmits(['delete', 'edit', 'selectionChange'])
+const emit = defineEmits(['delete', 'edit', 'modules', 'selectionChange'])
 
 const sorting = ref<SortingState>([])
 const columnFilters = ref<ColumnFiltersState>([])
@@ -102,6 +102,7 @@ const table = useVueTable({
   meta: {
     onEdit: (user: User) => emit('edit', user),
     onDelete: (user: User) => emit('delete', user),
+    onModules: (user: User) => emit('modules', user),
   },
 })
 

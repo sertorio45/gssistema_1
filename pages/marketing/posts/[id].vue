@@ -22,6 +22,7 @@ definePageMeta({
 const route = useRoute()
 const social = useMarketingSocial()
 const { can } = useWorkspace()
+const { isClientExperience } = useMarketingAudience()
 const postId = computed(() => String(route.params.id))
 const saving = ref(false)
 const approvalDialogOpen = ref(false)
@@ -38,20 +39,22 @@ const pastPromptDismissed = ref(false)
 
 const { data: workflows } = await useAsyncData(
   () => `marketing-social-workflows-${social.tenantId.value}`,
-  () => social.listWorkflows(),
-  { watch: [social.tenantId], default: () => [] },
+  () => isClientExperience.value ? Promise.resolve([]) : social.listWorkflows(),
+  { watch: [social.tenantId, isClientExperience], default: () => [] },
 )
 
 const { data: members } = await useAsyncData(
   () => `marketing-social-approvers-${social.tenantId.value}`,
   async () => {
+    if (isClientExperience.value)
+      return []
     const response = await $fetch<{ data: Array<{ userId: string, name: string, email: string, role: keyof typeof ROLE_LABELS, isPlatformAdmin: boolean }> }>(
       '/api/marketing/social/approvers',
       { query: { tenant_id: social.tenantId.value || undefined } },
     )
     return response.data
   },
-  { watch: [social.tenantId], default: () => [] },
+  { watch: [social.tenantId, isClientExperience], default: () => [] },
 )
 
 const { data: post, pending, refresh } = await useAsyncData(
@@ -105,7 +108,9 @@ const productionLabel = computed(() =>
 )
 const isBypassed = computed(() => Boolean((post.value as any)?.approval_bypassed))
 const canBypass = computed(() =>
-  ['internal_review', 'client_review', 'changes_requested'].includes(editorialStatus.value),
+  !isClientExperience.value
+  && can('marketing.social.approval.bypass')
+  && ['internal_review', 'client_review', 'changes_requested'].includes(editorialStatus.value),
 )
 const selectableWorkflows = computed(() => (workflows.value || []) as any[])
 const scheduledAtValue = computed(() => {
@@ -118,21 +123,36 @@ const isSchedulePast = computed(() => {
     return false
   return new Date(scheduledAtValue.value).getTime() <= Date.now()
 })
-const needsScheduleChoice = computed(() =>
-  postStatus.value === 'approved'
-  && hasApprovedVersion.value
-  && (!scheduledAtValue.value || isSchedulePast.value),
-)
+const needsScheduleChoice = computed(() => {
+  if (isClientExperience.value)
+    return false
+  return postStatus.value === 'approved'
+    && hasApprovedVersion.value
+    && (!scheduledAtValue.value || isSchedulePast.value)
+})
 
-const canSubmit = computed(() => ['draft', 'changes_requested', 'failed'].includes(postStatus.value))
-const canPublishNow = computed(() =>
-  hasApprovedVersion.value
-  && ['approved', 'scheduled', 'failed'].includes(postStatus.value),
+const releasableStatuses = ['draft', 'changes_requested', 'approved', 'scheduled', 'failed'] as const
+
+const canSubmit = computed(() =>
+  !isClientExperience.value
+  && ['draft', 'changes_requested', 'failed'].includes(postStatus.value),
 )
-const canReschedule = computed(() =>
-  hasApprovedVersion.value
-  && ['approved', 'scheduled', 'failed'].includes(postStatus.value),
-)
+const canPublishNow = computed(() => {
+  if (isClientExperience.value) {
+    return can('marketing.social.publish')
+      && releasableStatuses.includes(postStatus.value as typeof releasableStatuses[number])
+  }
+  return hasApprovedVersion.value
+    && ['approved', 'scheduled', 'failed'].includes(postStatus.value)
+})
+const canReschedule = computed(() => {
+  if (isClientExperience.value) {
+    return (can('marketing.social.schedule') || can('marketing.social.publish'))
+      && releasableStatuses.includes(postStatus.value as typeof releasableStatuses[number])
+  }
+  return hasApprovedVersion.value
+    && ['approved', 'scheduled', 'failed'].includes(postStatus.value)
+})
 const canShareStories = computed(() => {
   if (!['published', 'approved', 'scheduled'].includes(postStatus.value))
     return false
@@ -278,7 +298,7 @@ async function shareStories() {
   try {
     const response = await social.shareToStories(postId.value, { publishNow: true })
     toast.success('Stories enfileirado a partir desta publicação')
-    await navigateTo(`/marketing/production/${response.data.storyPostId}`)
+    await navigateTo(`/marketing/posts/${response.data.storyPostId}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível criar os Stories')
@@ -312,7 +332,7 @@ async function addComment() {
 }
 
 function onDeleted() {
-  navigateTo('/marketing/production')
+  navigateTo('/marketing/posts')
 }
 </script>
 
@@ -320,27 +340,27 @@ function onDeleted() {
   <div class="mx-auto max-w-5xl space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/production')">
+        <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/posts')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-          Voltar para produção
+          {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para produção' }}
         </Button>
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="text-2xl font-bold tracking-tight">
             {{ (post as any)?.title || 'Publicação' }}
           </h1>
-          <Badge v-if="post && productionLabel" variant="outline">
+          <Badge v-if="post && productionLabel && !isClientExperience" variant="outline">
             Produção · {{ productionLabel }}
           </Badge>
-          <Badge v-if="post && editorialLabel" variant="secondary">
+          <Badge v-if="post && editorialLabel && !isClientExperience" variant="secondary">
             {{ editorialLabel }}
           </Badge>
           <Badge v-if="post && publicationLabel && publicationStatus !== 'not_scheduled'" variant="outline">
             {{ publicationLabel }}
           </Badge>
-          <Badge v-else-if="post && !editorialLabel" variant="secondary">
+          <Badge v-else-if="post && (isClientExperience || !editorialLabel)" variant="secondary">
             {{ SOCIAL_STATUS_LABELS[(post as any).status as SocialPostStatus] || (post as any).status }}
           </Badge>
-          <Badge v-if="isBypassed" variant="destructive">
+          <Badge v-if="isBypassed && !isClientExperience" variant="destructive">
             Aprovação ignorada
           </Badge>
         </div>
@@ -425,7 +445,7 @@ function onDeleted() {
       </AlertDescription>
     </Alert>
 
-    <Skeleton v-if="pending" class="h-96" />
+    <MarketingPageSkeleton v-if="pending" variant="detail" />
     <SocialPostForm
       v-else-if="formValue"
       :initial-value="formValue"

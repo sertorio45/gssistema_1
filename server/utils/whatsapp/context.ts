@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto'
 
 import { getRequestURL } from 'h3'
 
-import { resolveMarketingTenantContext, maskSensitiveValue } from '~/server/utils/marketing'
+import {
+  maskSensitiveValue,
+  resolveMarketingTenantContext,
+} from '~/server/utils/marketing'
 
-export { encryptSecret, decryptSecret } from '~/server/utils/marketing'
-export { maskSensitiveValue }
+// Secrets helpers live in marketing.ts — imported explicitly to avoid Nitro auto-import clashes.
 
 export async function resolveWhatsAppTenantContext(event: any, requestedTenantId?: string) {
   return resolveMarketingTenantContext(event, requestedTenantId)

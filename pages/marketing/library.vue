@@ -9,26 +9,76 @@ definePageMeta({
 const social = useMarketingSocial()
 const search = ref('')
 const purpose = ref<'all' | 'publication' | 'reference'>('all')
+const category = ref('all')
 const uploadPurpose = ref<'publication' | 'reference'>('publication')
 const uploading = ref(false)
 const deleting = ref(false)
 const deleteDialogOpen = ref(false)
 const previewDialogOpen = ref(false)
 const activeAsset = ref<any>(null)
+const newFolderName = ref('')
+const creatingFolder = ref(false)
+
+const { can } = useWorkspace()
+const canManageLibrary = computed(() => can('marketing.social.library.manage'))
+
 const { data: assets, pending, refresh } = await useAsyncData(
-  () => `marketing-library-${social.tenantId.value}`,
-  () => social.listAssets(),
-  { watch: [social.tenantId], default: () => [] },
+  () => `marketing-library-${social.tenantId.value}-${category.value}`,
+  () => social.listAssets({
+    ...(category.value !== 'all' ? { category: category.value } : {}),
+  }),
+  { watch: [social.tenantId, category], default: () => [] },
 )
+
+const { data: folders, refresh: refreshFolders } = await useAsyncData(
+  () => `library-folders-${social.tenantId.value}`,
+  () => $fetch<{ data: any[] }>('/api/marketing/social/library/meta', {
+    query: { tenant_id: social.tenantId.value || undefined, type: 'folders' },
+  }),
+  { watch: [social.tenantId], default: () => ({ data: [] }) },
+)
+
+const categories = [
+  { value: 'all', label: 'Todas categorias' },
+  { value: 'logo', label: 'Logos' },
+  { value: 'brand_manual', label: 'Manual da marca' },
+  { value: 'photo', label: 'Fotos' },
+  { value: 'video', label: 'Vídeos' },
+  { value: 'product', label: 'Produtos' },
+  { value: 'document', label: 'Documentos' },
+  { value: 'reference', label: 'Referências' },
+]
 
 const filteredAssets = computed(() => {
   const term = search.value.trim().toLocaleLowerCase('pt-BR')
   return assets.value.filter((asset: any) => {
     const matchesPurpose = purpose.value === 'all' || asset.purpose === purpose.value
     const matchesSearch = !term || asset.name.toLocaleLowerCase('pt-BR').includes(term)
-    return matchesPurpose && matchesSearch
+    const active = asset.lifecycle !== 'discontinued'
+    return matchesPurpose && matchesSearch && active
   })
 })
+
+async function createFolder() {
+  if (!newFolderName.value.trim() || !canManageLibrary.value)
+    return
+  creatingFolder.value = true
+  try {
+    await $fetch('/api/marketing/social/library/meta', {
+      method: 'POST',
+      body: { kind: 'folder', name: newFolderName.value.trim() },
+    })
+    newFolderName.value = ''
+    toast.success('Pasta criada')
+    await refreshFolders()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Falha ao criar pasta')
+  }
+  finally {
+    creatingFolder.value = false
+  }
+}
 
 async function upload(event: Event) {
   const input = event.target as HTMLInputElement
@@ -132,7 +182,7 @@ async function deleteAsset() {
       </div>
     </div>
 
-    <div class="flex flex-col gap-3 sm:flex-row">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
       <div class="relative max-w-lg flex-1">
         <Icon name="lucide:search" class="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input v-model="search" class="pl-9" placeholder="Buscar arquivos" />
@@ -153,11 +203,31 @@ async function deleteAsset() {
           </SelectItem>
         </SelectContent>
       </Select>
+      <Select v-model="category">
+        <SelectTrigger class="w-full sm:w-52">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem v-for="item in categories" :key="item.value" :value="item.value">
+            {{ item.label }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
     </div>
 
-    <div v-if="pending" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-      <Skeleton v-for="index in 10" :key="index" class="aspect-square" />
-    </div>
+    <Card v-if="canManageLibrary">
+      <CardContent class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <Input v-model="newFolderName" placeholder="Nova pasta" class="sm:max-w-xs" />
+        <Button variant="outline" :disabled="creatingFolder || !newFolderName.trim()" @click="createFolder">
+          Criar pasta
+        </Button>
+        <p class="text-xs text-muted-foreground">
+          {{ (folders?.data || []).length }} pastas · use categorias e pastas para organizar logos, manuais e referências
+        </p>
+      </CardContent>
+    </Card>
+
+    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="10" />
 
     <div v-else-if="filteredAssets.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
       <Card

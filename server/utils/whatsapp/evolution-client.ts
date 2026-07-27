@@ -1,4 +1,4 @@
-import { decryptSecret } from '~/server/utils/whatsapp/context'
+import { decryptSecret } from '~/server/utils/marketing'
 
 export interface EvolutionClientConfig {
   baseUrl: string

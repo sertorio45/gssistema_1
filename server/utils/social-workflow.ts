@@ -2,9 +2,6 @@ import { createError } from 'h3'
 
 import { listEligibleSocialApprovers } from '~/server/utils/social-approvers'
 import {
-  buildSocialPostSnapshot,
-  createContentVersion,
-  enqueueApprovedPost,
   startApprovalWorkflow,
   submitApprovalDecision,
 } from '~/server/utils/social-approval-domain'
@@ -16,8 +13,6 @@ import {
  * historical signatures used by older endpoints/tests while delegating to the
  * domain service so there is a single source of truth.
  */
-
-export { buildSocialPostSnapshot, createContentVersion, enqueueApprovedPost }
 
 /** Validates the picked approvers against the tenant's eligible approver set. */
 async function assertApproversEligible(client: any, tenantId: string, approverIds: string[]) {

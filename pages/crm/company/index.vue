@@ -133,18 +133,30 @@ async function handleDelete(company: Company) {
   try {
     await $fetch(`/api/crm/company/${company.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' })
     toast.success('Empresa excluída com sucesso')
-    fetchCompanies()
+    await fetchCompanies()
   }
   catch (error: any) {
-    toast.error(error?.data?.message || 'Falha ao excluir empresa')
+    toast.error(error?.data?.statusMessage || error?.data?.message || 'Falha ao excluir empresa')
   }
 }
 
-function handleMultiDeleteConfirm() {
+async function handleMultiDeleteConfirm() {
+  if (!tenantId.value)
+    return
   showMultiDeleteDialog.value = false
-  const toDelete = selectedItems.value.map(item => item.id)
-  companiesData.value = companiesData.value.filter(c => !toDelete.includes(c.id))
-  selectedItems.value = []
+  const toDelete = [...selectedItems.value]
+  try {
+    await Promise.all(toDelete.map(company =>
+      $fetch(`/api/crm/company/${company.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    ))
+    toast.success(`${toDelete.length} empresa(s) excluída(s)`)
+    selectedItems.value = []
+    await fetchCompanies()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.data?.message || 'Falha ao excluir empresas')
+    await fetchCompanies()
+  }
 }
 </script>
 

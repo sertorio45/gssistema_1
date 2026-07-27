@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto'
 
-import { decryptSecret } from '~/server/utils/whatsapp/context'
+import { decryptSecret } from '~/server/utils/marketing'
 
 export interface CloudApiClientConfig {
   accessToken: string

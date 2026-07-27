@@ -20,6 +20,16 @@ export default defineEventHandler(async (event) => {
     request = request.eq('purpose', String(query.purpose))
   if (query.search)
     request = request.ilike('name', `%${String(query.search).trim()}%`)
+  if (query.folderId)
+    request = request.eq('folder_id', String(query.folderId))
+  if (query.lifecycle && ['active', 'archived', 'discontinued'].includes(String(query.lifecycle)))
+    request = request.eq('lifecycle', String(query.lifecycle))
+  else
+    request = request.neq('lifecycle', 'discontinued')
+  if (query.category)
+    request = request.eq('category', String(query.category))
+  if (query.campaignId)
+    request = request.eq('campaign_id', String(query.campaignId))
 
   const { data, error } = await request
   if (error)

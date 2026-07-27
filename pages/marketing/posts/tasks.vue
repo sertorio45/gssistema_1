@@ -77,7 +77,7 @@ const queues = [
           Trabalho interno por função{{ tenant?.name ? ` · ${tenant.name}` : '' }}.
         </p>
       </div>
-      <Button variant="outline" @click="navigateTo('/marketing/production')">
+      <Button variant="outline" @click="navigateTo('/marketing/posts')">
         <Icon name="lucide:kanban" class="mr-2 h-4 w-4" />
         Voltar ao Kanban
       </Button>
@@ -95,9 +95,7 @@ const queues = [
       </Button>
     </div>
 
-    <div v-if="pending" class="space-y-2">
-      <Skeleton v-for="index in 5" :key="index" class="h-16 w-full" />
-    </div>
+    <MarketingPageSkeleton v-if="pending" variant="list" />
 
     <div v-else-if="!(data?.data || []).length" class="rounded-xl border p-8 text-center text-sm text-muted-foreground">
       Nenhuma tarefa nesta fila.
@@ -132,7 +130,7 @@ const queues = [
             <Button
               variant="outline"
               size="sm"
-              @click="navigateTo(`/marketing/production/${task.postId}`)"
+              @click="navigateTo(`/marketing/posts/${task.postId}`)"
             >
               Abrir
             </Button>

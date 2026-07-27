@@ -202,7 +202,7 @@ export async function processPublicationJob(
           type: 'published',
           title: 'Publicação concluída',
           body: `${post.title} foi publicada em todos os canais.`,
-          actionUrl: `/marketing/production/${claimed.post_id}`,
+          actionUrl: `/marketing/posts/${claimed.post_id}`,
         })
       }
     }
@@ -279,9 +279,20 @@ export async function processPublicationJob(
           type: 'publish_failed',
           title: 'Falha na publicação',
           body: `${post.title}: ${details.message}`,
-          actionUrl: `/marketing/production/${claimed.post_id}`,
+          actionUrl: `/marketing/posts/${claimed.post_id}`,
         })
       }
+
+      const { emitSocialAutomation } = await import('~/server/utils/social-automations')
+      await emitSocialAutomation(client, {
+        tenantId: claimed.tenant_id,
+        trigger: 'publication.failed',
+        actorId: post?.created_by || null,
+        postId: claimed.post_id,
+        entityType: 'publication_job',
+        entityId: claimed.id,
+        payload: { code: details.code, message: details.message },
+      })
     }
 
     return { success: false, retrying: shouldRetry, ...details }

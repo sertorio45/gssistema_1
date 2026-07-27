@@ -1,8 +1,8 @@
 import { createError, readBody } from 'h3'
 
+import { encryptSecret } from '~/server/utils/marketing'
 import {
   buildEvolutionWebhookUrl,
-  encryptSecret,
   resolveWhatsAppTenantContext,
 } from '~/server/utils/whatsapp/context'
 import {

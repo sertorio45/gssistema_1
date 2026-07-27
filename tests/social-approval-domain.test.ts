@@ -383,6 +383,42 @@ describe('social approval domain', () => {
     expect(post(db).publication_status).toBe('scheduled')
   })
 
+  it('12. self-serve release auto-approves a draft before enqueue', async () => {
+    const { ensureSelfServeApproved, isSelfServeSocialRelease } = await import('~/server/utils/social-approval-domain')
+
+    expect(isSelfServeSocialRelease({
+      organizationType: 'direct',
+      effectiveRole: 'cliente',
+    })).toBe(true)
+    expect(isSelfServeSocialRelease({
+      organizationType: 'agency',
+      effectiveRole: 'admin',
+      isPlatformStaff: true,
+    })).toBe(false)
+
+    const jobs = await enqueueApprovedPost(client, {
+      tenantId: ids.tenant,
+      postId: ids.post,
+      capabilities: ['marketing.social.schedule'],
+      selfServe: true,
+      userId: ids.author,
+    })
+
+    expect(post(db).editorial_status).toBe('approved')
+    expect(post(db).approved_version_id).toBeTruthy()
+    expect(post(db).workflow_id).toBe(SYSTEM_WORKFLOW_IDS.noApproval)
+    expect(jobs.length).toBe(1)
+    expect(jobs[0].version_id).toBe(post(db).approved_version_id)
+
+    // Idempotent when already approved with matching version
+    await ensureSelfServeApproved(client, {
+      tenantId: ids.tenant,
+      postId: ids.post,
+      userId: ids.author,
+    })
+    expect(db.content_versions!.length).toBe(1)
+  })
+
   it('cancelApprovalRun returns the post to draft', async () => {
     const started = await startApprovalWorkflow(client, {
       tenantId: ids.tenant,

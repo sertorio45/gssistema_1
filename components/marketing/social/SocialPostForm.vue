@@ -20,6 +20,7 @@ const emit = defineEmits<{
 }>()
 
 const social = useMarketingSocial()
+const { isClientExperience } = useMarketingAudience()
 const currentStep = ref(1)
 const formError = ref('')
 const title = ref(props.initialValue?.title || '')
@@ -557,10 +558,12 @@ function submit() {
             <SocialDateTimePicker
               v-model="scheduledAt"
               label="Data sugerida"
-              description="A publicação só será agendada após a aprovação."
+              :description="isClientExperience
+                ? 'Horário preferido para agendar a publicação.'
+                : 'A publicação só será agendada após a aprovação.'"
               placeholder="Sem data sugerida"
             />
-            <div class="space-y-2">
+            <div v-if="!isClientExperience" class="space-y-2">
               <Label>Política de aprovação</Label>
               <Select v-model="approvalPolicy">
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -584,6 +587,9 @@ function submit() {
                 max="100"
                 aria-label="Mínimo de aprovações"
               />
+            </div>
+            <div v-else class="space-y-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              Sem fluxo de aprovação — você agenda ou publica direto.
             </div>
           </div>
         </CardContent>
@@ -634,13 +640,16 @@ function submit() {
           </div>
           <div class="border rounded-xl p-4">
             <p class="text-xs text-muted-foreground">
-              Aprovação
+              {{ isClientExperience ? 'Agenda' : 'Aprovação' }}
             </p>
             <p class="mt-2 font-medium">
-              {{ approvalLabel }}
+              {{ isClientExperience ? (formatScheduledDate() || 'Sem horário') : approvalLabel }}
             </p>
-            <p class="text-xs text-muted-foreground">
+            <p v-if="!isClientExperience" class="text-xs text-muted-foreground">
               {{ formatScheduledDate() }}
+            </p>
+            <p v-else class="text-xs text-muted-foreground">
+              Publique agora ou agende quando quiser
             </p>
           </div>
         </div>
@@ -680,7 +689,7 @@ function submit() {
           v-if="currentStep === 1"
           type="button"
           variant="ghost"
-          @click="navigateTo('/marketing/production')"
+          @click="navigateTo('/marketing/posts')"
         >
           Cancelar
         </Button>

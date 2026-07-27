@@ -4,6 +4,7 @@ import { h, resolveComponent } from 'vue'
 import { Checkbox } from '../ui/checkbox'
 import DataTableColumnHeader from './DataTableColumnHeader.vue'
 import TenantRowActions from './TenantRowActions.vue'
+import { MODULE_LABELS_PT } from '~/constants/modules'
 
 export interface Tenant {
   id: string
@@ -14,6 +15,8 @@ export interface Tenant {
   updated_at: string
   email?: string
   role?: string
+  modules?: string[]
+  hasAllBundle?: boolean
 }
 
 export const columns: ColumnDef<any>[] = [
@@ -45,6 +48,33 @@ export const columns: ColumnDef<any>[] = [
     accessorKey: 'slug',
     header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Identificador' }),
     cell: ({ row }: any) => h('span', { class: 'max-w-[300px] truncate text-muted-foreground' }, row.getValue('slug')),
+  },
+  {
+    id: 'modules',
+    header: ({ column }: any) => h(DataTableColumnHeader, { column, title: 'Módulos' }),
+    cell: ({ row }: any) => {
+      const tenant = row.original as Tenant
+      if (tenant.hasAllBundle)
+        return h('span', { class: 'text-sm text-muted-foreground' }, MODULE_LABELS_PT.all)
+
+      const modules = tenant.modules || []
+      if (!modules.length)
+        return h('span', { class: 'text-sm text-muted-foreground' }, 'Sem módulos')
+
+      return h(
+        'div',
+        { class: 'flex flex-wrap gap-1 max-w-[280px]' },
+        modules.map(moduleName =>
+          h(
+            'span',
+            {
+              class: 'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground',
+            },
+            MODULE_LABELS_PT[moduleName] || moduleName,
+          ),
+        ),
+      )
+    },
   },
   {
     accessorKey: 'is_active',
@@ -95,6 +125,7 @@ export const columns: ColumnDef<any>[] = [
         row,
         onEdit: () => table.options.meta?.onEdit?.(row.original),
         onDelete: () => table.options.meta?.onDelete?.(row.original),
+        onModules: () => table.options.meta?.onModules?.(row.original),
       }),
   },
 ]

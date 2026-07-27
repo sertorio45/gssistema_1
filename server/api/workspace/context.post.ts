@@ -2,6 +2,7 @@ import { readBody } from 'h3'
 import { z } from 'zod'
 
 import { recordAuditEvent } from '~/server/utils/audit-events'
+import { invalidateWorkspaceBootstrapCache } from '~/server/utils/workspace-bootstrap-cache'
 import { requireWorkspaceContext } from '~/server/utils/workspace-context'
 import { serializeWorkspaceContext } from '~/server/utils/workspace-serializer'
 
@@ -21,6 +22,8 @@ export default defineEventHandler(async (event) => {
     organizationId: input.organizationId ?? null,
     tenantId: input.tenantId ?? null,
   })
+
+  invalidateWorkspaceBootstrapCache(context.userId)
 
   if (context.isPlatformStaff && (context.organization || context.tenant)) {
     await recordAuditEvent(event, context.client, {

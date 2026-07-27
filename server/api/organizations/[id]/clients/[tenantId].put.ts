@@ -2,7 +2,9 @@ import { getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
 import { assertAgencyOrganization, listAccessibleManagedClientIds } from '~/server/utils/agency-ops'
+import { ASSIGNABLE_TENANT_MODULE_NAMES } from '~/constants/modules'
 import { recordAuditEvent } from '~/server/utils/audit-events'
+import { syncTenantModules } from '~/server/utils/tenant-modules'
 import { requireWorkspaceContext } from '~/server/utils/workspace-context'
 
 const paramsSchema = z.object({
@@ -14,7 +16,7 @@ const schema = z.object({
   displayName: z.string().trim().min(1).max(160).optional(),
   logoUrl: z.string().url().nullable().optional(),
   internalOwnerUserId: z.string().uuid().nullable().optional(),
-  modules: z.array(z.enum(['crm', 'article', 'marketing', 'whatsapp', 'all'])).optional(),
+  modules: z.array(z.enum(ASSIGNABLE_TENANT_MODULE_NAMES)).optional(),
   metadata: z.record(z.unknown()).optional(),
   isActive: z.boolean().optional(),
 })
@@ -77,19 +79,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: error.message })
 
   if (input.modules) {
-    for (const moduleName of input.modules) {
-      const { error: moduleError } = await context.client
-        .from('tenant_modules')
-        .upsert({
-          tenant_id: params.tenantId,
-          module_name: moduleName,
-          is_active: true,
-          activated_at: new Date().toISOString(),
-        }, { onConflict: 'tenant_id,module_name' })
-
-      if (moduleError)
-        throw createError({ statusCode: 400, statusMessage: moduleError.message })
-    }
+    await syncTenantModules(context.client, params.tenantId, input.modules)
   }
 
   await recordAuditEvent(event, context.client, {

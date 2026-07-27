@@ -97,7 +97,9 @@ async function refreshMarketing() {
       </p>
     </div>
 
-    <div class="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
+    <MarketingPageSkeleton v-if="pending" variant="reports" />
+
+    <div v-else class="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
       <MarketingReportTemplateSidebar
         v-model="source"
         class="md:sticky md:top-4 md:self-start"
@@ -213,7 +215,7 @@ async function refreshMarketing() {
         <MetaAdsBoard
           v-if="showMetaBlock"
           v-model:ads-active-only="metaActiveOnly"
-          :loading="pending"
+          :loading="false"
           :meta="data?.meta"
           :period="data?.period"
         />

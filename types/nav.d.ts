@@ -3,6 +3,15 @@ export interface NavBase {
   capability?: string
   /** Restricts the item to specific commercial models (agency, direct, platform). */
   organizationTypes?: Array<'platform' | 'agency' | 'direct'>
+  /**
+   * Who should see the item in the sidebar.
+   * - agency: staff / agency ops only
+   * - client: end-customer portal only
+   * - both / omitted: everyone who passes other gates
+   */
+  audience?: 'agency' | 'client' | 'both'
+  /** Label when the current workspace is the client portal experience. */
+  clientTitle?: string
 }
 
 export interface NavLink extends NavBase {

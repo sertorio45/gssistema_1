@@ -39,18 +39,24 @@ export const navMenu: NavMenu[] = [
         roles: ['admin', 'funcionario', 'cliente', 'atendente'],
         children: [
           { title: 'Visão geral', icon: 'i-lucide-layout-dashboard', link: '/marketing', capability: 'marketing.social.read' },
-          { title: 'Produção', icon: 'i-lucide-panels-top-left', link: '/marketing/production', capability: 'marketing.social.create' },
-          { title: 'Filas', icon: 'i-lucide-list-todo', link: '/marketing/production/tasks', capability: 'marketing.social.read' },
-          { title: 'Aprovações', icon: 'i-lucide-badge-check', link: '/marketing/approvals', capability: 'marketing.social.read' },
+          { title: 'Produção', clientTitle: 'Publicações', icon: 'i-lucide-panels-top-left', link: '/marketing/posts', capability: 'marketing.social.create' },
+          { title: 'Filas', icon: 'i-lucide-list-todo', link: '/marketing/posts/tasks', capability: 'marketing.social.read', audience: 'agency' },
+          { title: 'Campanhas', icon: 'i-lucide-megaphone', link: '/marketing/campaigns', capability: 'marketing.social.campaigns.read', audience: 'agency' },
+          { title: 'Briefings', icon: 'i-lucide-clipboard-list', link: '/marketing/briefings', capability: 'marketing.social.briefing.create', audience: 'agency' },
+          { title: 'Aprovações', icon: 'i-lucide-badge-check', link: '/marketing/approvals', capability: 'marketing.social.read', audience: 'agency' },
           { title: 'Calendário', icon: 'i-lucide-calendar-days', link: '/marketing/calendar', capability: 'marketing.social.read' },
-          { title: 'Biblioteca', icon: 'i-lucide-images', link: '/marketing/library', capability: 'marketing.social.read' },
-          { title: 'Notificações', icon: 'i-lucide-bell', link: '/marketing/notifications', capability: 'marketing.social.read' },
+          { title: 'Pacotes', icon: 'i-lucide-package', link: '/marketing/packages', capability: 'marketing.social.packages.read', audience: 'agency' },
+          { title: 'Métricas ops', icon: 'i-lucide-gauge', link: '/marketing/ops-metrics', capability: 'marketing.social.ops_metrics.read', audience: 'agency' },
+          { title: 'Automações', icon: 'i-lucide-zap', link: '/marketing/automations', capability: 'marketing.social.automations.read', audience: 'agency' },
+          { title: 'Biblioteca', icon: 'i-lucide-images', link: '/marketing/library', capability: 'marketing.social.read', audience: 'agency' },
+          { title: 'Guia', icon: 'i-lucide-book-open', link: '/marketing/brand-guide', capability: 'marketing.social.brand_guide.read', audience: 'agency' },
+          { title: 'Notificações', icon: 'i-lucide-bell', link: '/marketing/notifications', capability: 'marketing.social.read', audience: 'agency' },
           {
             title: 'Relatórios',
             icon: 'i-lucide-bar-chart-3',
             link: '/marketing/reports',
             roles: ['admin', 'funcionario', 'cliente'],
-            capability: 'marketing.social.read',
+            capability: 'marketing.social.reports',
           },
           {
             title: 'Integrações',
@@ -64,6 +70,7 @@ export const navMenu: NavMenu[] = [
             icon: 'i-lucide-scroll-text',
             link: '/marketing/logs',
             roles: ['admin'],
+            audience: 'agency',
           },
         ],
       },
@@ -486,14 +493,14 @@ export const navMenu: NavMenu[] = [
   },
 ]
 
-/** Administration: only for admin role, shown in a separate section at the bottom of the sidebar */
+/** Administration: platform staff only — separate from agency ops. */
 export const navMenuAdmin: NavMenu[] = [
   {
-    heading: 'Administração',
+    heading: 'Plataforma',
     items: [
       {
-        title: 'Administração',
-        icon: 'i-lucide-lock-keyhole-open',
+        title: 'Plataforma',
+        icon: 'i-lucide-shield',
         roles: ['admin', 'funcionario'],
         children: [
           { title: 'Usuários', icon: 'i-lucide-users', link: '/admin/users' },
@@ -506,110 +513,87 @@ export const navMenuAdmin: NavMenu[] = [
 ]
 
 /**
- * Agency / organization scope. Agency-only entries stay invisible for direct
- * customers. Marketing screens are reused with the current tenant context —
- * open a client workspace from Clientes when an org-wide view is needed.
+ * Agency / organization scope — ops only (no marketing duplicates).
+ * Marketing lives in the module menu; open a client via Clientes / seletor.
  */
 export const navMenuOrganization: NavMenu[] = [
   {
     heading: 'Agência',
     items: [
       {
-        title: 'Visão geral',
-        icon: 'i-lucide-layout-dashboard',
-        link: '/organization',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
+        title: 'Agência',
+        icon: 'i-lucide-building-2',
+        children: [
+          {
+            title: 'Visão geral',
+            icon: 'i-lucide-layout-dashboard',
+            link: '/organization',
+            capability: 'agency.clients.read',
+            organizationTypes: ['agency'],
+          },
+          {
+            title: 'Clientes',
+            icon: 'i-lucide-network',
+            link: '/organization/clients',
+            capability: 'agency.clients.read',
+            organizationTypes: ['agency'],
+          },
+          {
+            title: 'Equipe',
+            icon: 'i-lucide-users-round',
+            link: '/organization/team',
+            capability: 'organization.team.manage',
+          },
+          {
+            title: 'Cargos e permissões',
+            icon: 'i-lucide-shield',
+            link: '/organization/roles',
+            capability: 'organization.roles.read',
+          },
+          {
+            title: 'Configurações',
+            icon: 'i-lucide-settings',
+            link: '/organization/settings',
+            capability: 'organization.manage',
+            organizationTypes: ['agency'],
+          },
+        ],
       },
       {
-        title: 'Clientes',
-        icon: 'i-lucide-network',
-        link: '/organization/clients',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
-      },
-      {
-        title: 'Equipe',
-        icon: 'i-lucide-users-round',
-        link: '/organization/team',
-        capability: 'organization.team.manage',
-      },
-      {
-        title: 'Cargos e permissões',
-        icon: 'i-lucide-shield',
-        link: '/organization/roles',
-        capability: 'organization.roles.read',
-      },
-      {
-        title: 'Aprovações',
-        icon: 'i-lucide-badge-check',
-        link: '/marketing/approvals',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
-      },
-      {
-        title: 'Produção',
-        icon: 'i-lucide-panels-top-left',
-        link: '/marketing/production',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
-      },
-      {
-        title: 'Filas',
-        icon: 'i-lucide-list-todo',
-        link: '/marketing/production/tasks',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
-      },
-      {
-        title: 'Calendário geral',
-        icon: 'i-lucide-calendar-days',
-        link: '/marketing/calendar',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
-      },
-      {
-        title: 'Relatórios',
-        icon: 'i-lucide-bar-chart-3',
-        link: '/marketing/reports',
-        capability: 'agency.clients.read',
-        organizationTypes: ['agency'],
-      },
-      {
-        title: 'Configurações da agência',
-        icon: 'i-lucide-settings',
-        link: '/organization/settings',
-        capability: 'organization.manage',
-        organizationTypes: ['agency'],
+        title: 'Organização',
+        icon: 'i-lucide-building',
+        children: [
+          {
+            title: 'Equipe',
+            icon: 'i-lucide-users-round',
+            link: '/organization/team',
+            capability: 'organization.team.manage',
+          },
+          {
+            title: 'Cargos e permissões',
+            icon: 'i-lucide-shield',
+            link: '/organization/roles',
+            capability: 'organization.roles.read',
+          },
+        ],
       },
     ],
   },
 ]
 
-/** Tenant user management: for client owners and staff managing a tenant */
+/** Tenant user management: for client owners managing their own company team. */
 export const navMenuTenant: NavMenu[] = [
   {
     heading: 'Minha empresa',
     items: [
       {
-        title: 'Usuários',
+        title: 'Usuários da empresa',
         icon: 'i-lucide-users',
         link: '/settings/team',
-        roles: ['admin', 'funcionario', 'cliente'],
+        roles: ['cliente'],
       },
     ],
   },
 ]
 
-export const navMenuBottom: NavMenuItems = [
-  {
-    title: 'Help & Support',
-    icon: 'i-lucide-circle-help',
-    link: 'https://github.com/dianprata/nuxt-shadcn-dashboard',
-  },
-  {
-    title: 'Feedback',
-    icon: 'i-lucide-send',
-    link: 'https://github.com/dianprata/nuxt-shadcn-dashboard',
-  },
-]
+export const navMenuBottom: NavMenuItems = []

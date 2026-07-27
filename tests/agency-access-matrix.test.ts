@@ -180,13 +180,18 @@ describe('direct (client) access matrix', () => {
       'manage_roles',
       'create_post',
       'edit_post',
-      'submit_approval',
-      'approve_client',
       'schedule',
       'publish',
-      'delete_local',
       'view_reports',
-    ], ['list_clients', 'edit_client'])
+      'manage_integrations',
+      'access_tenant',
+    ], [
+      'list_clients',
+      'edit_client',
+      'submit_approval',
+      'approve_client',
+      'delete_local',
+    ])
   })
 
   it('approver can approve as client and comment shared only', () => {
@@ -296,18 +301,14 @@ describe('cross-cutting security rules', () => {
   const deniedClientActions: AccessAction[] = [
     'list_clients',
     'edit_client',
-    'manage_integrations',
     'delete_remote',
     'delete_force',
   ]
 
   for (const slug of Object.keys(DIRECT_ROLE_CAPABILITIES) as DirectRoleSlug[]) {
     it(`direct/${slug} never manages agency portfolio or remote force`, () => {
-      for (const action of deniedClientActions) {
-        if (slug === 'owner' && (action === 'delete_remote' || action === 'delete_force'))
-          continue
+      for (const action of deniedClientActions)
         expect(roleCan(DIRECT_ROLE_CAPABILITIES[slug], action)).toBe(false)
-      }
     })
   }
 })

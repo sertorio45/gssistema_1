@@ -2,7 +2,10 @@ import { createError, getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
 import { holdsCapability } from '~/constants/workspace'
-import { enqueueApprovedPost } from '~/server/utils/social-approval-domain'
+import {
+  enqueueApprovedPost,
+  isSelfServeSocialRelease,
+} from '~/server/utils/social-approval-domain'
 import { recordSocialAudit } from '~/server/utils/social-audit'
 import { requireSocialContext } from '~/server/utils/social-context'
 
@@ -25,6 +28,13 @@ export default defineEventHandler(async (event) => {
   if (!canRelease)
     throw createError({ statusCode: 403, statusMessage: 'Sem permissão para agendar ou publicar' })
 
+  const selfServe = isSelfServeSocialRelease({
+    isPlatformStaff: context.isPlatformStaff,
+    organizationType: context.workspace.organization?.type,
+    effectiveRole: context.workspace.effectiveRole,
+    capabilities,
+  })
+
   const jobs = await enqueueApprovedPost(context.client, {
     tenantId: context.tenantId,
     postId,
@@ -32,6 +42,8 @@ export default defineEventHandler(async (event) => {
     publishNow,
     capabilities: [...capabilities],
     isPlatformStaff: context.isPlatformStaff,
+    selfServe,
+    userId: context.user.id,
   })
 
   await recordSocialAudit(event, context.client, {

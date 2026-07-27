@@ -21,12 +21,6 @@ function getModuleMetaBySlug(slug: string): ModuleMeta | undefined {
 
 const STORAGE_KEY = 'current-module-slug'
 
-const currentModuleSlug = ref<string>(DEFAULT_MODULE_SLUG)
-const tenantModules = ref<Array<{ id: string; module_name: string; is_active: boolean }>>([])
-const isLoadingModules = ref(false)
-const includeAllModulesForStaff = ref(false)
-const hasResolvedRole = ref(false)
-
 function isUuid(value: string | null | undefined) {
   if (!value)
     return false
@@ -34,117 +28,129 @@ function isUuid(value: string | null | undefined) {
 }
 
 function persistModuleSlug(slug: string) {
-  if (import.meta.client) {
+  if (import.meta.client)
     localStorage.setItem(STORAGE_KEY, slug)
-  }
 }
 
 function restoreModuleSlug(): string {
   if (import.meta.client) {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved && getModuleMetaBySlug(saved)) {
+    if (saved && getModuleMetaBySlug(saved))
       return saved
-    }
   }
   return DEFAULT_MODULE_SLUG
 }
 
-async function fetchTenantModules(tenantId: string | null) {
-  if (!tenantId || !isUuid(tenantId)) {
-    tenantModules.value = []
-    return []
-  }
-  isLoadingModules.value = true
-  const supabase = useSupabaseClient()
-  const { data, error } = await supabase
-    .from('tenant_modules')
-    .select('id, module_name, is_active')
-    .eq('tenant_id', tenantId)
-    .eq('is_active', true)
-  isLoadingModules.value = false
-  if (error) {
-    console.error('Error loading tenant modules:', error)
-    tenantModules.value = []
-    return []
-  }
-
-  const rows = data ?? []
-  const hasAllBundle = rows.some(row => row.module_name === 'all' && row.is_active)
-
-  if (hasAllBundle) {
-    tenantModules.value = Object.keys(MODULE_META).map(module_name => ({
-      id: `all-${module_name}`,
-      module_name,
-      is_active: true,
-    }))
-    return tenantModules.value
-  }
-
-  tenantModules.value = rows
-  return tenantModules.value
-}
-
-function ensureValidModuleSlug(currentPath?: string) {
-  const slug = currentModuleSlug.value
-  const list = availableModules.value
-
-  const stillValid = list.some(m => m.slug === slug)
-    || (includeAllModulesForStaff.value && !!getModuleMetaBySlug(slug))
-
-  if (stillValid)
-    return
-
-  if (!hasResolvedRole.value)
-    return
-
-  const pathSlug = currentPath ? getModuleSlugFromPath(currentPath) : null
-  if (pathSlug && getModuleMetaBySlug(pathSlug)) {
-    if (includeAllModulesForStaff.value || list.some(m => m.slug === pathSlug)) {
-      currentModuleSlug.value = pathSlug
-      persistModuleSlug(pathSlug)
-      return
-    }
-  }
-
-  if (list.length > 0) {
-    currentModuleSlug.value = list[0].slug
-    persistModuleSlug(currentModuleSlug.value)
-  }
-}
-
-const availableModules = computed(() => {
-  const fromTenant = tenantModules.value
-    .map((tm) => {
-      const meta = MODULE_META[tm.module_name]
-      if (!meta)
-        return null
-      return { ...meta, id: tm.id, module_name: tm.module_name }
-    })
-    .filter((m): m is ModuleMeta & { id: string; module_name: string } => m !== null)
-
-  if (!includeAllModulesForStaff.value)
-    return fromTenant
-
-  const registeredNames = new Set(fromTenant.map(m => m.module_name))
-  const staffExtras = Object.entries(MODULE_META)
-    .filter(([moduleName]) => !registeredNames.has(moduleName))
-    .map(([module_name, meta]) => ({
-      ...meta,
-      id: `local-${module_name}`,
-      module_name,
-    }))
-
-  return [...fromTenant, ...staffExtras]
-})
-
-const currentModuleMeta = computed(() => {
-  return getModuleMetaBySlug(currentModuleSlug.value) ?? MODULE_META.crm
-})
-
 function _useModule() {
+  // useState must run inside setup (shared composable) so SSR state hydrates.
+  const currentModuleSlug = useState<string>('current-module-slug', () => DEFAULT_MODULE_SLUG)
+  const tenantModules = useState<Array<{ id: string, module_name: string, is_active: boolean }>>('tenant-modules', () => [])
+  const isLoadingModules = useState('tenant-modules-loading', () => false)
+  const includeAllModulesForStaff = useState('modules-include-all-staff', () => false)
+  const hasResolvedRole = useState('modules-has-resolved-role', () => false)
+
   const { currentTenant, tenantId } = useTenant()
   const { currentRole, currentUser } = useAuth()
   const route = useRoute()
+
+  const availableModules = computed(() => {
+    const fromTenant = tenantModules.value
+      .map((tm) => {
+        const meta = MODULE_META[tm.module_name]
+        if (!meta)
+          return null
+        return { ...meta, id: tm.id, module_name: tm.module_name }
+      })
+      .filter((m): m is ModuleMeta & { id: string, module_name: string } => m !== null)
+
+    if (!includeAllModulesForStaff.value)
+      return fromTenant
+
+    const registeredNames = new Set(fromTenant.map(m => m.module_name))
+    const staffExtras = Object.entries(MODULE_META)
+      .filter(([moduleName]) => !registeredNames.has(moduleName))
+      .map(([module_name, meta]) => ({
+        ...meta,
+        id: `local-${module_name}`,
+        module_name,
+      }))
+
+    return [...fromTenant, ...staffExtras]
+  })
+
+  const currentModuleMeta = computed(() => {
+    return getModuleMetaBySlug(currentModuleSlug.value) ?? MODULE_META.crm
+  })
+
+  async function fetchTenantModules(id: string | null) {
+    if (!id || !isUuid(id)) {
+      tenantModules.value = []
+      return []
+    }
+    isLoadingModules.value = true
+    const supabase = useSupabaseClient()
+    const { data, error } = await supabase
+      .from('tenant_modules')
+      .select('id, module_name, is_active')
+      .eq('tenant_id', id)
+      .eq('is_active', true)
+    isLoadingModules.value = false
+    if (error) {
+      console.error('Error loading tenant modules:', error)
+      tenantModules.value = []
+      return []
+    }
+
+    const rows = data ?? []
+    const hasAllBundle = rows.some(row => row.module_name === 'all' && row.is_active)
+
+    if (hasAllBundle) {
+      tenantModules.value = Object.keys(MODULE_META).map(module_name => ({
+        id: `all-${module_name}`,
+        module_name,
+        is_active: true,
+      }))
+      return tenantModules.value
+    }
+
+    tenantModules.value = rows
+    return tenantModules.value
+  }
+
+  function ensureValidModuleSlug(currentPath?: string) {
+    const slug = currentModuleSlug.value
+    const list = availableModules.value
+
+    const stillValid = list.some(m => m.slug === slug)
+      || (includeAllModulesForStaff.value && !!getModuleMetaBySlug(slug))
+
+    if (stillValid)
+      return
+
+    if (!hasResolvedRole.value)
+      return
+
+    const pathSlug = currentPath ? getModuleSlugFromPath(currentPath) : null
+    if (pathSlug && getModuleMetaBySlug(pathSlug)) {
+      if (includeAllModulesForStaff.value || list.some(m => m.slug === pathSlug)) {
+        currentModuleSlug.value = pathSlug
+        persistModuleSlug(pathSlug)
+        return
+      }
+    }
+
+    if (list.length > 0) {
+      currentModuleSlug.value = list[0].slug
+      persistModuleSlug(currentModuleSlug.value)
+    }
+  }
+
+  // Prefer route path on SSR so client hydrate matches.
+  if (import.meta.server) {
+    const pathSlug = getModuleSlugFromPath(route.path)
+    if (pathSlug)
+      currentModuleSlug.value = pathSlug
+  }
 
   watch([currentRole, currentUser], ([role, user]) => {
     const globalRole = user?.user_metadata?.role || user?.app_metadata?.role
@@ -158,7 +164,12 @@ function _useModule() {
   }, { immediate: true })
 
   onMounted(async () => {
-    currentModuleSlug.value = restoreModuleSlug()
+    const pathSlug = getModuleSlugFromPath(route.path)
+    if (pathSlug)
+      currentModuleSlug.value = pathSlug
+    else
+      currentModuleSlug.value = restoreModuleSlug()
+
     await fetchTenantModules(tenantId.value ?? currentTenant.value?.id ?? null)
     ensureValidModuleSlug(route.path)
   })

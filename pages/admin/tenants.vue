@@ -25,6 +25,11 @@ import { columns } from '@/components/users/tenant-columns'
 
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import { useToast } from '~/components/ui/toast'
+import {
+  ASSIGNABLE_MODULE_SLUGS,
+  MODULE_LABELS_PT,
+  TENANT_MODULE_BUNDLE_ALL,
+} from '~/constants/modules'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -40,7 +45,13 @@ const selectedItems = ref([])
 const showMultiDeleteDialog = ref(false)
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
+const showModulesDialog = ref(false)
 const editingTenant = ref<Tenant | null>(null)
+const modulesTenant = ref<Tenant | null>(null)
+const isLoadingModules = ref(false)
+const isSavingModules = ref(false)
+const useAllModulesBundle = ref(false)
+const selectedModuleSlugs = ref<string[]>([])
 
 // Form data with separate boolean state
 const formData = ref({
@@ -57,19 +68,14 @@ const supabase = useSupabaseClient()
 async function loadData() {
   isLoading.value = true
   try {
-    const { data, error } = await supabase.from('tenant').select('*').order('name')
-
-    if (error) {
-      throw error
-    }
-
-    tenants.value = data as Tenant[]
+    const response = await $fetch<{ tenants: Tenant[] }>('/api/admin/tenants')
+    tenants.value = response.tenants
   }
   catch (error: any) {
     console.error('Error loading data:', error)
     toast({
       title: 'Erro',
-      description: error.message || 'Não foi possível carregar as empresas',
+      description: error?.data?.statusMessage || error?.message || 'Não foi possível carregar as empresas',
       variant: 'destructive',
     })
   }
@@ -78,31 +84,125 @@ async function loadData() {
   }
 }
 
-// Open delete confirmation dialog
+function resetModulesForm() {
+  modulesTenant.value = null
+  useAllModulesBundle.value = false
+  selectedModuleSlugs.value = []
+}
+
+async function handleModulesClick(tenant: Tenant) {
+  modulesTenant.value = tenant
+  showModulesDialog.value = true
+  isLoadingModules.value = true
+
+  try {
+    const response = await $fetch<{
+      hasAllBundle: boolean
+      activeModuleNames: string[]
+    }>(`/api/admin/tenants/${tenant.id}/modules`)
+
+    useAllModulesBundle.value = response.hasAllBundle
+    selectedModuleSlugs.value = response.hasAllBundle
+      ? [...ASSIGNABLE_MODULE_SLUGS]
+      : response.activeModuleNames.filter(name => ASSIGNABLE_MODULE_SLUGS.includes(name as typeof ASSIGNABLE_MODULE_SLUGS[number]))
+  }
+  catch (error: any) {
+    console.error('Error loading tenant modules:', error)
+    toast({
+      title: 'Erro',
+      description: error?.data?.statusMessage || error?.message || 'Não foi possível carregar os módulos',
+      variant: 'destructive',
+    })
+    showModulesDialog.value = false
+    resetModulesForm()
+  }
+  finally {
+    isLoadingModules.value = false
+  }
+}
+
+function toggleModuleSlug(slug: string) {
+  if (useAllModulesBundle.value)
+    return
+
+  const set = new Set(selectedModuleSlugs.value)
+  if (set.has(slug))
+    set.delete(slug)
+  else
+    set.add(slug)
+  selectedModuleSlugs.value = [...set]
+}
+
+function handleAllModulesToggle(enabled: boolean) {
+  useAllModulesBundle.value = enabled
+  if (enabled)
+    selectedModuleSlugs.value = [...ASSIGNABLE_MODULE_SLUGS]
+}
+
+async function saveTenantModules() {
+  if (!modulesTenant.value)
+    return
+
+  const modules = useAllModulesBundle.value
+    ? [TENANT_MODULE_BUNDLE_ALL]
+    : selectedModuleSlugs.value
+
+  if (!modules.length) {
+    toast({
+      title: 'Seleção inválida',
+      description: 'Selecione pelo menos um módulo ou o pacote completo.',
+      variant: 'destructive',
+    })
+    return
+  }
+
+  isSavingModules.value = true
+  try {
+    await $fetch(`/api/admin/tenants/${modulesTenant.value.id}/modules`, {
+      method: 'PUT',
+      body: { modules },
+    })
+
+    toast({
+      title: 'Sucesso',
+      description: 'Módulos atualizados com sucesso',
+    })
+
+    showModulesDialog.value = false
+    resetModulesForm()
+    await loadData()
+  }
+  catch (error: any) {
+    console.error('Error saving tenant modules:', error)
+    toast({
+      title: 'Erro',
+      description: error?.data?.statusMessage || error?.message || 'Não foi possível salvar os módulos',
+      variant: 'destructive',
+    })
+  }
+  finally {
+    isSavingModules.value = false
+  }
+}
+
 function handleDeleteClick(tenant: Tenant) {
   selectedTenant.value = tenant
   isDeleteAlertOpen.value = true
 }
 
-// Delete tenant
+// Delete tenant (via API — removes modules and other NO ACTION dependencies first)
 async function deleteTenant() {
-  if (!selectedTenant.value) {
+  if (!selectedTenant.value)
     return
-  }
 
   try {
-    const { error } = await supabase.from('tenant').delete().eq('id', selectedTenant.value.id)
-
-    if (error) {
-      throw error
-    }
+    await $fetch(`/api/admin/tenants/${selectedTenant.value.id}`, { method: 'DELETE' })
 
     toast({
       title: 'Sucesso',
       description: 'Empresa excluída com sucesso',
     })
 
-    // Close confirmation and reload data
     isDeleteAlertOpen.value = false
     selectedTenant.value = null
     await loadData()
@@ -111,7 +211,7 @@ async function deleteTenant() {
     console.error('Error deleting tenant:', error)
     toast({
       title: 'Erro',
-      description: error?.message || 'Não foi possível excluir a empresa',
+      description: error?.data?.statusMessage || error?.message || 'Não foi possível excluir a empresa',
       variant: 'destructive',
     })
   }
@@ -231,38 +331,44 @@ function showMultiDeleteConfirmation() {
 // Delete multiple tenants
 async function handleMultiDeleteConfirm() {
   const itemIds = selectedItems.value.map((index: number) => tenants.value[index].id)
-  let allSuccess = true
+  let failed = 0
+  let lastError = ''
 
   for (const id of itemIds) {
     try {
-      const { error } = await supabase.from('tenant').delete().eq('id', id)
-
-      if (error) {
-        allSuccess = false
-      }
+      await $fetch(`/api/admin/tenants/${id}`, { method: 'DELETE' })
     }
-    catch (error) {
+    catch (error: any) {
       console.error(`Error deleting tenant ${id}:`, error)
-      allSuccess = false
+      failed += 1
+      lastError = error?.data?.statusMessage || error?.message || 'Falha ao excluir'
     }
-  }
-
-  if (allSuccess) {
-    toast({
-      title: 'Sucesso',
-      description: `${itemIds.length} empresa(s) excluída(s) com sucesso`,
-    })
-  }
-  else {
-    toast({
-      title: 'Aviso',
-      description: 'Algumas empresas não puderam ser excluídas',
-      variant: 'destructive',
-    })
   }
 
   showMultiDeleteDialog.value = false
   selectedItems.value = []
+
+  if (failed === 0) {
+    toast({
+      title: 'Sucesso',
+      description: `${itemIds.length} empresa(s) excluída(s)`,
+    })
+  }
+  else if (failed < itemIds.length) {
+    toast({
+      title: 'Parcial',
+      description: `${itemIds.length - failed} excluída(s), ${failed} falhou(aram). ${lastError}`,
+      variant: 'destructive',
+    })
+  }
+  else {
+    toast({
+      title: 'Erro',
+      description: lastError || 'Não foi possível excluir as empresas',
+      variant: 'destructive',
+    })
+  }
+
   await loadData()
 }
 
@@ -314,6 +420,7 @@ onMounted(() => {
       :columns="columns"
       @delete="handleDeleteClick"
       @edit="handleEditClick"
+      @modules="handleModulesClick"
       @selection-change="updateSelectedItems"
     />
 
@@ -452,6 +559,84 @@ onMounted(() => {
           >
             <Icon name="lucide:save" class="mr-2 h-4 w-4" />
             Salvar alterações
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <!-- Tenant modules dialog -->
+    <AlertDialog :open="showModulesDialog" @update:open="(open) => { showModulesDialog = open; if (!open) resetModulesForm() }">
+      <AlertDialogContent class="sm:max-w-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle class="text-xl">
+            Módulos da empresa
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Defina quais módulos o cliente pode acessar no workspace.
+            <span v-if="modulesTenant" class="font-medium text-foreground">
+              {{ modulesTenant.name }}
+            </span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div v-if="isLoadingModules" class="py-6 space-y-3">
+          <Skeleton class="h-10 w-full" />
+          <Skeleton class="h-10 w-full" />
+          <Skeleton class="h-10 w-full" />
+        </div>
+
+        <div v-else class="py-4 space-y-6">
+          <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
+            <div class="space-y-0.5">
+              <label class="text-sm font-medium leading-none" for="tenant-all-modules">
+                {{ MODULE_LABELS_PT.all }}
+              </label>
+              <p class="text-sm text-muted-foreground">
+                Libera CRM, Artigos, Marketing e WhatsApp para este cliente.
+              </p>
+            </div>
+            <Switch
+              id="tenant-all-modules"
+              :checked="useAllModulesBundle"
+              @update:checked="handleAllModulesToggle"
+            />
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-medium leading-none">
+              Módulos individuais
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <Button
+                v-for="moduleSlug in ASSIGNABLE_MODULE_SLUGS"
+                :key="moduleSlug"
+                size="sm"
+                :variant="selectedModuleSlugs.includes(moduleSlug) ? 'default' : 'outline'"
+                :disabled="useAllModulesBundle"
+                @click="toggleModuleSlug(moduleSlug)"
+              >
+                {{ MODULE_LABELS_PT[moduleSlug] }}
+              </Button>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              Com o pacote completo ativo, a seleção individual fica bloqueada.
+            </p>
+          </div>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel
+            @click="showModulesDialog = false; resetModulesForm()"
+          >
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            class="bg-primary text-primary-foreground hover:bg-primary/90"
+            :disabled="isLoadingModules || isSavingModules || (!useAllModulesBundle && !selectedModuleSlugs.length)"
+            @click="saveTenantModules"
+          >
+            <Icon name="lucide:save" class="mr-2 h-4 w-4" />
+            Salvar módulos
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -11,6 +11,7 @@ import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 import { createError, getHeader, getQuery } from 'h3'
 
 import { isStaffRole } from '~/constants/roles'
+import { resolveGlobalRole } from '~/server/utils/tenant-role'
 import {
   ORGANIZATION_HEADER,
   TENANT_HEADER,
@@ -332,6 +333,8 @@ async function loadCapabilities(
     tenantId: string | null
     userId: string
     modules: WorkspaceModule[]
+    /** Skip a second membership round-trip when already known. */
+    legacyRole?: AppRoleSlug | null
   },
 ): Promise<WorkspaceCapability[]> {
   const resolved = await resolveEffectiveCapabilities({
@@ -344,6 +347,7 @@ async function loadCapabilities(
     isPlatformStaff: input.isPlatformStaff,
     modules: input.modules,
     enforceModules: true,
+    legacyRole: input.legacyRole,
   })
   return resolved.capabilities
 }
@@ -362,41 +366,74 @@ async function resolveWorkspaceContext(
 
   const client: WorkspaceClient = await serverSupabaseServiceRole(event)
 
-  const globalRole = asRole((user.app_metadata as { role?: string })?.role)
+  const globalRole = asRole(resolveGlobalRole(user))
   const isPlatformStaff = isStaffRole(globalRole)
 
   const requested = readRequestedContext(event, options, user)
-  const requestedTenantId = await resolveTenantIdentifier(client, requested.tenant)
-  const requestedOrganizationId = await resolveOrganizationIdentifier(client, requested.organization)
+
+  // Parallelize independent lookups: slug→id resolution + memberships.
+  const [requestedTenantId, requestedOrganizationId, memberships] = await Promise.all([
+    resolveTenantIdentifier(client, requested.tenant),
+    resolveOrganizationIdentifier(client, requested.organization),
+    loadActiveMemberships(client, user.id),
+  ])
 
   if (requested.tenant && !requestedTenantId)
     throw createError({ statusCode: 404, statusMessage: 'Empresa não encontrada' })
   if (requested.organization && !requestedOrganizationId)
     throw createError({ statusCode: 404, statusMessage: 'Organização não encontrada' })
 
-  const memberships = await loadActiveMemberships(client, user.id)
   const assignments = await loadAssignedTenantIds(client, memberships.map(item => item.id))
 
   let organization: WorkspaceOrganization | null = null
   let organizationMembership: WorkspaceOrganizationMembership | null = null
 
-  if (requestedOrganizationId) {
-    const { data: organizationRow } = await client
-      .from('organizations')
-      .select('id, name, slug, type, is_active, tenant_id, settings')
-      .eq('id', requestedOrganizationId)
-      .maybeSingle()
+  // Fetch org + tenant rows in parallel when both are requested.
+  let organizationRow: any = null
+  let tenantRow: any = null
+  if (requestedOrganizationId || requestedTenantId) {
+    const [orgResult, tenantResult] = await Promise.all([
+      requestedOrganizationId
+        ? client
+            .from('organizations')
+            .select('id, name, slug, type, is_active, tenant_id, settings')
+            .eq('id', requestedOrganizationId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      requestedTenantId
+        ? client
+            .from('tenant')
+            .select('id, name, slug, is_active')
+            .eq('id', requestedTenantId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
+    organizationRow = orgResult.data
+    tenantRow = tenantResult.data
+  }
 
+  if (requestedOrganizationId) {
     if (!organizationRow)
       throw createError({ statusCode: 404, statusMessage: 'Organização não encontrada' })
 
     organization = mapOrganization(organizationRow)
-    if (!organization.isActive)
-      throw createError({ statusCode: 403, statusMessage: 'Organização inativa' })
 
-    organizationMembership = memberships.find(item => item.organizationId === organization!.id) ?? null
-    if (!organizationMembership && !isPlatformStaff)
-      throw createError({ statusCode: 403, statusMessage: 'Sem acesso a esta organização' })
+    if (!organization.isActive) {
+      // Stale browser hints often point at deactivated shadow orgs (`direct-*`).
+      // Re-resolve from the tenant portfolio when a tenant is also requested.
+      if (requestedTenantId || isPlatformStaff) {
+        organization = null
+        organizationMembership = null
+      }
+      else {
+        throw createError({ statusCode: 403, statusMessage: 'Organização inativa' })
+      }
+    }
+    else {
+      organizationMembership = memberships.find(item => item.organizationId === organization!.id) ?? null
+      if (!organizationMembership && !isPlatformStaff)
+        throw createError({ statusCode: 403, statusMessage: 'Sem acesso a esta organização' })
+    }
   }
 
   let tenant: WorkspaceTenant | null = null
@@ -404,12 +441,6 @@ async function resolveWorkspaceContext(
   let tenantRole: AppRoleSlug | null = null
 
   if (requestedTenantId) {
-    const { data: tenantRow } = await client
-      .from('tenant')
-      .select('id, name, slug, is_active')
-      .eq('id', requestedTenantId)
-      .maybeSingle()
-
     if (!tenantRow)
       throw createError({ statusCode: 404, statusMessage: 'Empresa não encontrada' })
 
@@ -417,11 +448,23 @@ async function resolveWorkspaceContext(
     if (!tenant.isActive && !isPlatformStaff)
       throw createError({ statusCode: 403, statusMessage: 'Empresa inativa' })
 
-    const { data: linkRows } = await client
-      .from('organization_tenants')
-      .select('organization_id, tenant_id, relationship_type, is_primary, is_active, ended_at')
-      .eq('tenant_id', tenant.id)
+    // Links + direct role are independent — fetch together for non-staff.
+    const [linkResult, directRoleResult] = await Promise.all([
+      client
+        .from('organization_tenants')
+        .select('organization_id, tenant_id, relationship_type, is_primary, is_active, ended_at')
+        .eq('tenant_id', tenant.id),
+      isPlatformStaff
+        ? Promise.resolve({ data: null })
+        : client
+            .from('user_tenant_role')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('tenant_id', tenant.id)
+            .maybeSingle(),
+    ])
 
+    const linkRows = linkResult.data
     const usableLinks = (linkRows || []).filter(isLinkUsable)
 
     if (organization) {
@@ -474,14 +517,7 @@ async function resolveWorkspaceContext(
       }
     }
     else {
-      const { data: directRow } = await client
-        .from('user_tenant_role')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('tenant_id', tenant.id)
-        .maybeSingle()
-
-      const directRole = asRole(directRow?.role)
+      const directRole = asRole(directRoleResult.data?.role)
 
       const linkedOrganizationIds = new Set(
         usableLinks.map((row: any) => String(row.organization_id)),
@@ -506,19 +542,19 @@ async function resolveWorkspaceContext(
         tenantRole = directRole ?? organizationMembership?.role ?? null
       }
       else {
-        // Prefer agency membership over a shadow direct org on the same tenant.
+        // Single org fetch with full columns — pick preferred in memory.
         const membershipOrgIds = reachingMemberships.map(item => item.organizationId)
         const { data: membershipOrgs } = membershipOrgIds.length
           ? await client
               .from('organizations')
-              .select('id, type, is_active')
+              .select('id, name, slug, type, is_active, tenant_id, settings')
               .in('id', membershipOrgIds)
               .eq('is_active', true)
           : { data: [] as any[] }
-        const typeByOrgId = new Map((membershipOrgs || []).map((row: any) => [String(row.id), String(row.type)]))
+        const orgById = new Map((membershipOrgs || []).map((row: any) => [String(row.id), row]))
 
         const preferred = reachingMemberships.find((item) => {
-          return typeByOrgId.get(item.organizationId) === 'agency'
+          return orgById.get(item.organizationId)?.type === 'agency'
         }) ?? reachingMemberships.find((item) => {
           const link = usableLinks.find(
             (row: any) => String(row.organization_id) === item.organizationId,
@@ -534,13 +570,9 @@ async function resolveWorkspaceContext(
           if (link)
             organizationTenantLink = mapLink(link)
 
-          const { data: organizationRow } = await client
-            .from('organizations')
-            .select('id, name, slug, type, is_active, tenant_id, settings')
-            .eq('id', preferred.organizationId)
-            .maybeSingle()
-          if (organizationRow)
-            organization = mapOrganization(organizationRow)
+          const organizationRowPreferred = orgById.get(preferred.organizationId)
+          if (organizationRowPreferred)
+            organization = mapOrganization(organizationRowPreferred)
         }
 
         tenantRole = directRole ?? preferred?.role ?? null
@@ -557,21 +589,23 @@ async function resolveWorkspaceContext(
 
   const organizationRoleId = organizationMembership?.roleId ?? null
 
-  let organizationRoleSlug: string | null = null
-  let organizationRoleName: string | null = null
-  if (organizationRoleId) {
-    const { data: roleRow } = await client
-      .from('organization_roles')
-      .select('slug, name')
-      .eq('id', organizationRoleId)
-      .maybeSingle()
-    organizationRoleSlug = roleRow?.slug ? String(roleRow.slug) : null
-    organizationRoleName = roleRow?.name ? String(roleRow.name) : null
-  }
+  // Role metadata + modules are independent.
+  const [roleMeta, modules] = await Promise.all([
+    organizationRoleId
+      ? client
+          .from('organization_roles')
+          .select('slug, name')
+          .eq('id', organizationRoleId)
+          .maybeSingle()
+          .then((result: any) => result.data)
+      : Promise.resolve(null),
+    tenant ? loadTenantModules(client, tenant.id) : Promise.resolve([] as WorkspaceModule[]),
+  ])
+
+  const organizationRoleSlug = roleMeta?.slug ? String(roleMeta.slug) : null
+  const organizationRoleName = roleMeta?.name ? String(roleMeta.name) : null
 
   const effectiveRole = tenantRole ?? organizationRole
-
-  const modules = tenant ? await loadTenantModules(client, tenant.id) : []
 
   const capabilities = await loadCapabilities(client, {
     isPlatformStaff,
@@ -581,6 +615,7 @@ async function resolveWorkspaceContext(
     tenantId: tenant?.id ?? null,
     userId: user.id,
     modules,
+    legacyRole: organizationMembership?.role ?? null,
   })
 
   return {
@@ -647,12 +682,13 @@ function assertWorkspaceContext(context: WorkspaceContext, options: WorkspaceCon
 }
 
 function cacheKeyFor(options: WorkspaceContextOptions): string {
-  const explicit = 'organizationId' in options || 'tenantId' in options
-  return [
-    explicit ? 'explicit' : 'request',
-    trimmed(options.organizationId) ?? '',
-    trimmed(options.tenantId) ?? '',
-  ].join('|')
+  const organizationId = trimmed(options.organizationId) ?? ''
+  const tenantId = trimmed(options.tenantId) ?? ''
+  // Empty explicit args share the request-scoped key so middleware and
+  // `/api/workspace/context` do not resolve the same bootstrap twice.
+  if (!organizationId && !tenantId)
+    return 'request||'
+  return ['explicit', organizationId, tenantId].join('|')
 }
 
 /**
@@ -718,19 +754,30 @@ export async function listAccessibleTenants(
   const memberships = input.isPlatformStaff
     ? []
     : await loadActiveMemberships(client, input.userId)
-  const assignments = await loadAssignedTenantIds(client, memberships.map(item => item.id))
 
   const organizationIds = input.organizationId
     ? [input.organizationId]
     : memberships.map(item => item.organizationId)
 
-  const linkRows = organizationIds.length
-    ? (await client
-        .from('organization_tenants')
-        .select('organization_id, tenant_id, relationship_type, is_primary, is_active, ended_at, organizations!inner(is_active)')
-        .in('organization_id', organizationIds)).data
-    : []
+  const [assignments, linkResult, directResult] = await Promise.all([
+    input.isPlatformStaff
+      ? Promise.resolve(new Map<string, Set<string>>())
+      : loadAssignedTenantIds(client, memberships.map(item => item.id)),
+    organizationIds.length
+      ? client
+          .from('organization_tenants')
+          .select('organization_id, tenant_id, relationship_type, is_primary, is_active, ended_at, organizations!inner(is_active)')
+          .in('organization_id', organizationIds)
+      : Promise.resolve({ data: [] as any[] }),
+    input.isPlatformStaff
+      ? Promise.resolve({ data: [] as any[] })
+      : client
+          .from('user_tenant_role')
+          .select('tenant_id')
+          .eq('user_id', input.userId),
+  ])
 
+  const linkRows = linkResult.data
   const reachable = new Map<string, { organizationId: string, relationshipType: OrganizationRelationshipType }>()
 
   for (const row of linkRows || []) {
@@ -757,12 +804,7 @@ export async function listAccessibleTenants(
   }
 
   if (!input.isPlatformStaff) {
-    const { data: directRows } = await client
-      .from('user_tenant_role')
-      .select('tenant_id')
-      .eq('user_id', input.userId)
-
-    for (const row of directRows || []) {
+    for (const row of directResult.data || []) {
       const tenantId = row.tenant_id ? String(row.tenant_id) : null
       if (!tenantId)
         continue

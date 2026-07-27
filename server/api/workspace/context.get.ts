@@ -1,6 +1,12 @@
 import { getQuery } from 'h3'
 import { z } from 'zod'
+import { serverSupabaseUser } from '#supabase/server'
 
+import {
+  getWorkspaceBootstrapCache,
+  setWorkspaceBootstrapCache,
+  workspaceBootstrapCacheKey,
+} from '~/server/utils/workspace-bootstrap-cache'
 import {
   listAccessibleOrganizations,
   listAccessibleTenants,
@@ -15,6 +21,19 @@ const querySchema = z.object({
 
 export default defineEventHandler(async (event) => {
   const input = querySchema.parse(getQuery(event))
+
+  const user = await serverSupabaseUser(event).catch(() => null)
+  if (!user)
+    throw createError({ statusCode: 401, statusMessage: 'Não autenticado' })
+
+  const cacheKey = workspaceBootstrapCacheKey(
+    user.id,
+    input.organization_id,
+    input.tenant_id,
+  )
+  const cached = getWorkspaceBootstrapCache(cacheKey)
+  if (cached)
+    return cached
 
   let requestedContextRejected = false
   let context = null as Awaited<ReturnType<typeof requireWorkspaceContext>> | null
@@ -85,7 +104,7 @@ export default defineEventHandler(async (event) => {
     }),
   ])
 
-  return {
+  const payload = {
     ...serializeWorkspaceContext(context!),
     requestedContextRejected,
     organizations: organizations.map(organization => ({
@@ -105,4 +124,15 @@ export default defineEventHandler(async (event) => {
       relationship_type: tenant.relationshipType,
     })),
   }
+
+  setWorkspaceBootstrapCache(cacheKey, payload)
+  // Also cache under the resolved scope so a follow-up with explicit ids hits.
+  if (context?.organization?.id || context?.tenantId) {
+    setWorkspaceBootstrapCache(
+      workspaceBootstrapCacheKey(user.id, context.organization?.id, context.tenantId),
+      payload,
+    )
+  }
+
+  return payload
 })
