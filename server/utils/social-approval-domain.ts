@@ -1384,3 +1384,76 @@ export async function bypassApproval(
 
   return { versionId: latest.id, reason: justification }
 }
+
+export interface BatchDecisionItem {
+  requestId: string
+  decision: DecisionValue
+  comment?: string | null
+  changeCategory?: 'art' | 'copy' | 'date' | 'platform' | 'incorrect_info' | 'other' | null
+}
+
+export interface BatchDecisionInput {
+  tenantId: string
+  userId: string
+  items: BatchDecisionItem[]
+  capabilities?: string[]
+  isPlatformAdmin?: boolean
+}
+
+/**
+ * Applies individual decisions per request/version. Partial failures are
+ * returned item-by-item — never a silent all-or-nothing success.
+ */
+export async function submitBatchApprovalDecisions(client: any, input: BatchDecisionInput) {
+  if (!input.items.length)
+    throw createError({ statusCode: 400, statusMessage: 'Selecione ao menos um conteúdo' })
+  if (input.items.length > 50)
+    throw createError({ statusCode: 400, statusMessage: 'Limite de 50 decisões por lote' })
+
+  const results: Array<{
+    requestId: string
+    ok: boolean
+    status?: string
+    statusCode?: number
+    message?: string
+  }> = []
+
+  for (const item of input.items) {
+    try {
+      const result = await submitApprovalDecision(client, {
+        tenantId: input.tenantId,
+        requestId: item.requestId,
+        userId: input.userId,
+        decision: item.decision,
+        comment: item.comment,
+        changeCategory: item.changeCategory,
+        capabilities: input.capabilities,
+        isPlatformAdmin: input.isPlatformAdmin,
+      })
+      results.push({
+        requestId: item.requestId,
+        ok: true,
+        status: String(result.status),
+      })
+    }
+    catch (error: any) {
+      results.push({
+        requestId: item.requestId,
+        ok: false,
+        statusCode: Number(error?.statusCode || 400),
+        message: String(error?.statusMessage || error?.message || 'Falha na decisão'),
+      })
+    }
+  }
+
+  const succeeded = results.filter(row => row.ok).length
+  const failed = results.length - succeeded
+
+  return {
+    total: results.length,
+    succeeded,
+    failed,
+    results,
+  }
+}
+

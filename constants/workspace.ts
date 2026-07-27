@@ -19,7 +19,8 @@ export const ORGANIZATION_TYPES: OrganizationType[] = ['platform', 'agency', 'di
 export const ORGANIZATION_TYPE_LABELS: Record<OrganizationType, string> = {
   platform: 'Plataforma',
   agency: 'Agência',
-  direct: 'Cliente direto',
+  // Product jargon "Cliente direto" confused agency operators — keep it neutral.
+  direct: 'Conta própria',
 }
 
 export const ORGANIZATION_RELATIONSHIP_LABELS: Record<OrganizationRelationshipType, string> = {
@@ -68,6 +69,11 @@ export const MARKETING_SOCIAL_CAPABILITIES = [
   'marketing.social.delete.retry',
   'marketing.social.integrations',
   'marketing.social.reports',
+  'marketing.social.review_link.create',
+  'marketing.social.review_link.revoke',
+  'marketing.social.production.move',
+  'marketing.social.production.manage',
+  'marketing.social.tasks.manage',
   'marketing.social.manage',
   // Legacy keys kept so existing endpoints keep working while they migrate.
   'marketing.social.approve',
@@ -147,6 +153,11 @@ export const CAPABILITY_GROUPS: Array<{
       'marketing.social.delete.retry',
       'marketing.social.integrations',
       'marketing.social.reports',
+      'marketing.social.review_link.create',
+      'marketing.social.review_link.revoke',
+      'marketing.social.production.move',
+      'marketing.social.production.manage',
+      'marketing.social.tasks.manage',
       'marketing.social.manage',
     ],
   },
@@ -181,6 +192,11 @@ export const CAPABILITY_LABELS: Partial<Record<WorkspaceCapability, string>> = {
   'marketing.social.delete.retry': 'Repetir exclusão remota',
   'marketing.social.integrations': 'Gerenciar integrações',
   'marketing.social.reports': 'Ver relatórios',
+  'marketing.social.review_link.create': 'Gerar link mágico de aprovação',
+  'marketing.social.review_link.revoke': 'Revogar link mágico de aprovação',
+  'marketing.social.production.move': 'Mover cards no Kanban',
+  'marketing.social.production.manage': 'Gerenciar produção operacional',
+  'marketing.social.tasks.manage': 'Gerenciar tarefas de produção',
   'marketing.social.manage': 'Administrar marketing social',
   'marketing.social.approve': 'Aprovar (legado)',
 }

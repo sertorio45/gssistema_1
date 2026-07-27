@@ -21,6 +21,7 @@ const querySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   search: z.string().optional(),
+  groupBy: z.enum(['month']).optional(),
   /** When set with agency capability, list across accessible managed tenants. */
   organizationId: z.string().uuid().optional(),
   tenantIdFilter: z.string().uuid().optional(),
@@ -93,7 +94,14 @@ export default defineEventHandler(async (event) => {
       .map((row: any) => mapApprovalListItem(row, tenantById.get(row.tenant_id) || null))
       .filter((item: any) => matchesClientFilters(item, query))
 
-    return { data: mapped, meta: { scope: 'organization', tenant_count: tenantIds.length } }
+    return {
+      data: mapped,
+      meta: {
+        scope: 'organization',
+        tenant_count: tenantIds.length,
+        groups: query.groupBy === 'month' ? groupApprovalsByMonth(mapped) : undefined,
+      },
+    }
   }
 
   const { client, tenantId, user, workspace, isPlatformStaff } = await requireSocialContext(event, 'marketing.social.read')
@@ -141,8 +149,32 @@ export default defineEventHandler(async (event) => {
     .map((row: any) => mapApprovalListItem(row, tenant || null))
     .filter((item: any) => matchesClientFilters(item, query))
 
-  return { data: mapped, meta: { scope: 'tenant' } }
+  return {
+    data: mapped,
+    meta: {
+      scope: 'tenant',
+      groups: query.groupBy === 'month' ? groupApprovalsByMonth(mapped) : undefined,
+    },
+  }
 })
+
+function groupApprovalsByMonth(items: any[]) {
+  const groups = new Map<string, { key: string, label: string, ids: string[] }>()
+  for (const item of items) {
+    const raw = item.due_at || item.created_at || null
+    const date = raw ? new Date(raw) : null
+    const key = date && !Number.isNaN(date.getTime())
+      ? `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+      : 'sem-data'
+    const label = key === 'sem-data'
+      ? 'Sem data'
+      : date!.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+    const existing = groups.get(key) || { key, label, ids: [] as string[] }
+    existing.ids.push(String(item.id))
+    groups.set(key, existing)
+  }
+  return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))
+}
 
 function applyCommonFilters(request: any, query: z.infer<typeof querySchema>, userId: string) {
   let next = request

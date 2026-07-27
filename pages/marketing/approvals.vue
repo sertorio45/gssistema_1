@@ -7,6 +7,7 @@ import {
 } from '~/types/marketing-social'
 import { uniqueApprovalPreviewAssets, platformIcon } from '@/utils/marketing-social-preview'
 import { useWorkspace } from '~/composables/useWorkspace'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
   middleware: ['auth'],
@@ -46,9 +47,13 @@ const filters = reactive({
 const reviewOpen = ref(false)
 const activeId = ref<string | null>(null)
 const activeTenantId = ref<string | null>(null)
+const selectedIds = ref<string[]>([])
+const batchSaving = ref(false)
 
 const listQuery = computed(() => {
-  const q: Record<string, unknown> = {}
+  const q: Record<string, unknown> = {
+    groupBy: 'month',
+  }
 
   if (isAgencyBoard.value && organization.value?.id) {
     q.organizationId = organization.value.id
@@ -116,6 +121,63 @@ const { data: listResponse, pending, refresh } = await useAsyncData(
 )
 
 const items = computed(() => listResponse.value?.data || [])
+const monthGroups = computed(() => listResponse.value?.meta?.groups || [])
+const pendingSelectable = computed(() =>
+  items.value.filter((item: any) => item.status === 'pending'),
+)
+const allPendingSelected = computed(() =>
+  pendingSelectable.value.length > 0
+  && pendingSelectable.value.every((item: any) => selectedIds.value.includes(item.id)),
+)
+
+watch(items, () => {
+  const valid = new Set(items.value.map((item: any) => item.id))
+  selectedIds.value = selectedIds.value.filter(id => valid.has(id))
+})
+
+function toggleSelected(id: string, event?: Event) {
+  event?.stopPropagation()
+  if (selectedIds.value.includes(id))
+    selectedIds.value = selectedIds.value.filter(value => value !== id)
+  else
+    selectedIds.value = [...selectedIds.value, id]
+}
+
+function toggleSelectAllPending() {
+  if (allPendingSelected.value)
+    selectedIds.value = []
+  else
+    selectedIds.value = pendingSelectable.value.map((item: any) => item.id)
+}
+
+async function approveSelected() {
+  if (!selectedIds.value.length)
+    return
+  batchSaving.value = true
+  try {
+    const response = await social.batchDecide(
+      selectedIds.value.map(requestId => ({
+        requestId,
+        decision: 'approved' as const,
+      })),
+    )
+    const data = response.data
+    if (data.failed) {
+      toast.message(`${data.succeeded} aprovados, ${data.failed} com falha`)
+    }
+    else {
+      toast.success(`${data.succeeded} conteúdos aprovados`)
+    }
+    selectedIds.value = []
+    await refresh()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Não foi possível aprovar o lote')
+  }
+  finally {
+    batchSaving.value = false
+  }
+}
 
 /** Unique assignees seen in the current board — used for the responsável filter. */
 const responsibleOptions = computed(() => {
@@ -364,19 +426,66 @@ const clientBuckets = [
       </p>
     </div>
 
+    <div
+      v-else-if="isClientPortal && pendingSelectable.length"
+      class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-muted/30 px-4 py-3"
+    >
+      <label class="flex items-center gap-2 text-sm">
+        <Checkbox
+          :checked="allPendingSelected"
+          @update:checked="toggleSelectAllPending"
+        />
+        Selecionar pendentes ({{ pendingSelectable.length }})
+      </label>
+      <Button
+        size="sm"
+        :disabled="!selectedIds.length || batchSaving"
+        @click="approveSelected"
+      >
+        <Icon name="lucide:check" class="mr-1 h-4 w-4" />
+        Aprovar selecionados ({{ selectedIds.length }})
+      </Button>
+    </div>
+
+    <div
+      v-if="!pending && monthGroups.length > 1"
+      class="flex flex-wrap gap-2"
+    >
+      <Badge
+        v-for="group in monthGroups"
+        :key="group.key"
+        variant="outline"
+      >
+        {{ group.label }} · {{ group.ids.length }}
+      </Badge>
+    </div>
+
     <!-- Cards -->
     <div
-      v-else
+      v-if="!pending && items.length"
       class="grid gap-4"
       :class="isClientPortal ? 'sm:grid-cols-1 lg:grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-3'"
     >
-      <button
+      <div
         v-for="item in items"
         :key="item.id"
-        type="button"
-        class="overflow-hidden rounded-xl border bg-card text-left transition hover:border-primary/40 hover:shadow-sm"
-        @click="openItem(item)"
+        class="relative overflow-hidden rounded-xl border bg-card text-left transition hover:border-primary/40 hover:shadow-sm"
       >
+        <div
+          v-if="isClientPortal && item.status === 'pending'"
+          class="absolute left-3 top-3 z-10"
+          @click.stop
+        >
+          <Checkbox
+            :checked="selectedIds.includes(item.id)"
+            @update:checked="toggleSelected(item.id)"
+          />
+        </div>
+        <button
+          type="button"
+          class="w-full text-left"
+          @click="openItem(item)"
+        >
         <div :class="isClientPortal ? 'aspect-[4/3]' : 'aspect-square'">
           <ApprovalMediaPreview
             :assets="uniqueApprovalPreviewAssets(item.raw || item)"
@@ -450,7 +559,8 @@ const clientBuckets = [
             {{ nextAction(item) }}
           </p>
         </div>
-      </button>
+        </button>
+      </div>
     </div>
 
     <!-- Quick links for client portal -->

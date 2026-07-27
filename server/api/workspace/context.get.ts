@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const input = querySchema.parse(getQuery(event))
 
   let requestedContextRejected = false
-  let context = null
+  let context = null as Awaited<ReturnType<typeof requireWorkspaceContext>> | null
 
   try {
     context = await requireWorkspaceContext(event, {
@@ -38,20 +38,55 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Empty or rejected scope: land on the agency portfolio (never a shadow direct).
+  if (context && (requestedContextRejected || !context.organization || !context.tenant)) {
+    const organizations = await listAccessibleOrganizations(context.client, {
+      userId: context.userId,
+      isPlatformStaff: context.isPlatformStaff,
+    })
+
+    const preferredOrg = organizations.find(item => item.type === 'agency' && item.isActive)
+      ?? organizations.find(item => item.isActive)
+      ?? null
+
+    if (preferredOrg) {
+      const portfolio = await listAccessibleTenants(context.client, {
+        userId: context.userId,
+        isPlatformStaff: context.isPlatformStaff,
+        organizationId: preferredOrg.id,
+      })
+
+      const preferredTenant = portfolio.find(item => item.id === preferredOrg.anchorTenantId)
+        ?? portfolio.find(item => item.isActive)
+        ?? null
+
+      try {
+        context = await requireWorkspaceContext(event, {
+          organizationId: preferredOrg.id,
+          tenantId: preferredTenant?.id ?? null,
+        })
+      }
+      catch {
+        // Keep the empty bootstrap; the UI will ask the user to pick.
+      }
+    }
+  }
+
   const [organizations, tenants] = await Promise.all([
-    listAccessibleOrganizations(context.client, {
-      userId: context.userId,
-      isPlatformStaff: context.isPlatformStaff,
+    listAccessibleOrganizations(context!.client, {
+      userId: context!.userId,
+      isPlatformStaff: context!.isPlatformStaff,
     }),
-    listAccessibleTenants(context.client, {
-      userId: context.userId,
-      isPlatformStaff: context.isPlatformStaff,
-      organizationId: requestedContextRejected ? null : input.organization_id ?? null,
+    listAccessibleTenants(context!.client, {
+      userId: context!.userId,
+      isPlatformStaff: context!.isPlatformStaff,
+      // Prefer the resolved organization so the switcher shows the agency portfolio.
+      organizationId: context!.organization?.id ?? null,
     }),
   ])
 
   return {
-    ...serializeWorkspaceContext(context),
+    ...serializeWorkspaceContext(context!),
     requestedContextRejected,
     organizations: organizations.map(organization => ({
       id: organization.id,

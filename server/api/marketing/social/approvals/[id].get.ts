@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
 
   let commentsQuery = client
     .from('social_comments')
-    .select('id, body, author_id, version_id, visibility, parent_id, created_at, resolved_at')
+    .select('id, body, author_id, version_id, visibility, parent_id, created_at, resolved_at, anchor_type, x_percent, y_percent, slide_index, media_time_ms, asset_id')
     .eq('tenant_id', tenantId)
     .eq('post_id', row.post_id)
     .order('created_at', { ascending: true })
@@ -209,6 +209,12 @@ export default defineEventHandler(async (event) => {
         visibility: c.visibility || 'shared',
         created_at: c.created_at,
         resolved_at: c.resolved_at,
+        anchor_type: c.anchor_type || 'none',
+        x_percent: c.x_percent,
+        y_percent: c.y_percent,
+        slide_index: c.slide_index,
+        media_time_ms: c.media_time_ms,
+        asset_id: c.asset_id,
       })),
       timeline: safeTimeline,
       post: post

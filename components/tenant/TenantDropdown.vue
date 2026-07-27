@@ -38,29 +38,70 @@ function matchesQuery(name: string, slug?: string | null) {
 }
 
 const filteredOrganizations = computed(() =>
-  organizations.value.filter(org => matchesQuery(org.name, org.slug)),
+  organizations.value.filter(org => org.is_active && matchesQuery(org.name, org.slug)),
 )
 
-const ownTenants = computed(() =>
-  tenants.value
-    .filter(tenant => tenant.relationship_type !== 'managed')
-    .filter(tenant => matchesQuery(tenant.name, tenant.slug)),
-)
+/**
+ * Agency portfolio: every linked company is a client workspace.
+ * Own/`owner` rows only appear for non-agency (direct) accounts.
+ */
+const portfolioClients = computed(() => {
+  if (!isAgencyWorkspace.value)
+    return [] as WorkspaceContextTenant[]
+  return tenants.value
+    .filter(tenant => tenant.relationship_type === 'managed' || tenant.relationship_type === 'owner')
+    .filter(tenant => matchesQuery(tenant.name, tenant.slug))
+})
 
-const managedTenants = computed(() =>
-  tenants.value
-    .filter(tenant => tenant.relationship_type === 'managed')
-    .filter(tenant => matchesQuery(tenant.name, tenant.slug)),
-)
+const directTenants = computed(() => {
+  if (isAgencyWorkspace.value)
+    return [] as WorkspaceContextTenant[]
+  return tenants.value.filter(tenant => matchesQuery(tenant.name, tenant.slug))
+})
 
 const hasResults = computed(() =>
   filteredOrganizations.value.length > 0
-  || ownTenants.value.length > 0
-  || managedTenants.value.length > 0,
+  || portfolioClients.value.length > 0
+  || directTenants.value.length > 0,
 )
 
+const currentIsClient = computed(() =>
+  Boolean(currentTenant.value)
+  && isAgencyWorkspace.value
+  && portfolioClients.value.some(tenant => tenant.id === currentTenant.value?.id),
+)
+
+const triggerTitle = computed(() => {
+  if (currentIsClient.value && currentTenant.value)
+    return currentTenant.value.name
+  if (isAgencyWorkspace.value && organization.value)
+    return organization.value.name
+  return currentTenant.value?.name || organization.value?.name || 'Selecionar contexto'
+})
+
+const triggerSubtitle = computed(() => {
+  if (!organization.value && !currentTenant.value)
+    return 'Escolha a agência ou o cliente'
+  if (currentIsClient.value)
+    return `Cliente · ${organization.value?.name || 'Agência'}`
+  if (isAgencyWorkspace.value)
+    return 'Agência'
+  // Never surface the raw "Cliente direto" product jargon in the trigger.
+  if (organization.value?.type === 'direct')
+    return currentTenant.value?.name || 'Minha empresa'
+  return organization.value?.name || null
+})
+
+const triggerBadge = computed(() => {
+  if (currentIsClient.value)
+    return 'Cliente'
+  if (isAgencyWorkspace.value)
+    return 'Agência'
+  return null
+})
+
 async function selectOrganization(org: WorkspaceContextOrganization) {
-  if (org.id === organization.value?.id)
+  if (org.id === organization.value?.id && currentTenant.value)
     return
 
   isSwitching.value = true
@@ -85,19 +126,25 @@ async function selectOrganization(org: WorkspaceContextOrganization) {
 }
 
 async function selectTenant(tenant: WorkspaceContextTenant) {
-  if (tenant.id === currentTenant.value?.id)
+  if (
+    tenant.id === currentTenant.value?.id
+    && (tenant.organization_id ?? null) === (organization.value?.id ?? null)
+  ) {
     return
+  }
 
   isSwitching.value = true
   try {
     await switchContext({
-      organizationId: organization.value?.id ?? null,
+      organizationId: tenant.organization_id ?? organization.value?.id ?? null,
       tenantId: tenant.id,
     })
     isOpen.value = false
     toast({
-      title: 'Cliente selecionado',
-      description: tenant.name,
+      title: isAgencyWorkspace.value ? 'Cliente selecionado' : 'Empresa selecionada',
+      description: isAgencyWorkspace.value
+        ? `${tenant.name} · ${organization.value?.name || 'Agência'}`
+        : tenant.name,
     })
     window.dispatchEvent(new CustomEvent('tenant-changed', { detail: { tenantId: tenant.id } }))
   }
@@ -120,25 +167,34 @@ async function selectTenant(tenant: WorkspaceContextTenant) {
       <DropdownMenuTrigger
         class="w-full flex items-center rounded-md px-3 py-2 outline-none space-x-2 hover:bg-muted/50 focus:outline-none focus:ring-0"
       >
-        <div class="w-full flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <div class="h-8 w-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <span class="text-xs text-white font-medium">{{ currentTenant?.name?.charAt(0) || organization?.name?.charAt(0) || 'E' }}</span>
+        <div class="w-full flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center space-x-3">
+            <div
+              class="h-8 w-8 flex shrink-0 items-center justify-center rounded-full text-xs font-medium"
+              :class="currentIsClient ? 'bg-muted text-foreground' : 'bg-primary text-primary-foreground'"
+            >
+              <span>{{ triggerTitle?.charAt(0) || 'E' }}</span>
             </div>
-            <div class="flex flex-col items-start">
-              <span class="text-sm font-medium">{{ currentTenant?.name || organization?.name || 'Selecionar contexto' }}</span>
-              <span v-if="organization" class="text-xs text-muted-foreground">
-                {{ organization.name }}
-                <template v-if="organization.type">
-                  · {{ ORGANIZATION_TYPE_LABELS[organization.type] }}
-                </template>
+            <div class="min-w-0 flex flex-col items-start">
+              <span class="truncate text-sm font-medium">{{ triggerTitle }}</span>
+              <span v-if="triggerSubtitle" class="truncate text-xs text-muted-foreground">
+                {{ triggerSubtitle }}
               </span>
             </div>
           </div>
-          <Icon name="lucide:chevron-down" class="h-4 w-4" />
+          <div class="flex shrink-0 items-center gap-1.5">
+            <span
+              v-if="triggerBadge"
+              class="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+              :class="currentIsClient ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'"
+            >
+              {{ triggerBadge }}
+            </span>
+            <Icon name="lucide:chevron-down" class="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" class="w-[300px]">
+      <DropdownMenuContent align="start" class="w-[320px]">
         <div class="relative px-3 py-1.5">
           <div class="relative">
             <Icon
@@ -148,7 +204,7 @@ async function selectTenant(tenant: WorkspaceContextTenant) {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Buscar organização ou cliente..."
+              :placeholder="isAgencyWorkspace ? 'Buscar cliente…' : 'Buscar empresa…'"
               class="h-7 w-full border border-input rounded-md bg-background py-1 pl-7 pr-2 text-xs ring-offset-background disabled:cursor-not-allowed placeholder:text-muted-foreground disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-ring"
             >
           </div>
@@ -165,7 +221,7 @@ async function selectTenant(tenant: WorkspaceContextTenant) {
           <template v-else>
             <template v-if="showOrganizationSwitcher && filteredOrganizations.length">
               <div class="px-3 py-1 text-xs text-muted-foreground font-semibold">
-                Organização
+                Organizações
               </div>
               <DropdownMenuItem
                 v-for="org in filteredOrganizations"
@@ -187,42 +243,69 @@ async function selectTenant(tenant: WorkspaceContextTenant) {
                   <Icon name="lucide:check" class="h-3.5 w-3.5" />
                 </span>
               </DropdownMenuItem>
+              <div
+                v-if="portfolioClients.length || directTenants.length"
+                class="my-1.5 border-t"
+              />
             </template>
 
-            <div v-if="ownTenants.length" class="mt-1.5 px-3 py-1 text-xs text-muted-foreground font-semibold">
-              {{ isAgencyWorkspace ? 'Workspace da agência' : 'Minhas empresas' }}
-            </div>
-            <DropdownMenuItem
-              v-for="tenant in ownTenants"
-              :key="tenant.id"
-              :disabled="!tenant.is_active"
-              class="flex items-center px-3 py-1.5 space-x-2"
-              @click="selectTenant(tenant)"
-            >
-              <div class="h-6 w-6 flex items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                <span class="text-xs font-medium">{{ tenant.name.charAt(0) }}</span>
+            <template v-if="isAgencyWorkspace">
+              <div
+                v-if="organization"
+                class="px-3 py-1.5"
+              >
+                <p class="text-xs text-muted-foreground font-semibold">
+                  Agência
+                </p>
+                <p class="truncate text-sm font-medium">
+                  {{ organization.name }}
+                </p>
               </div>
-              <span class="text-sm font-medium">{{ tenant.name }}</span>
-              <span v-if="currentTenant?.id === tenant.id" class="ml-auto text-primary">
-                <Icon name="lucide:check" class="h-3.5 w-3.5" />
-              </span>
-            </DropdownMenuItem>
 
-            <template v-if="showClientSwitcher && managedTenants.length">
-              <div class="mt-1.5 px-3 py-1 text-xs text-muted-foreground font-semibold">
-                Clientes
+              <template v-if="showClientSwitcher && portfolioClients.length">
+                <div class="mt-1 px-3 py-1 text-xs text-muted-foreground font-semibold">
+                  Clientes
+                </div>
+                <DropdownMenuItem
+                  v-for="tenant in portfolioClients"
+                  :key="tenant.id"
+                  :disabled="!tenant.is_active"
+                  class="flex items-center px-3 py-1.5 space-x-2"
+                  @click="selectTenant(tenant)"
+                >
+                  <div class="h-6 w-6 flex items-center justify-center rounded-full bg-muted">
+                    <span class="text-xs font-medium">{{ tenant.name.charAt(0) }}</span>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="block truncate text-sm font-medium">{{ tenant.name }}</span>
+                    <span class="block text-[10px] text-muted-foreground">
+                      Workspace do cliente
+                    </span>
+                  </div>
+                  <span v-if="currentTenant?.id === tenant.id" class="ml-auto text-primary">
+                    <Icon name="lucide:check" class="h-3.5 w-3.5" />
+                  </span>
+                </DropdownMenuItem>
+              </template>
+            </template>
+
+            <template v-else>
+              <div v-if="directTenants.length" class="px-3 py-1 text-xs text-muted-foreground font-semibold">
+                Minha empresa
               </div>
               <DropdownMenuItem
-                v-for="tenant in managedTenants"
+                v-for="tenant in directTenants"
                 :key="tenant.id"
                 :disabled="!tenant.is_active"
                 class="flex items-center px-3 py-1.5 space-x-2"
                 @click="selectTenant(tenant)"
               >
-                <div class="h-6 w-6 flex items-center justify-center rounded-full bg-muted">
+                <div class="h-6 w-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <span class="text-xs font-medium">{{ tenant.name.charAt(0) }}</span>
                 </div>
-                <span class="text-sm font-medium">{{ tenant.name }}</span>
+                <div class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ tenant.name }}</span>
+                </div>
                 <span v-if="currentTenant?.id === tenant.id" class="ml-auto text-primary">
                   <Icon name="lucide:check" class="h-3.5 w-3.5" />
                 </span>

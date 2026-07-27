@@ -40,6 +40,7 @@ export const navMenu: NavMenu[] = [
         children: [
           { title: 'Visão geral', icon: 'i-lucide-layout-dashboard', link: '/marketing', capability: 'marketing.social.read' },
           { title: 'Produção', icon: 'i-lucide-panels-top-left', link: '/marketing/production', capability: 'marketing.social.create' },
+          { title: 'Filas', icon: 'i-lucide-list-todo', link: '/marketing/production/tasks', capability: 'marketing.social.read' },
           { title: 'Aprovações', icon: 'i-lucide-badge-check', link: '/marketing/approvals', capability: 'marketing.social.read' },
           { title: 'Calendário', icon: 'i-lucide-calendar-days', link: '/marketing/calendar', capability: 'marketing.social.read' },
           { title: 'Biblioteca', icon: 'i-lucide-images', link: '/marketing/library', capability: 'marketing.social.read' },
@@ -550,6 +551,13 @@ export const navMenuOrganization: NavMenu[] = [
         title: 'Produção',
         icon: 'i-lucide-panels-top-left',
         link: '/marketing/production',
+        capability: 'agency.clients.read',
+        organizationTypes: ['agency'],
+      },
+      {
+        title: 'Filas',
+        icon: 'i-lucide-list-todo',
+        link: '/marketing/production/tasks',
         capability: 'agency.clients.read',
         organizationTypes: ['agency'],
       },

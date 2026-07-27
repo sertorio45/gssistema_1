@@ -37,6 +37,16 @@ const commentVisibility = ref<'shared' | 'internal'>('shared')
 const changeCategory = ref<ApprovalChangeCategory>('art')
 const decisionMode = ref<ApprovalDecision | null>(null)
 const showDecisionForm = ref(false)
+const annotateMode = ref(false)
+const pendingAnchor = ref<{
+  anchorType: 'image' | 'carousel' | 'video'
+  xPercent: number | null
+  yPercent: number | null
+  slideIndex: number | null
+  mediaTimeMs: number | null
+} | null>(null)
+const lastReviewLinkUrl = ref<string | null>(null)
+const lastReviewLinkId = ref<string | null>(null)
 
 const openProxy = computed({
   get: () => props.open,
@@ -66,6 +76,24 @@ const canCancel = computed(() =>
   !props.clientMode
   && detail.value?.can_cancel
   && (can('marketing.social.manage') || can('marketing.social.workflow.manage')),
+)
+const canCreateReviewLink = computed(() =>
+  !props.clientMode
+  && detail.value?.status === 'pending'
+  && (can('marketing.social.review_link.create') || can('marketing.social.manage')),
+)
+
+const commentPins = computed(() =>
+  (detail.value?.comments || [])
+    .filter((item: any) => item.anchor_type && item.anchor_type !== 'none' && item.x_percent != null && item.y_percent != null)
+    .map((item: any) => ({
+      id: item.id,
+      xPercent: Number(item.x_percent),
+      yPercent: Number(item.y_percent),
+      slideIndex: item.slide_index,
+      mediaTimeMs: item.media_time_ms,
+      body: item.body,
+    })),
 )
 
 const assets = computed(() => {
@@ -215,13 +243,77 @@ async function sendComment() {
       versionId: detail.value.version_id,
       visibility: props.clientMode ? 'shared' : commentVisibility.value,
       tenantId: detail.value.tenant_id,
+      anchorType: pendingAnchor.value?.anchorType || 'none',
+      xPercent: pendingAnchor.value?.xPercent ?? null,
+      yPercent: pendingAnchor.value?.yPercent ?? null,
+      slideIndex: pendingAnchor.value?.slideIndex ?? null,
+      mediaTimeMs: pendingAnchor.value?.mediaTimeMs ?? null,
     })
     toast.success('Comentário enviado')
     threadComment.value = ''
+    pendingAnchor.value = null
+    annotateMode.value = false
     await loadDetail()
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || 'Não foi possível comentar')
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+function onMediaPin(payload: {
+  anchorType: 'image' | 'carousel' | 'video'
+  xPercent: number | null
+  yPercent: number | null
+  slideIndex: number | null
+  mediaTimeMs: number | null
+}) {
+  pendingAnchor.value = payload
+  annotateMode.value = false
+  toast.message(
+    payload.anchorType === 'video'
+      ? `Marcação em ${Math.floor((payload.mediaTimeMs || 0) / 1000)}s — escreva o comentário`
+      : 'Marcação na arte — escreva o comentário',
+  )
+}
+
+async function generateMagicLink() {
+  if (!detail.value?.id)
+    return
+  saving.value = true
+  try {
+    const response = await social.createReviewLink(detail.value.id, {
+      tenantId: detail.value.tenant_id,
+      expiresInHours: 168,
+      afterDecision: 'read_only',
+    })
+    lastReviewLinkUrl.value = response.data.url
+    lastReviewLinkId.value = response.data.id
+    await navigator.clipboard.writeText(response.data.url)
+    toast.success('Link mágico copiado')
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Não foi possível gerar o link')
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+async function revokeMagicLink() {
+  if (!lastReviewLinkId.value || !detail.value)
+    return
+  saving.value = true
+  try {
+    await social.revokeReviewLink(lastReviewLinkId.value, { tenantId: detail.value.tenant_id })
+    lastReviewLinkUrl.value = null
+    lastReviewLinkId.value = null
+    toast.success('Link revogado')
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Não foi possível revogar')
   }
   finally {
     saving.value = false
@@ -397,7 +489,60 @@ const showStickyActions = computed(() => {
               </TabsList>
 
               <TabsContent value="review" class="mt-4 space-y-5">
-                <ApprovalMediaPreview :assets="assets" :format="formatHint" />
+                <div class="flex flex-wrap gap-2">
+                  <Button
+                    v-if="can('marketing.social.comment')"
+                    size="sm"
+                    variant="outline"
+                    :disabled="saving"
+                    @click="annotateMode = !annotateMode"
+                  >
+                    <Icon name="lucide:map-pin" class="mr-1 h-4 w-4" />
+                    {{ annotateMode ? 'Cancelar marcação' : 'Marcar na imagem' }}
+                  </Button>
+                  <Button
+                    v-if="canCreateReviewLink"
+                    size="sm"
+                    variant="outline"
+                    :disabled="saving"
+                    @click="generateMagicLink"
+                  >
+                    <Icon name="lucide:link" class="mr-1 h-4 w-4" />
+                    Gerar link mágico
+                  </Button>
+                  <Button
+                    v-if="lastReviewLinkId && can('marketing.social.review_link.revoke')"
+                    size="sm"
+                    variant="ghost"
+                    :disabled="saving"
+                    @click="revokeMagicLink"
+                  >
+                    Revogar link
+                  </Button>
+                </div>
+                <p v-if="lastReviewLinkUrl" class="break-all rounded-lg border bg-muted/40 px-3 py-2 text-xs">
+                  {{ lastReviewLinkUrl }}
+                </p>
+
+                <ApprovalMediaPreview
+                  :assets="assets"
+                  :format="formatHint"
+                  :annotate="annotateMode"
+                  :pins="commentPins"
+                  @pin="onMediaPin"
+                />
+                <p
+                  v-if="pendingAnchor"
+                  class="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary"
+                >
+                  Marcação pendente
+                  <span v-if="pendingAnchor.anchorType === 'video'">
+                    · {{ Math.floor((pendingAnchor.mediaTimeMs || 0) / 1000) }}s
+                  </span>
+                  <span v-else-if="pendingAnchor.xPercent != null">
+                    · {{ Math.round(pendingAnchor.xPercent) }}%, {{ Math.round(pendingAnchor.yPercent || 0) }}%
+                  </span>
+                </p>
 
                 <div class="space-y-3">
                   <div
@@ -509,6 +654,14 @@ const showStickyActions = computed(() => {
                     <div class="mb-1 flex items-center gap-2">
                       <Badge v-if="item.visibility === 'internal' && !clientMode" variant="outline">
                         Interno
+                      </Badge>
+                      <Badge v-if="item.anchor_type && item.anchor_type !== 'none'" variant="secondary">
+                        <template v-if="item.anchor_type === 'video'">
+                          {{ Math.floor((item.media_time_ms || 0) / 1000) }}s
+                        </template>
+                        <template v-else>
+                          Marcação
+                        </template>
                       </Badge>
                       <span class="text-xs text-muted-foreground">
                         {{ new Date(item.created_at).toLocaleString('pt-BR') }}

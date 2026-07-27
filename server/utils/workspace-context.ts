@@ -434,19 +434,42 @@ async function resolveWorkspaceContext(
     if (isPlatformStaff) {
       tenantRole = globalRole
       if (!organization) {
-        // Informational only: staff needs to know which organization owns the workspace.
-        const ownerLink = usableLinks.find((row: any) => row.relationship_type === 'owner')
-          ?? usableLinks[0]
-        if (ownerLink) {
-          const { data: organizationRow } = await client
-            .from('organizations')
-            .select('id, name, slug, type, is_active, tenant_id, settings')
-            .eq('id', ownerLink.organization_id)
-            .maybeSingle()
-          if (organizationRow) {
-            organization = mapOrganization(organizationRow)
-            organizationTenantLink = mapLink(ownerLink)
-          }
+        // Prefer an active agency portfolio over a shadow/direct org that shares
+        // the same tenant (common after onboarding mistakes).
+        const linkOrganizationIds = usableLinks.map((row: any) => String(row.organization_id))
+        const { data: linkedOrganizations } = linkOrganizationIds.length
+          ? await client
+              .from('organizations')
+              .select('id, name, slug, type, is_active, tenant_id, settings')
+              .in('id', linkOrganizationIds)
+              .eq('is_active', true)
+          : { data: [] as any[] }
+
+        const orgById = new Map((linkedOrganizations || []).map((row: any) => [String(row.id), row]))
+        const rankedLinks = usableLinks
+          .map((row: any) => ({
+            row,
+            org: orgById.get(String(row.organization_id)) || null,
+          }))
+          .filter(item => item.org)
+          .sort((a, b) => {
+            const score = (item: typeof a) => {
+              let value = 0
+              if (item.org?.type === 'agency')
+                value += 100
+              if (item.row.relationship_type === 'owner')
+                value += 10
+              if (item.row.is_primary)
+                value += 1
+              return value
+            }
+            return score(b) - score(a)
+          })
+
+        const preferred = rankedLinks[0]
+        if (preferred?.org) {
+          organization = mapOrganization(preferred.org)
+          organizationTenantLink = mapLink(preferred.row)
         }
       }
     }
@@ -483,8 +506,20 @@ async function resolveWorkspaceContext(
         tenantRole = directRole ?? organizationMembership?.role ?? null
       }
       else {
-        // Prefer the workspace the user owns over one they merely manage.
+        // Prefer agency membership over a shadow direct org on the same tenant.
+        const membershipOrgIds = reachingMemberships.map(item => item.organizationId)
+        const { data: membershipOrgs } = membershipOrgIds.length
+          ? await client
+              .from('organizations')
+              .select('id, type, is_active')
+              .in('id', membershipOrgIds)
+              .eq('is_active', true)
+          : { data: [] as any[] }
+        const typeByOrgId = new Map((membershipOrgs || []).map((row: any) => [String(row.id), String(row.type)]))
+
         const preferred = reachingMemberships.find((item) => {
+          return typeByOrgId.get(item.organizationId) === 'agency'
+        }) ?? reachingMemberships.find((item) => {
           const link = usableLinks.find(
             (row: any) => String(row.organization_id) === item.organizationId,
           )
@@ -766,6 +801,7 @@ export async function listAccessibleOrganizations(
   let request = client
     .from('organizations')
     .select('id, name, slug, type, is_active, tenant_id, settings')
+    .eq('is_active', true)
     .order('name')
 
   if (input.type)

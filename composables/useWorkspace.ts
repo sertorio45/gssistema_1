@@ -124,12 +124,21 @@ function _useWorkspace() {
     isPlatformStaff.value || organizations.value.length > 1,
   )
 
+  /** Agency portfolio clients (managed + own operational brands under the agency). */
+  const agencyPortfolioTenants = computed(() => {
+    if (!isAgencyWorkspace.value)
+      return []
+    return tenants.value.filter(item =>
+      item.relationship_type === 'managed' || item.relationship_type === 'owner',
+    )
+  })
+
   /** Client portfolio switcher — never for direct customers or single-tenant end users. */
   const showClientSwitcher = computed(() => {
     if (organizationType.value === 'direct')
       return false
     if (isAgencyWorkspace.value)
-      return managedTenants.value.length > 0
+      return agencyPortfolioTenants.value.length > 0
     return false
   })
 
@@ -169,6 +178,7 @@ function _useWorkspace() {
     tenant,
     tenants,
     managedTenants,
+    agencyPortfolioTenants,
     capabilities,
     modules,
     isPlatformStaff,

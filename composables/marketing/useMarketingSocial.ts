@@ -189,6 +189,12 @@ export function useMarketingSocial() {
       versionId?: string | null
       visibility?: 'internal' | 'shared'
       tenantId?: string | null
+      anchorType?: 'none' | 'image' | 'carousel' | 'video'
+      xPercent?: number | null
+      yPercent?: number | null
+      slideIndex?: number | null
+      mediaTimeMs?: number | null
+      assetId?: string | null
     },
   ) {
     return $fetch(`/api/marketing/social/posts/${postId}/comments`, {
@@ -198,8 +204,65 @@ export function useMarketingSocial() {
         body,
         versionId: options?.versionId || null,
         visibility: options?.visibility || 'shared',
+        anchorType: options?.anchorType || 'none',
+        xPercent: options?.xPercent ?? null,
+        yPercent: options?.yPercent ?? null,
+        slideIndex: options?.slideIndex ?? null,
+        mediaTimeMs: options?.mediaTimeMs ?? null,
+        assetId: options?.assetId ?? null,
       },
     })
+  }
+
+  async function createReviewLink(
+    requestId: string,
+    options?: {
+      tenantId?: string | null
+      expiresInHours?: number
+      afterDecision?: 'read_only' | 'invalidate'
+      requireEmailConfirm?: boolean
+    },
+  ) {
+    return $fetch<{ data: { id: string, url: string, path: string, expiresAt: string, token: string } }>(
+      `/api/marketing/social/approvals/${requestId}/review-link`,
+      {
+        method: 'POST',
+        body: {
+          tenant_id: options?.tenantId || tenantId.value || undefined,
+          expiresInHours: options?.expiresInHours,
+          afterDecision: options?.afterDecision,
+          requireEmailConfirm: options?.requireEmailConfirm,
+        },
+      },
+    )
+  }
+
+  async function revokeReviewLink(linkId: string, options?: { tenantId?: string | null }) {
+    return $fetch(`/api/marketing/social/review-links/${linkId}/revoke`, {
+      method: 'POST',
+      body: { tenant_id: options?.tenantId || tenantId.value || undefined },
+    })
+  }
+
+  async function batchDecide(
+    items: Array<{
+      requestId: string
+      decision: ApprovalDecision
+      comment?: string | null
+      changeCategory?: string | null
+    }>,
+    options?: { tenantId?: string | null },
+  ) {
+    return $fetch<{ data: { total: number, succeeded: number, failed: number, results: any[] } }>(
+      '/api/marketing/social/approvals/batch-decision',
+      {
+        method: 'POST',
+        body: {
+          tenant_id: options?.tenantId || tenantId.value || undefined,
+          items,
+        },
+      },
+    )
   }
 
   async function listAssets(filters: Record<string, unknown> = {}) {
@@ -284,7 +347,10 @@ export function useMarketingSocial() {
     listApprovals,
     getApproval,
     decide,
+    batchDecide,
     addComment,
+    createReviewLink,
+    revokeReviewLink,
     listAssets,
     uploadAsset,
     deleteAsset,

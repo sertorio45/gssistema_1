@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { SocialContentBoardItem } from '@/utils/marketing-social-preview'
-import type { SocialPostStatus } from '~/types/marketing-social'
+import type { SocialPostStatus, SocialProductionStatus } from '~/types/marketing-social'
 import DeletePostDialog from '@/components/marketing/social/DeletePostDialog.vue'
+import ProductionKanbanBoard from '@/components/marketing/social/ProductionKanbanBoard.vue'
 import SocialContentBoard from '@/components/marketing/social/SocialContentBoard.vue'
 import SocialViewToggle from '@/components/marketing/social/SocialViewToggle.vue'
+import { useToast } from '@/components/ui/toast'
 import { uniquePostPreviewAssets } from '@/utils/marketing-social-preview'
 import { useWorkspace } from '~/composables/useWorkspace'
 import { SOCIAL_STATUS_LABELS } from '~/types/marketing-social'
@@ -15,15 +17,65 @@ definePageMeta({
 
 const route = useRoute()
 const social = useMarketingSocial()
-const { can } = useWorkspace()
+const { toast } = useToast()
+const {
+  can,
+  organization,
+  managedTenants,
+  isAgencyWorkspace,
+} = useWorkspace()
+
 const search = ref(String(route.query.search || ''))
 const status = ref(String(route.query.status || 'all'))
+const layout = ref<'kanban' | 'board'>(String(route.query.view || 'kanban') === 'board' ? 'board' : 'kanban')
 const viewMode = ref<'thumb' | 'list'>('thumb')
+const mineOnly = ref(false)
+const overdueOnly = ref(false)
+const clientFilter = ref('all')
 const deleteDialogOpen = ref(false)
 const postToDelete = ref<any>(null)
+const blockDialogOpen = ref(false)
+const blockReason = ref('')
+const pendingMove = ref<{ postId: string, tenantId: string, toStatus: SocialProductionStatus } | null>(null)
+const moving = ref(false)
 
 const canDelete = computed(() =>
   can('marketing.social.delete.local') || can('marketing.social.delete.remote'),
+)
+const canMove = computed(() => can('marketing.social.production.move') || can('marketing.social.manage'))
+
+const boardQueryKey = computed(() => [
+  'production-board',
+  social.tenantId.value,
+  organization.value?.id,
+  search.value,
+  mineOnly.value,
+  overdueOnly.value,
+  clientFilter.value,
+].join(':'))
+
+const { data: kanbanResponse, pending: kanbanPending, refresh: refreshKanban } = await useAsyncData(
+  () => boardQueryKey.value,
+  async () => {
+    return $fetch<{ data: any[], columns: SocialProductionStatus[] }>(
+      '/api/marketing/social/production/board',
+      {
+        query: {
+          tenant_id: social.tenantId.value || undefined,
+          ...(isAgencyWorkspace.value && organization.value?.id
+            ? {
+                organizationId: organization.value.id,
+                ...(clientFilter.value !== 'all' ? { tenantIdFilter: clientFilter.value } : {}),
+              }
+            : {}),
+          search: search.value || undefined,
+          mine: mineOnly.value || undefined,
+          overdue: overdueOnly.value || undefined,
+        },
+      },
+    )
+  },
+  { watch: [boardQueryKey], default: () => ({ data: [], columns: [] }) },
 )
 
 const { data: response, pending, refresh } = await useAsyncData(
@@ -36,7 +88,10 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
   if (searchTimer)
     clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => refresh(), 300)
+  searchTimer = setTimeout(() => {
+    refresh()
+    refreshKanban()
+  }, 300)
 })
 
 function formatDate(value?: string | null) {
@@ -64,6 +119,60 @@ function openDelete(post: any) {
   postToDelete.value = post
   deleteDialogOpen.value = true
 }
+
+async function onMove(payload: { postId: string, tenantId: string, toStatus: SocialProductionStatus }) {
+  if (payload.toStatus === 'blocked') {
+    pendingMove.value = payload
+    blockReason.value = ''
+    blockDialogOpen.value = true
+    return
+  }
+  await commitMove(payload)
+}
+
+async function commitMove(payload: {
+  postId: string
+  tenantId: string
+  toStatus: SocialProductionStatus
+  blockedReason?: string
+}) {
+  moving.value = true
+  try {
+    await $fetch('/api/marketing/social/production/move', {
+      method: 'POST',
+      body: {
+        postId: payload.postId,
+        tenantId: payload.tenantId,
+        toStatus: payload.toStatus,
+        blockedReason: payload.blockedReason || null,
+      },
+    })
+    await refreshKanban()
+    toast({ title: 'Card movido', description: 'Status operacional atualizado.' })
+  }
+  catch (error: any) {
+    toast({
+      title: 'Não foi possível mover',
+      description: error?.data?.statusMessage || error?.message || 'Tente novamente.',
+      variant: 'destructive',
+    })
+    await refreshKanban()
+  }
+  finally {
+    moving.value = false
+    blockDialogOpen.value = false
+    pendingMove.value = null
+  }
+}
+
+async function confirmBlock() {
+  if (!pendingMove.value)
+    return
+  await commitMove({
+    ...pendingMove.value,
+    blockedReason: blockReason.value.trim(),
+  })
+}
 </script>
 
 <template>
@@ -74,25 +183,53 @@ function openDelete(post: any) {
           Produção
         </h1>
         <p class="mt-1 text-muted-foreground">
-          Acompanhe cada conteúdo do rascunho à publicação.
+          Kanban operacional separado da aprovação e da publicação.
         </p>
       </div>
-      <Button @click="navigateTo('/marketing/production/new')">
-        <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-        Nova publicação
-      </Button>
+      <div class="flex flex-wrap gap-2">
+        <Button variant="outline" @click="navigateTo('/marketing/production/tasks')">
+          <Icon name="lucide:list-todo" class="mr-2 h-4 w-4" />
+          Filas de tarefas
+        </Button>
+        <Button @click="navigateTo('/marketing/production/new')">
+          <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
+          Nova publicação
+        </Button>
+      </div>
     </div>
 
     <Card>
-      <CardContent class="p-4">
-        <div class="flex flex-col gap-3 md:flex-row md:items-center">
+      <CardContent class="p-4 space-y-3">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div class="relative flex-1">
             <Icon name="lucide:search" class="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input v-model="search" class="pl-9" placeholder="Buscar por título" />
           </div>
-          <Select v-model="status">
+
+          <div class="flex rounded-md border p-0.5">
+            <Button
+              size="sm"
+              :variant="layout === 'kanban' ? 'secondary' : 'ghost'"
+              @click="layout = 'kanban'"
+            >
+              Kanban
+            </Button>
+            <Button
+              size="sm"
+              :variant="layout === 'board' ? 'secondary' : 'ghost'"
+              @click="layout = 'board'"
+            >
+              Grade
+            </Button>
+          </div>
+
+          <SocialViewToggle v-if="layout === 'board'" v-model="viewMode" />
+        </div>
+
+        <div class="flex flex-col gap-3 md:flex-row md:items-center">
+          <Select v-if="layout === 'board'" v-model="status">
             <SelectTrigger class="w-full md:w-56">
-              <SelectValue placeholder="Todos os status" />
+              <SelectValue placeholder="Status legado" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">
@@ -103,46 +240,108 @@ function openDelete(post: any) {
               </SelectItem>
             </SelectContent>
           </Select>
-          <SocialViewToggle v-model="viewMode" />
+
+          <Select
+            v-if="isAgencyWorkspace && managedTenants.length"
+            v-model="clientFilter"
+          >
+            <SelectTrigger class="w-full md:w-56">
+              <SelectValue placeholder="Cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                Todos os clientes
+              </SelectItem>
+              <SelectItem
+                v-for="tenant in managedTenants"
+                :key="tenant.id"
+                :value="tenant.id"
+              >
+                {{ tenant.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <label class="flex items-center gap-2 text-sm">
+            <Checkbox v-model:checked="mineOnly" />
+            Minhas tarefas
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <Checkbox v-model:checked="overdueOnly" />
+            Somente atrasados
+          </label>
         </div>
       </CardContent>
     </Card>
 
-    <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-      <Skeleton v-for="index in 8" :key="index" class="aspect-square" />
-    </div>
+    <template v-if="layout === 'kanban'">
+      <div v-if="kanbanPending || moving" class="flex gap-3 overflow-x-auto">
+        <Skeleton v-for="index in 6" :key="index" class="h-64 w-72 shrink-0" />
+      </div>
+      <ProductionKanbanBoard
+        v-else
+        :columns="kanbanResponse?.columns || []"
+        :cards="kanbanResponse?.data || []"
+        :can-move="canMove"
+        @move="onMove"
+      />
+    </template>
 
-    <SocialContentBoard
-      v-else
-      :items="boardItems"
-      :view-mode="viewMode"
-      empty-title="Nenhuma publicação encontrada"
-      empty-description="Crie o primeiro rascunho para iniciar o fluxo editorial."
-    >
-      <template #actions="{ item }">
-        <Button
-          v-if="canDelete"
-          variant="ghost"
-          size="icon"
-          class="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          title="Excluir publicação"
-          @click="openDelete(item.raw)"
-        >
-          <Icon name="lucide:trash-2" class="h-4 w-4" />
-        </Button>
-      </template>
-    </SocialContentBoard>
+    <template v-else>
+      <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <Skeleton v-for="index in 8" :key="index" class="aspect-square" />
+      </div>
 
-    <div v-if="!pending && !boardItems.length" class="flex justify-center">
-      <Button @click="navigateTo('/marketing/production/new')">
-        Criar publicação
-      </Button>
-    </div>
+      <SocialContentBoard
+        v-else
+        :items="boardItems"
+        :view-mode="viewMode"
+        empty-title="Nenhuma publicação encontrada"
+        empty-description="Crie o primeiro rascunho para iniciar o fluxo editorial."
+      >
+        <template #actions="{ item }">
+          <Button
+            v-if="canDelete"
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            title="Excluir publicação"
+            @click="openDelete(item.raw)"
+          >
+            <Icon name="lucide:trash-2" class="h-4 w-4" />
+          </Button>
+        </template>
+      </SocialContentBoard>
+    </template>
 
     <DeletePostDialog
       v-model:open="deleteDialogOpen"
       :post="postToDelete"
-      @deleted="refresh()"
+      @deleted="() => { refresh(); refreshKanban() }"
     />
+
+    <Dialog v-model:open="blockDialogOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Motivo do bloqueio</DialogTitle>
+          <DialogDescription>
+            Explique por que este conteúdo ficou bloqueado no Kanban.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          v-model="blockReason"
+          rows="4"
+          placeholder="Ex.: aguardando material do cliente"
+        />
+        <DialogFooter>
+          <Button variant="outline" @click="blockDialogOpen = false">
+            Cancelar
+          </Button>
+          <Button :disabled="blockReason.trim().length < 3 || moving" @click="confirmBlock">
+            Bloquear
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

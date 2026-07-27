@@ -9,6 +9,7 @@ import { ROLE_LABELS } from '~/constants/roles'
 import { useWorkspace } from '~/composables/useWorkspace'
 import {
   SOCIAL_EDITORIAL_STATUS_LABELS,
+  SOCIAL_PRODUCTION_STATUS_LABELS,
   SOCIAL_PUBLICATION_STATUS_LABELS,
   SOCIAL_STATUS_LABELS,
 } from '~/types/marketing-social'
@@ -92,11 +93,15 @@ const formValue = computed<SocialPostInput | undefined>(() => {
 const postStatus = computed(() => String((post.value as any)?.status || ''))
 const editorialStatus = computed(() => String((post.value as any)?.editorial_status || ''))
 const publicationStatus = computed(() => String((post.value as any)?.publication_status || ''))
+const productionStatus = computed(() => String((post.value as any)?.production_status || ''))
 const editorialLabel = computed(() =>
   SOCIAL_EDITORIAL_STATUS_LABELS[editorialStatus.value as keyof typeof SOCIAL_EDITORIAL_STATUS_LABELS] || null,
 )
 const publicationLabel = computed(() =>
   SOCIAL_PUBLICATION_STATUS_LABELS[publicationStatus.value as keyof typeof SOCIAL_PUBLICATION_STATUS_LABELS] || null,
+)
+const productionLabel = computed(() =>
+  SOCIAL_PRODUCTION_STATUS_LABELS[productionStatus.value as keyof typeof SOCIAL_PRODUCTION_STATUS_LABELS] || null,
 )
 const isBypassed = computed(() => Boolean((post.value as any)?.approval_bypassed))
 const canBypass = computed(() =>
@@ -323,6 +328,9 @@ function onDeleted() {
           <h1 class="text-2xl font-bold tracking-tight">
             {{ (post as any)?.title || 'Publicação' }}
           </h1>
+          <Badge v-if="post && productionLabel" variant="outline">
+            Produção · {{ productionLabel }}
+          </Badge>
           <Badge v-if="post && editorialLabel" variant="secondary">
             {{ editorialLabel }}
           </Badge>
