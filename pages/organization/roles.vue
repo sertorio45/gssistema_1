@@ -5,6 +5,7 @@ import type { OrganizationRole } from '~/types/workspace'
 import { computed, ref } from 'vue'
 
 import { toast } from 'vue-sonner'
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useWorkspace } from '~/composables/useWorkspace'
 import {
@@ -23,8 +24,8 @@ const { organization, can } = useWorkspace()
 const organizationId = computed(() => organization.value?.id ?? null)
 const canManage = computed(() => can('organization.roles.manage'))
 
-const { data: roles, refresh, pending } = await useAsyncData<OrganizationRole[]>(
-  'organization-roles',
+const { data: rolesRaw, refresh, pending, showSkeleton } = await useCachedAsyncData<OrganizationRole[]>(
+  computed(() => `organization-roles-${organizationId.value ?? 'none'}`),
   async () => {
     if (!organizationId.value)
       return []
@@ -33,8 +34,10 @@ const { data: roles, refresh, pending } = await useAsyncData<OrganizationRole[]>
     )
     return response.data
   },
-  { default: () => [], watch: [organizationId] },
+  { default: () => null, watch: [organizationId] },
 )
+
+const roles = computed(() => rolesRaw.value ?? [])
 
 const editorOpen = ref(false)
 const editingRole = ref<OrganizationRole | null>(null)
@@ -202,8 +205,8 @@ function capabilityLabel(capability: string) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div v-if="pending" class="py-6 text-sm text-muted-foreground">
-          Carregando cargos...
+        <div v-if="showSkeleton" class="space-y-3 py-2">
+          <Skeleton v-for="n in 5" :key="n" class="h-12 w-full" />
         </div>
         <Table v-else>
           <TableHeader>

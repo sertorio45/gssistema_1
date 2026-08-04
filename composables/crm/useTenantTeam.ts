@@ -8,7 +8,7 @@ export function useTenantTeam(options?: { attendantsOnly?: boolean }) {
     () => `tenant-team-${tenantId.value}-${attendantsOnly ? 'attendants' : 'all'}`,
   )
 
-  const { data, pending, refresh, error } = useAsyncData(
+  const { data, pending, refresh, error, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
@@ -23,10 +23,10 @@ export function useTenantTeam(options?: { attendantsOnly?: boolean }) {
 
       return response.data || []
     },
-    { watch: [tenantId], default: () => [], server: false },
+    { watch: [tenantId], default: () => null, server: false },
   )
 
-  const members = computed(() => data.value || [])
+  const members = computed(() => data.value ?? [])
 
   const membersByUserId = computed(() => {
     const map = new Map<string, TenantTeamMember>()
@@ -45,6 +45,7 @@ export function useTenantTeam(options?: { attendantsOnly?: boolean }) {
     members,
     membersByUserId,
     pending,
+    showSkeleton,
     error,
     refresh,
     getMemberName,

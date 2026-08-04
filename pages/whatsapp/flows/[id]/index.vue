@@ -37,14 +37,14 @@ const executionDetailLoading = ref(false)
 const saving = ref(false)
 const actionLoading = ref(false)
 
-const { data, pending, refresh } = await useAsyncData(
+const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
   () => `whatsapp-flow-editor-${flowId.value}-${tenantId.value}`,
   async () => {
     if (!tenantId.value || !flowId.value)
       return null
     return fetchFlow(flowId.value)
   },
-  { watch: [tenantId, flowId] },
+  { watch: [tenantId, flowId], default: () => null },
 )
 
 const flow = computed(() => data.value?.data as WhatsAppFlow | undefined)
@@ -181,7 +181,7 @@ async function handleSelectExecution(executionId: string) {
 
 <template>
   <div class="space-y-4">
-    <Skeleton v-if="pending" class="h-[78vh] w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-[78vh] w-full rounded-xl" />
 
     <template v-else-if="flow">
       <FlowEditorToolbar

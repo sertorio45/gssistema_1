@@ -34,7 +34,7 @@ const linkedinOrganizations = ref<Array<{ id: string, name: string }>>([])
 const editDialogOpen = ref(false)
 const editProvider = ref<Provider | null>(null)
 
-const { data: integrations, refresh, pending } = useMarketingFetch({
+const { data: integrations, refresh, pending, showSkeleton } = useMarketingFetch({
   key: () => `marketing-integrations-${tenantId.value}`,
   handler: async () => {
     const response = await $fetch<{ data: any[] }>('/api/marketing/integrations', {
@@ -585,7 +585,7 @@ watch(
       </AlertDescription>
     </Alert>
 
-    <MarketingPageSkeleton v-if="pending" variant="integrations" content-only />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="integrations" content-only />
 
     <div v-else class="grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
       <!-- Google Ads -->

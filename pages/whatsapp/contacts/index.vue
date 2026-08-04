@@ -25,6 +25,7 @@ const {
   contacts,
   total,
   pending,
+  showSkeleton,
   search,
   refresh,
   deleteContact,
@@ -105,7 +106,7 @@ function handleSaved() {
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ pending ? '—' : total }}
+            {{ showSkeleton ? '—' : total }}
           </div>
         </CardContent>
       </Card>
@@ -117,7 +118,7 @@ function handleSaved() {
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ pending ? '—' : linkedCount }}
+            {{ showSkeleton ? '—' : linkedCount }}
           </div>
         </CardContent>
       </Card>
@@ -129,7 +130,7 @@ function handleSaved() {
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ pending ? '—' : blockedCount }}
+            {{ showSkeleton ? '—' : blockedCount }}
           </div>
         </CardContent>
       </Card>
@@ -137,7 +138,7 @@ function handleSaved() {
 
     <Card>
       <CardContent class="pt-6">
-        <div v-if="pending" class="space-y-3">
+        <div v-if="showSkeleton" class="space-y-3">
           <Skeleton v-for="i in 5" :key="i" class="h-12 w-full" />
         </div>
         <DataTable

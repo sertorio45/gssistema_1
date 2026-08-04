@@ -10,7 +10,7 @@ export function useWhatsAppDashboard() {
     () => `whatsapp-dashboard-analytics-${tenantId.value}-${periodDays.value}`,
   )
 
-  const { data, pending, refresh, error } = useAsyncData(
+  const { data, pending, refresh, error, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
@@ -23,7 +23,7 @@ export function useWhatsAppDashboard() {
         },
       })
     },
-    { watch: [tenantId, periodDays], server: false },
+    { watch: [tenantId, periodDays], default: () => null, server: false },
   )
 
   const overview = computed(() => data.value?.overview)
@@ -38,6 +38,7 @@ export function useWhatsAppDashboard() {
     conversationsByStatus,
     recentActivity,
     pending,
+    showSkeleton,
     error,
     refresh,
   }

@@ -4,6 +4,7 @@ import type { AgencyBranding } from '~/types/workspace'
 import { computed, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import { useWorkspace } from '~/composables/useWorkspace'
 
 definePageMeta({
@@ -26,8 +27,8 @@ const branding = reactive({
   notification_signature: '',
 })
 
-const { data, pending, refresh } = await useAsyncData(
-  'agency-settings',
+const { data, pending, refresh, showSkeleton } = await useCachedAsyncData(
+  computed(() => `agency-settings-${organizationId.value ?? 'none'}`),
   async () => {
     if (!organizationId.value)
       return null
@@ -36,7 +37,7 @@ const { data, pending, refresh } = await useAsyncData(
     )
     return response.data
   },
-  { watch: [organizationId] },
+  { default: () => null, watch: [organizationId] },
 )
 
 watch(data, (value) => {
@@ -99,6 +100,10 @@ async function save() {
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">
+        <div v-if="showSkeleton" class="space-y-4">
+          <Skeleton v-for="n in 6" :key="n" class="h-10 w-full" />
+        </div>
+        <template v-else>
         <div class="space-y-2">
           <Label>Nome comercial</Label>
           <Input v-model="branding.commercial_name" :disabled="pending" placeholder="Nome exibido da agência" />
@@ -130,6 +135,7 @@ async function save() {
           <Label>Assinatura das notificações</Label>
           <Textarea v-model="branding.notification_signature" :disabled="pending" rows="3" />
         </div>
+        </template>
       </CardContent>
       <CardFooter>
         <Button :disabled="saving || pending" @click="save">

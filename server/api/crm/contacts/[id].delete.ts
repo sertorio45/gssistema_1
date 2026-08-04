@@ -22,12 +22,25 @@ export default defineEventHandler(async (event) => {
   try {
     const supabase = serverSupabaseServiceRole(event)
 
-    const { error } = await supabase.from('crm_contact').delete().eq('id', contactId).eq('tenant_id', tenant_id)
+    const { data: deleted, error } = await supabase
+      .from('crm_contact')
+      .delete()
+      .eq('id', contactId)
+      .eq('tenant_id', tenant_id)
+      .select('id')
+      .maybeSingle()
 
     if (error) {
       throw createError({
         statusCode: 400,
         statusMessage: error.message,
+      })
+    }
+
+    if (!deleted) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Contact not found',
       })
     }
 

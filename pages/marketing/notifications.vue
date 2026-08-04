@@ -5,7 +5,7 @@ definePageMeta({
 })
 
 const { tenantId } = useTenant()
-const { data: notifications, pending, refresh } = useMarketingFetch({
+const { data: notifications, showSkeleton, refresh } = useMarketingFetch({
   key: () => `marketing-notifications-${tenantId.value}`,
   handler: async () => {
     const response = await $fetch<{ data: any[] }>('/api/marketing/social/notifications', {
@@ -44,7 +44,7 @@ async function openNotification(notification: any) {
       </p>
     </div>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="list" />
     <div v-else-if="notifications.length" class="space-y-3">
       <button
         v-for="notification in notifications"

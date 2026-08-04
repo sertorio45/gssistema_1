@@ -5,7 +5,7 @@ export function useWhatsAppSettings() {
 
   const cacheKey = computed(() => `whatsapp-settings-${tenantId.value}`)
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
@@ -16,7 +16,7 @@ export function useWhatsAppSettings() {
       })
       return response.data
     },
-    { watch: [tenantId], server: false },
+    { watch: [tenantId], default: () => null, server: false },
   )
 
   async function saveSettings(payload: {
@@ -41,6 +41,7 @@ export function useWhatsAppSettings() {
   return {
     settings: computed(() => data.value),
     pending,
+    showSkeleton,
     refresh,
     saveSettings,
     testOllama,

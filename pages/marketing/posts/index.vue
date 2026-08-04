@@ -77,7 +77,7 @@ const boardQueryKey = computed(() => [
   clientFilter.value,
 ].join(':'))
 
-const { data: kanbanResponse, pending: kanbanPending, refresh: refreshKanban } = useMarketingFetch({
+const { data: kanbanResponse, showSkeleton: kanbanShowSkeleton, refresh: refreshKanban } = useMarketingFetch({
   key: boardQueryKey,
   handler: () => $fetch<{ data: any[], columns: SocialProductionStatus[] }>(
     '/api/marketing/social/production/board',
@@ -105,7 +105,7 @@ const postsQueryKey = computed(() =>
   `marketing-social-posts-${social.tenantId.value}-${status.value}-${search.value}`,
 )
 
-const { data: response, pending, refresh } = useMarketingFetch({
+const { data: response, showSkeleton, refresh } = useMarketingFetch({
   key: postsQueryKey,
   handler: () => social.listPosts({ status: status.value, search: search.value || undefined }),
   default: () => ({ data: [] as any[], pagination: {} as Record<string, unknown> }),
@@ -310,7 +310,7 @@ async function confirmBlock() {
     </Card>
 
     <template v-if="layout === 'kanban'">
-      <MarketingPageSkeleton v-if="kanbanPending || moving" variant="kanban" />
+      <MarketingPageSkeleton v-if="kanbanShowSkeleton || moving" variant="kanban" />
       <ProductionKanbanBoard
         v-else
         :columns="kanbanResponse?.columns || []"
@@ -321,7 +321,7 @@ async function confirmBlock() {
     </template>
 
     <template v-else>
-      <MarketingPageSkeleton v-if="pending" variant="grid" />
+      <MarketingPageSkeleton v-if="showSkeleton" variant="grid" />
 
       <SocialContentBoard
         v-else

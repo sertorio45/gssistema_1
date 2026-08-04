@@ -1,6 +1,7 @@
 import { getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
+import { inviteOrLinkAuthUserByEmail, resolveAuthRedirectOrigin } from '~/server/utils/auth-invite'
 import { recordAuditEvent } from '~/server/utils/audit-events'
 import {
   assertAssignableCapabilities,
@@ -73,28 +74,14 @@ export default defineEventHandler(async (event) => {
   const email = input.email?.trim().toLowerCase() ?? null
 
   if (!userId && email) {
-    const { data: listed } = await context.client.auth.admin.listUsers({ page: 1, perPage: 200 })
-    const existing = (listed?.users || []).find(
-      (user: any) => String(user.email || '').toLowerCase() === email,
-    )
-    if (existing) {
-      userId = existing.id
-    }
-    else {
-      // Invite by email — never mint/return a temporary password in the API body.
-      const { data: invited, error: inviteError } = await context.client.auth.admin.inviteUserByEmail(email, {
-        data: { name: input.name || email.split('@')[0] },
-      })
-      if (inviteError || !invited.user) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: inviteError?.message || 'Não foi possível convidar o usuário',
-        })
-      }
-      userId = invited.user.id
-      createdUser = true
-      inviteSent = true
-    }
+    const invite = await inviteOrLinkAuthUserByEmail(context.client, {
+      email,
+      name: input.name,
+      redirectTo: `${resolveAuthRedirectOrigin(event)}/confirm`,
+    })
+    userId = invite.userId
+    createdUser = invite.invite_sent
+    inviteSent = invite.invite_sent
   }
 
   if (!userId)

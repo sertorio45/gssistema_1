@@ -18,11 +18,11 @@ export function useWhatsAppFlows() {
     () => `whatsapp-flows-${tenantId.value}-${statusFilter.value}-${search.value}`,
   )
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return [] as WhatsAppFlow[]
+        return null
 
       const response = await $fetch<{ data: WhatsAppFlow[] }>('/api/whatsapp/flows', {
         query: {
@@ -33,10 +33,10 @@ export function useWhatsAppFlows() {
       })
       return response.data || []
     },
-    { watch: [tenantId, statusFilter, search], default: () => [], server: false },
+    { watch: [tenantId, statusFilter, search], default: () => null, server: false },
   )
 
-  const flows = computed(() => data.value || [])
+  const flows = computed(() => data.value ?? [])
 
   async function createFlow(payload: Omit<CreateWhatsAppFlowPayload, 'tenant_id'>) {
     const response = await $fetch<{ data: WhatsAppFlow }>('/api/whatsapp/flows', {
@@ -108,6 +108,7 @@ export function useWhatsAppFlows() {
   return {
     flows,
     pending,
+    showSkeleton,
     search,
     statusFilter,
     refresh,

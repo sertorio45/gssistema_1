@@ -622,7 +622,7 @@ async function handleDelete(lead: Lead) {
   const deleted = await deleteWithConfirm(
     () => $fetch('/api/crm/lead', {
       method: 'DELETE',
-      body: {
+      query: {
         id: lead.id,
         tenant_id: tenantUuid,
       },
@@ -653,7 +653,7 @@ async function handleMultiDelete() {
     () => Promise.all(toDelete.map(lead =>
       $fetch('/api/crm/lead', {
         method: 'DELETE',
-        body: {
+        query: {
           id: lead.id,
           tenant_id: tenantUuid,
         },

@@ -3,6 +3,7 @@ import type { AgencyDashboardMetrics } from '~/types/workspace'
 
 import { computed } from 'vue'
 
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import { useWorkspace } from '~/composables/useWorkspace'
 
 definePageMeta({
@@ -15,8 +16,8 @@ definePageMeta({
 const { organization } = useWorkspace()
 const organizationId = computed(() => organization.value?.id ?? null)
 
-const { data: metrics, pending, refresh } = await useAsyncData<AgencyDashboardMetrics | null>(
-  'agency-dashboard',
+const { data: metricsRaw, pending, refresh, showSkeleton } = await useCachedAsyncData<AgencyDashboardMetrics | null>(
+  computed(() => `agency-dashboard-${organizationId.value ?? 'none'}`),
   async () => {
     if (!organizationId.value)
       return null
@@ -27,6 +28,8 @@ const { data: metrics, pending, refresh } = await useAsyncData<AgencyDashboardMe
   },
   { default: () => null, watch: [organizationId] },
 )
+
+const metrics = computed(() => metricsRaw.value)
 
 const cards = computed(() => {
   const m = metrics.value
@@ -66,7 +69,19 @@ const cards = computed(() => {
       </div>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div v-if="showSkeleton" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <Card v-for="n in 10" :key="n" class="h-full">
+        <CardContent class="flex items-start gap-3 p-5">
+          <Skeleton class="h-9 w-9 shrink-0 rounded-lg" />
+          <div class="min-w-0 flex-1 space-y-2">
+            <Skeleton class="h-3 w-24" />
+            <Skeleton class="h-8 w-12" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <div v-else class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <NuxtLink v-for="card in cards" :key="card.label" :to="card.link">
         <Card class="h-full transition-colors hover:bg-muted/40">
           <CardContent class="flex items-start gap-3 p-5">
@@ -78,7 +93,7 @@ const cards = computed(() => {
                 {{ card.label }}
               </p>
               <p class="mt-1 text-2xl font-semibold tabular-nums">
-                {{ pending ? '—' : card.value }}
+                {{ card.value }}
               </p>
             </div>
           </CardContent>

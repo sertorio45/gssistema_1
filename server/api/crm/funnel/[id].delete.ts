@@ -13,11 +13,21 @@ export default defineEventHandler(async (event) => {
     if (!tenant_id) {
       throw createError({ statusCode: 400, message: 'tenant_id é obrigatório' })
     }
-    const { error } = await client.from('crm_funnel').delete().eq('id', id).eq('tenant_id', tenant_id)
+    const { data: deleted, error } = await client
+      .from('crm_funnel')
+      .delete()
+      .eq('id', id)
+      .eq('tenant_id', tenant_id)
+      .select('id')
+      .maybeSingle()
+
     if (error) {
-      throw createError({ statusCode: 500, message: error.message || 'Falha ao remover funil' })
+      throw createError({ statusCode: 500, statusMessage: error.message || 'Falha ao remover funil' })
     }
-    return { statusCode: 200, message: 'Removido com sucesso' }
+    if (!deleted) {
+      throw createError({ statusCode: 404, statusMessage: 'Funil não encontrado' })
+    }
+    return { success: true, message: 'Removido com sucesso' }
   }
   catch (err: any) {
     throw createError({ statusCode: err.statusCode || 500, message: err.message || 'Erro interno do servidor' })

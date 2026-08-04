@@ -103,7 +103,9 @@ export const columns: ColumnDef<Product>[] = [
     cell: ({ row }) => {
       const active = row.getValue('active') as boolean
       return h('span', {
-        class: active ? 'text-green-600 dark:text-green-400 font-medium' : 'text-muted-foreground',
+        class: active
+          ? 'inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-300'
+          : 'inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground',
       }, active ? 'Ativo' : 'Inativo')
     },
     enableSorting: true,
@@ -115,24 +117,50 @@ export const columns: ColumnDef<Product>[] = [
     cell: ({ row, table }) => {
       const meta = table.options.meta as {
         onEdit?: (row: Product) => void
+        onDeactivate?: (row: Product) => void
+        onReactivate?: (row: Product) => void
         onDelete?: (row: Product) => void
       }
       const product = row.original as Product
       const Icon = resolveComponent('Icon')
-      return h('div', { class: 'flex justify-end gap-2' }, [
+
+      return h('div', { class: 'flex justify-end gap-1' }, [
         h(Button, {
           variant: 'ghost',
           size: 'icon',
           class: 'h-8 w-8 text-muted-foreground hover:text-primary',
+          title: 'Editar',
           onClick: () => meta.onEdit?.(product),
         }, () => [
           h(Icon, { name: 'lucide:pencil', class: 'h-4 w-4' }),
           h('span', { class: 'sr-only' }, 'Editar'),
         ]),
+        product.active
+          ? h(Button, {
+              variant: 'ghost',
+              size: 'icon',
+              class: 'h-8 w-8 text-muted-foreground hover:text-amber-600',
+              title: 'Desativar',
+              onClick: () => meta.onDeactivate?.(product),
+            }, () => [
+              h(Icon, { name: 'lucide:power-off', class: 'h-4 w-4' }),
+              h('span', { class: 'sr-only' }, 'Desativar'),
+            ])
+          : h(Button, {
+              variant: 'ghost',
+              size: 'icon',
+              class: 'h-8 w-8 text-muted-foreground hover:text-green-600',
+              title: 'Reativar',
+              onClick: () => meta.onReactivate?.(product),
+            }, () => [
+              h(Icon, { name: 'lucide:power', class: 'h-4 w-4' }),
+              h('span', { class: 'sr-only' }, 'Reativar'),
+            ]),
         h(Button, {
           variant: 'ghost',
           size: 'icon',
           class: 'h-8 w-8 text-muted-foreground hover:text-destructive',
+          title: 'Excluir',
           onClick: () => meta.onDelete?.(product),
         }, () => [
           h(Icon, { name: 'lucide:trash-2', class: 'h-4 w-4' }),

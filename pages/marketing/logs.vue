@@ -42,7 +42,7 @@ const entityLabels: Record<string, string> = {
   marketing_integration: 'Integração',
 }
 
-const { data: response, pending, refresh } = useMarketingFetch({
+const { data: response, showSkeleton, refresh } = useMarketingFetch({
   key: () => `marketing-social-logs-${social.tenantId.value}-${page.value}-${action.value}-${entityType.value}-${search.value}`,
   handler: () => social.listLogs({
     page: page.value,
@@ -149,7 +149,7 @@ function prettyJson(value: unknown) {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" :rows="8" content-only />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="list" :rows="8" content-only />
 
     <Card v-else-if="response.data.length">
       <div class="overflow-x-auto">

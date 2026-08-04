@@ -30,17 +30,11 @@ const DEFAULT_STATE: ConfirmDeleteState = {
 }
 
 let resolveConfirm: ConfirmResolver | null = null
+/** Prevents close-after-accept from settling as cancel. */
+let accepting = false
 
 function getState() {
   return useState<ConfirmDeleteState>('confirm-delete-dialog', () => ({ ...DEFAULT_STATE }))
-}
-
-function settle(confirmed: boolean) {
-  const state = getState()
-  const resolver = resolveConfirm
-  resolveConfirm = null
-  state.value = { ...DEFAULT_STATE }
-  resolver?.(confirmed)
 }
 
 /**
@@ -57,6 +51,7 @@ export function confirmDelete(options: ConfirmDeleteOptions = {}): Promise<boole
     previous(false)
   }
 
+  accepting = false
   const state = getState()
   state.value = {
     open: true,
@@ -84,7 +79,19 @@ export async function deleteWithConfirm(
     return false
 
   try {
-    await action()
+    const result = await action() as { status?: number, message?: string, success?: boolean } | unknown
+
+    // Guard against legacy APIs that return HTTP 200 with `{ status: 4xx }` in the body.
+    if (
+      result
+      && typeof result === 'object'
+      && 'status' in result
+      && typeof (result as { status?: number }).status === 'number'
+      && (result as { status: number }).status >= 400
+    ) {
+      throw new Error((result as { message?: string }).message || options.errorMessage || 'Não foi possível excluir.')
+    }
+
     toast.success(options.successMessage || 'Excluído com sucesso.')
     return true
   }
@@ -104,10 +111,36 @@ export async function deleteWithConfirm(
 export function useConfirmDeleteHost() {
   const state = getState()
 
+  function acceptConfirm() {
+    if (!resolveConfirm)
+      return
+
+    accepting = true
+    const resolver = resolveConfirm
+    resolveConfirm = null
+    state.value = { ...DEFAULT_STATE }
+    resolver(true)
+
+    // Allow AlertDialog close event to land without cancelling.
+    queueMicrotask(() => {
+      accepting = false
+    })
+  }
+
+  function cancelConfirm() {
+    if (accepting || !resolveConfirm)
+      return
+
+    const resolver = resolveConfirm
+    resolveConfirm = null
+    state.value = { ...DEFAULT_STATE }
+    resolver(false)
+  }
+
   return {
     state,
-    acceptConfirm: () => settle(true),
-    cancelConfirm: () => settle(false),
+    acceptConfirm,
+    cancelConfirm,
   }
 }
 

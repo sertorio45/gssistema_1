@@ -35,7 +35,7 @@ const {
 const actionLoading = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
-const { data, pending, refresh } = await useAsyncData(
+const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
   () => `whatsapp-instance-${instanceId.value}-${tenantId.value}`,
   async () => {
     if (!tenantId.value || !instanceId.value)
@@ -49,7 +49,7 @@ const { data, pending, refresh } = await useAsyncData(
       query: { tenant_id: tenantId.value },
     })
   },
-  { watch: [tenantId, instanceId] },
+  { watch: [tenantId, instanceId], default: () => null },
 )
 
 const instance = computed(() => data.value?.data)
@@ -227,7 +227,7 @@ async function handleTest() {
       </template>
     </WhatsAppPageHeader>
 
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Skeleton class="h-40 w-full" />
       <Skeleton class="h-64 w-full" />
     </div>

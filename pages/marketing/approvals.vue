@@ -120,7 +120,7 @@ const listQuery = computed(() => {
   return q
 })
 
-const { data: listResponse, pending, refresh } = useMarketingFetch({
+const { data: listResponse, pending, showSkeleton, refresh } = useMarketingFetch({
   key: () => `approvals-board-${JSON.stringify(listQuery.value)}-${social.tenantId.value}-${organization.value?.id || ''}`,
   handler: () => social.listApprovals(listQuery.value),
   default: () => ({ data: [] as any[], meta: {} as Record<string, unknown> }),
@@ -416,7 +416,7 @@ const clientBuckets = [
     </div>
 
     <!-- Loading -->
-    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="6" content-only />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="grid" :cards="6" content-only />
 
     <!-- Empty -->
     <div

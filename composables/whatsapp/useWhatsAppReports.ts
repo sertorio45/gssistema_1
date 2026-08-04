@@ -8,7 +8,7 @@ export function useWhatsAppReports() {
 
   const cacheKey = computed(() => `whatsapp-reports-${tenantId.value}-${periodDays.value}`)
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
@@ -21,7 +21,7 @@ export function useWhatsAppReports() {
         },
       })
     },
-    { watch: [tenantId, periodDays], server: false },
+    { watch: [tenantId, periodDays], default: () => null, server: false },
   )
 
   function exportCsv() {
@@ -36,6 +36,7 @@ export function useWhatsAppReports() {
     periodDays,
     analytics: computed(() => data.value),
     pending,
+    showSkeleton,
     refresh,
     exportCsv,
   }

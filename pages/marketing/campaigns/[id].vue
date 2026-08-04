@@ -15,7 +15,7 @@ const canBriefing = computed(() => can('marketing.social.briefing.create'))
 const linkUrl = ref('')
 const creatingLink = ref(false)
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, showSkeleton, refresh } = useMarketingFetch({
   key: () => `campaign-${campaignId.value}-${social.tenantId.value}`,
   handler: () => $fetch<{ data: any }>(`/api/marketing/social/campaigns/${campaignId.value}`, {
     query: { tenant_id: social.tenantId.value || undefined },
@@ -58,7 +58,7 @@ async function createBriefingLink() {
       Campanhas
     </Button>
 
-    <div v-if="pending">
+    <div v-if="showSkeleton">
       <MarketingPageSkeleton variant="detail" />
     </div>
 

@@ -15,14 +15,14 @@ const campaignId = computed(() => route.params.id as string)
 const { tenantId } = useTenant()
 const { fetchCampaign } = useWhatsAppCampaigns()
 
-const { data, pending } = await useAsyncData(
+const { data, pending, showSkeleton } = useCachedAsyncData(
   () => `whatsapp-campaign-edit-${campaignId.value}-${tenantId.value}`,
   async () => {
     if (!tenantId.value || !campaignId.value)
       return null
     return fetchCampaign(campaignId.value)
   },
-  { watch: [tenantId, campaignId] },
+  { watch: [tenantId, campaignId], default: () => null },
 )
 
 const campaign = computed(() => data.value?.data)
@@ -47,7 +47,7 @@ watch(campaign, (value) => {
       </template>
     </WhatsAppPageHeader>
 
-    <Skeleton v-if="pending" class="h-96 w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-96 w-full rounded-xl" />
 
     <CampaignForm
       v-else-if="campaign"

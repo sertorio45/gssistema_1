@@ -14,7 +14,7 @@ const lastUrl = ref('')
 
 const canCreate = computed(() => can('marketing.social.briefing.create'))
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, showSkeleton, refresh } = useMarketingFetch({
   key: () => `briefings-${social.tenantId.value}`,
   handler: () => $fetch<{ data: any[] }>('/api/marketing/social/briefings', {
     query: { tenant_id: social.tenantId.value || undefined },
@@ -84,7 +84,7 @@ async function createLink() {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="list" />
 
     <div v-else class="space-y-2">
       <Card v-for="item in data?.data || []" :key="item.id">

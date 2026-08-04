@@ -4,6 +4,7 @@ import type { OrganizationMember, OrganizationRole } from '~/types/workspace'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import { useWorkspace } from '~/composables/useWorkspace'
 
 definePageMeta({
@@ -17,8 +18,8 @@ const { organization, organizationType, tenants } = useWorkspace()
 const organizationId = computed(() => organization.value?.id ?? null)
 const isAgency = computed(() => organizationType.value === 'agency')
 
-const { data: members, refresh, pending } = await useAsyncData<OrganizationMember[]>(
-  'organization-team',
+const { data: membersRaw, refresh, pending, showSkeleton } = await useCachedAsyncData<OrganizationMember[]>(
+  computed(() => `organization-team-${organizationId.value ?? 'none'}`),
   async () => {
     if (!organizationId.value)
       return []
@@ -27,11 +28,13 @@ const { data: members, refresh, pending } = await useAsyncData<OrganizationMembe
     )
     return response.data
   },
-  { default: () => [], watch: [organizationId] },
+  { default: () => null, watch: [organizationId] },
 )
 
-const { data: roles } = await useAsyncData<OrganizationRole[]>(
-  'organization-team-roles',
+const members = computed(() => membersRaw.value ?? [])
+
+const { data: rolesRaw } = await useCachedAsyncData<OrganizationRole[]>(
+  computed(() => `organization-team-roles-${organizationId.value ?? 'none'}`),
   async () => {
     if (!organizationId.value)
       return []
@@ -40,8 +43,10 @@ const { data: roles } = await useAsyncData<OrganizationRole[]>(
     )
     return response.data
   },
-  { default: () => [], watch: [organizationId] },
+  { default: () => null, watch: [organizationId] },
 )
+
+const roles = computed(() => rolesRaw.value ?? [])
 
 const portfolioTenants = computed(() =>
   tenants.value.filter(tenant => tenant.relationship_type === 'managed' || !isAgency.value),
@@ -206,8 +211,8 @@ async function saveMember() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div v-if="pending" class="py-6 text-sm text-muted-foreground">
-          Carregando colaboradores...
+        <div v-if="showSkeleton" class="space-y-3 py-2">
+          <Skeleton v-for="n in 5" :key="n" class="h-12 w-full" />
         </div>
         <Table v-else>
           <TableHeader>

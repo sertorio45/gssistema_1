@@ -24,7 +24,7 @@ const form = ref({
 
 const canManage = computed(() => can('marketing.social.campaigns.manage'))
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, showSkeleton, refresh } = useMarketingFetch({
   key: () => `campaigns-${social.tenantId.value}-${status.value}-${search.value}`,
   handler: () => $fetch<{ data: any[] }>('/api/marketing/social/campaigns', {
     query: {
@@ -123,7 +123,7 @@ async function createCampaign() {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="list" />
 
     <div v-else-if="!(data?.data || []).length" class="rounded-xl border p-8 text-center text-sm text-muted-foreground">
       Nenhuma campanha ainda.

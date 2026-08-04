@@ -31,7 +31,7 @@ import {
 import { useAuth } from '~/composables/useAuth'
 import { useTenantTeam, useTenantTeamManagement } from '~/composables/crm/useTenantTeam'
 
-const { members, pending, refresh } = useTenantTeam()
+const { members, pending, refresh, showSkeleton } = useTenantTeam()
 const { createMember, updateMember, deleteMember } = useTenantTeamManagement()
 const { currentRole } = useAuth()
 
@@ -117,7 +117,7 @@ async function handleSubmit(payload: {
       </Button>
     </div>
 
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">

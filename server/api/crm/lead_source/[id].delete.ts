@@ -1,26 +1,60 @@
-import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
-import { isWrongTenantForScopedUser } from '~/server/utils/tenant-access'
-
-import { defineEventHandler, getRouterParam } from 'h3'
+import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
+import { isWrongTenantForScopedUser, resolveTenantApiAuth } from '~/server/utils/tenant-access'
+import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    return { status: 401, message: 'Unauthorized' }
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  const client = await serverSupabaseClient(event)
   const id = getRouterParam(event, 'id')
-  const { tenantId, role } = event.context.auth || {}
+  const query = getQuery(event)
+  const requestedTenantId = String(query.tenant_id || '')
+  const { tenantId, role } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
 
-  const { data: leadSource } = await client.from('crm_lead_source_table').select('tenant_id').eq('id', id).single()
-  if (!leadSource || (isWrongTenantForScopedUser(role, tenantId, leadSource.tenant_id))) {
-    return { status: 403, message: 'Forbidden' }
+  if (!id) {
+    throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
   }
 
-  const { error } = await client.from('crm_lead_source_table').delete().eq('id', id)
+  const client = serverSupabaseServiceRole(event)
+
+  const { data: leadSource, error: findError } = await client
+    .from('crm_lead_source_table')
+    .select('id, tenant_id')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (findError) {
+    throw createError({ statusCode: 400, statusMessage: findError.message })
+  }
+
+  if (!leadSource) {
+    throw createError({ statusCode: 404, statusMessage: 'Origem não encontrada' })
+  }
+
+  if (isWrongTenantForScopedUser(role, tenantId, leadSource.tenant_id)) {
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  }
+
+  if (requestedTenantId && requestedTenantId !== leadSource.tenant_id) {
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  }
+
+  const { data: deleted, error } = await client
+    .from('crm_lead_source_table')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
+
   if (error) {
-    return { status: 400, message: error.message }
+    throw createError({ statusCode: 400, statusMessage: error.message })
   }
+
+  if (!deleted) {
+    throw createError({ statusCode: 404, statusMessage: 'Origem não encontrada' })
+  }
+
   return { success: true }
 })

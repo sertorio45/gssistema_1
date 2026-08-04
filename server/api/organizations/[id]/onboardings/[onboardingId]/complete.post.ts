@@ -2,6 +2,7 @@ import { getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
 import { assertAgencyOrganization } from '~/server/utils/agency-ops'
+import { inviteOrLinkAuthUserByEmail, resolveAuthRedirectOrigin } from '~/server/utils/auth-invite'
 import { recordAuditEvent } from '~/server/utils/audit-events'
 import { requireWorkspaceContext } from '~/server/utils/workspace-context'
 
@@ -23,7 +24,7 @@ const schema = z.object({
   clientInvite: z.object({
     email: z.string().email(),
     name: z.string().trim().min(1).max(120).optional(),
-  }).optional(),
+  }),
   approvalFlow: z.object({
     policy: z.string().trim().max(80).optional(),
     minimumApprovals: z.number().int().min(1).max(10).optional(),
@@ -39,10 +40,6 @@ const schema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe nome e slug do tenant', path: ['tenantName'] })
   }
 })
-
-function randomPassword(): string {
-  return `Tmp-${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}!`
-}
 
 /**
  * Completes onboarding through the transactional RPC, then applies invites and
@@ -143,42 +140,29 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  let inviteResult: { email: string, temporaryPassword: string | null } | null = null
+  const email = input.clientInvite.email.trim().toLowerCase()
+  const displayName = input.clientInvite.name || email.split('@')[0]
+  const siteUrl = resolveAuthRedirectOrigin(event)
 
-  if (input.clientInvite?.email) {
-    const email = input.clientInvite.email.trim().toLowerCase()
-    const { data: listed } = await context.client.auth.admin.listUsers({ page: 1, perPage: 200 })
-    let userId = (listed?.users || []).find(
-      (user: any) => String(user.email || '').toLowerCase() === email,
-    )?.id as string | undefined
-    let temporaryPassword: string | null = null
+  // Supabase Auth default invite email (Invite User template via inviteUserByEmail).
+  const invite = await inviteOrLinkAuthUserByEmail(context.client, {
+    email,
+    name: displayName,
+    redirectTo: `${siteUrl}/confirm`,
+  })
 
-    if (!userId) {
-      temporaryPassword = randomPassword()
-      const { data: created, error: createErrorResult } = await context.client.auth.admin.createUser({
-        email,
-        password: temporaryPassword,
-        email_confirm: true,
-        user_metadata: { name: input.clientInvite.name || email.split('@')[0] },
-      })
-      if (createErrorResult || !created.user) {
-        throw createError({
-          statusCode: 400,
-          statusMessage: createErrorResult?.message || 'Não foi possível convidar o aprovador',
-        })
-      }
-      userId = created.user.id
-    }
+  await context.client
+    .from('user_tenant_role')
+    .upsert({
+      user_id: invite.userId,
+      tenant_id: resolvedTenantId,
+      role: 'cliente',
+    }, { onConflict: 'user_id,tenant_id' })
 
-    await context.client
-      .from('user_tenant_role')
-      .upsert({
-        user_id: userId,
-        tenant_id: resolvedTenantId,
-        role: 'cliente',
-      }, { onConflict: 'user_id,tenant_id' })
-
-    inviteResult = { email, temporaryPassword }
+  const inviteResult = {
+    email: invite.email,
+    invite_sent: invite.invite_sent,
+    existing_user: invite.existing_user,
   }
 
   const { data: refreshed } = await context.client
@@ -197,7 +181,8 @@ export default defineEventHandler(async (event) => {
     after: {
       tenant_id: resolvedTenantId,
       modules: input.modules,
-      invite_email: inviteResult?.email || null,
+      invite_email: inviteResult.email,
+      invite_sent: inviteResult.invite_sent,
     },
   })
 
@@ -205,12 +190,11 @@ export default defineEventHandler(async (event) => {
     data: {
       tenant_id: resolvedTenantId,
       onboarding: refreshed,
-      invite: inviteResult
-        ? {
-            email: inviteResult.email,
-            temporary_password: inviteResult.temporaryPassword,
-          }
-        : null,
+      invite: {
+        email: inviteResult.email,
+        invite_sent: inviteResult.invite_sent,
+        existing_user: inviteResult.existing_user,
+      },
     },
   }
 })

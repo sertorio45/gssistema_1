@@ -59,7 +59,7 @@ const { data: members } = useMarketingFetch({
   enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
 })
 
-const { data: post, pending, refresh } = useMarketingFetch({
+const { data: post, showSkeleton, refresh } = useMarketingFetch({
   key: () => `marketing-social-post-${social.tenantId.value}-${postId.value}`,
   handler: () => social.getPost(postId.value),
   default: () => null as any,
@@ -448,7 +448,7 @@ function onDeleted() {
       </AlertDescription>
     </Alert>
 
-    <MarketingPageSkeleton v-if="pending" variant="detail" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="detail" />
     <SocialPostForm
       v-else-if="formValue"
       :initial-value="formValue"

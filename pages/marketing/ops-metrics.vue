@@ -14,7 +14,7 @@ const canRead = computed(() => can('marketing.social.ops_metrics.read'))
 const to = ref(new Date().toISOString().slice(0, 10))
 const from = ref(new Date(Date.now() - 30 * 24 * 3600_000).toISOString().slice(0, 10))
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, showSkeleton, refresh } = useMarketingFetch({
   key: () => `ops-metrics-${social.tenantId.value}-${from.value}-${to.value}`,
   handler: () => social.getOpsMetrics({
     from: `${from.value}T00:00:00.000Z`,
@@ -80,7 +80,7 @@ const cards = computed(() => {
         </CardContent>
       </Card>
 
-      <MarketingPageSkeleton v-if="pending" variant="reports" />
+      <MarketingPageSkeleton v-if="showSkeleton" variant="reports" />
 
       <template v-else>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

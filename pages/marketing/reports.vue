@@ -49,7 +49,7 @@ function overviewQuery() {
   return query
 }
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, pending, showSkeleton, refresh } = useMarketingFetch({
   key: () =>
     `marketing-reports-${tenantId.value}-${source.value}-${googleTemplate.value}-${datePreset.value}-${dateStart.value}-${dateEnd.value}-${metaActiveOnly.value}`,
   handler: async () => {
@@ -97,7 +97,7 @@ async function refreshMarketing() {
       </p>
     </div>
 
-    <MarketingPageSkeleton v-if="pending" variant="reports" content-only />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="reports" content-only />
 
     <div v-else class="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
       <MarketingReportTemplateSidebar

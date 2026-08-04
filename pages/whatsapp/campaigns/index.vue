@@ -26,6 +26,7 @@ definePageMeta({
 const {
   campaigns,
   pending,
+  showSkeleton,
   search,
   statusFilter,
   refresh,
@@ -114,7 +115,7 @@ async function handleDelete(campaign: WhatsAppCampaign) {
       </Button>
     </div>
 
-    <Skeleton v-if="pending" class="h-64 w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-64 w-full rounded-xl" />
 
     <div v-else-if="!campaigns.length" class="rounded-xl border border-dashed p-12 text-center">
       <span class="i-lucide-megaphone mx-auto mb-4 h-10 w-10 text-muted-foreground" />

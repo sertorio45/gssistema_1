@@ -30,9 +30,14 @@ const {
   data: funnelsRaw,
   pending,
   refresh: refreshFunnels,
-} = await useAsyncData('crm-funnel', () => $fetch('/api/crm/funnel', { query: { tenant_id: tenantId.value } }), { watch: [tenantId] })
+  showSkeleton,
+} = await useCachedAsyncData<any[]>(
+  computed(() => `crm-funnel-${tenantId.value ?? 'none'}`),
+  () => $fetch('/api/crm/funnel', { query: { tenant_id: tenantId.value } }),
+  { watch: [tenantId], default: () => null, server: false },
+)
 
-const funnelsArray = computed(() => Array.isArray(funnelsRaw.value) ? funnelsRaw.value : [])
+const funnelsArray = computed(() => funnelsRaw.value ?? [])
 const { filteredData: funnelsByTenant } = useTenantRoleFilter<any>(funnelsArray, 'tenant_id')
 
 const filteredFunnels = computed(() => {
@@ -158,7 +163,7 @@ watch(tenantId, (val) => {
         </Button>
       </NuxtLink>
     </div>
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">

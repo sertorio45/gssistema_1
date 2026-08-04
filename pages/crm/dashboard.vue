@@ -34,14 +34,15 @@ const { tenantId, whenTenantReady } = useTenantPage()
 const { getMemberName } = useTenantTeam()
 
 const {
-  data: kpi,
+  data: kpiData,
   pending,
   refresh,
-} = await useAsyncData(
-  'crm-dashboard',
+  showSkeleton,
+} = await useCachedAsyncData<DashboardKPI | null>(
+  computed(() => `crm-dashboard-${tenantId.value ?? 'none'}`),
   async () => {
     if (!tenantId.value)
-      return emptyKpi
+      return null
 
     return await $fetch<DashboardKPI>('/api/crm/dashboard', {
       query: { tenant_id: tenantId.value },
@@ -49,9 +50,11 @@ const {
   },
   {
     watch: [tenantId],
-    default: () => emptyKpi,
+    default: () => null,
   },
 )
+
+const kpi = computed(() => kpiData.value ?? emptyKpi)
 
 whenTenantReady(() => {
   refresh()
@@ -172,7 +175,7 @@ function initials(name: string) {
           <Icon name="lucide:users" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending" class="h-8 w-20" />
+          <Skeleton v-if="showSkeleton" class="h-8 w-20" />
           <template v-else>
             <div class="text-2xl font-bold">
               {{ kpi.totalLeads }}
@@ -192,7 +195,7 @@ function initials(name: string) {
           <Icon name="lucide:dollar-sign" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending" class="h-8 w-28" />
+          <Skeleton v-if="showSkeleton" class="h-8 w-28" />
           <template v-else>
             <div class="text-2xl font-bold">
               {{ formattedRevenue }}
@@ -212,7 +215,7 @@ function initials(name: string) {
           <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending" class="h-8 w-16" />
+          <Skeleton v-if="showSkeleton" class="h-8 w-16" />
           <template v-else>
             <div class="text-2xl font-bold">
               {{ kpi.conversionRate }}%
@@ -232,7 +235,7 @@ function initials(name: string) {
           <Icon name="lucide:target" class="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending" class="h-8 w-28" />
+          <Skeleton v-if="showSkeleton" class="h-8 w-28" />
           <template v-else>
             <div class="text-2xl font-bold">
               {{ formattedAverageDeal }}
@@ -253,7 +256,7 @@ function initials(name: string) {
           <CardDescription>Receita mensal dos últimos 6 meses (negócios ganhos)</CardDescription>
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending || !AreaChart" class="h-[280px] w-full" />
+          <Skeleton v-if="showSkeleton || !AreaChart" class="h-[280px] w-full" />
           <component
             :is="AreaChart"
             v-else-if="revenueChartData.length"
@@ -275,7 +278,7 @@ function initials(name: string) {
           <CardDescription>Distribuição de leads por estágio</CardDescription>
         </CardHeader>
         <CardContent>
-          <div v-if="pending" class="space-y-4">
+          <div v-if="showSkeleton" class="space-y-4">
             <Skeleton v-for="i in 5" :key="i" class="h-8 w-full" />
           </div>
           <div v-else-if="kpi.leadsPerStage.length" class="space-y-3">
@@ -310,7 +313,7 @@ function initials(name: string) {
           <CardDescription>Quantidade de leads por origem</CardDescription>
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending || !BarChart" class="h-[280px] w-full" />
+          <Skeleton v-if="showSkeleton || !BarChart" class="h-[280px] w-full" />
           <component
             :is="BarChart"
             v-else-if="sourcesChartData.length"
@@ -347,7 +350,7 @@ function initials(name: string) {
           <CardDescription>Membros com melhor desempenho em vendas</CardDescription>
         </CardHeader>
         <CardContent>
-          <div v-if="pending" class="space-y-4">
+          <div v-if="showSkeleton" class="space-y-4">
             <Skeleton v-for="i in 4" :key="i" class="h-12 w-full" />
           </div>
           <div v-else-if="kpi.topPerformers.length" class="space-y-4">
@@ -390,7 +393,7 @@ function initials(name: string) {
         <CardDescription>Últimas atualizações de leads</CardDescription>
       </CardHeader>
       <CardContent>
-        <div v-if="pending" class="space-y-6">
+        <div v-if="showSkeleton" class="space-y-6">
           <Skeleton v-for="i in 4" :key="i" class="h-14 w-full" />
         </div>
         <div v-else-if="kpi.recentActivity.length" class="space-y-6">

@@ -18,7 +18,7 @@ const { fetchContact } = useWhatsAppContacts()
 
 const isEditOpen = ref(false)
 
-const { data, pending, refresh } = await useAsyncData(
+const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
   () => `whatsapp-contact-detail-${contactId.value}-${tenantId.value}`,
   async () => {
     if (!tenantId.value || !contactId.value)
@@ -26,7 +26,7 @@ const { data, pending, refresh } = await useAsyncData(
     const response = await fetchContact(contactId.value)
     return response.data
   },
-  { watch: [tenantId, contactId] },
+  { watch: [tenantId, contactId], default: () => null },
 )
 </script>
 
@@ -50,7 +50,7 @@ const { data, pending, refresh } = await useAsyncData(
       </template>
     </WhatsAppPageHeader>
 
-    <Skeleton v-if="pending" class="h-64 w-full" />
+    <Skeleton v-if="showSkeleton" class="h-64 w-full" />
     <ContactProfile v-else-if="data" :contact="data" @refreshed="refresh()" />
 
     <Dialog v-model:open="isEditOpen">

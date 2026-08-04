@@ -10,7 +10,7 @@ definePageMeta({
   title: 'Agentes IA',
 })
 
-const { agents, pending } = useWhatsAppAgents()
+const { agents, pending, showSkeleton } = useWhatsAppAgents()
 
 const providerLabel: Record<string, string> = {
   ollama: 'Ollama',
@@ -30,7 +30,7 @@ const providerLabel: Record<string, string> = {
       </template>
     </WhatsAppPageHeader>
 
-    <Skeleton v-if="pending" class="h-40 w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-40 w-full rounded-xl" />
 
     <Card v-else-if="!agents.length">
       <CardContent class="py-12 text-center text-sm text-muted-foreground">

@@ -7,11 +7,11 @@ export function useWhatsAppInstances() {
   const { tenantId } = useTenant()
   const cacheKey = computed(() => `whatsapp-instances-${tenantId.value}`)
 
-  const { data, pending, refresh, error } = useAsyncData(
+  const { data, pending, refresh, error, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return { instances: [] as WhatsAppInstanceView[], totalUnread: 0 }
+        return null
 
       const response = await $fetch<{
         data: WhatsAppInstanceView[]
@@ -24,10 +24,10 @@ export function useWhatsAppInstances() {
         totalUnread: response.meta?.totalUnread ?? 0,
       }
     },
-    { watch: [tenantId], default: () => ({ instances: [], totalUnread: 0 }), server: false },
+    { watch: [tenantId], default: () => null, server: false },
   )
 
-  const instances = computed(() => data.value?.instances || [])
+  const instances = computed(() => data.value?.instances ?? [])
   const totalUnread = computed(() => data.value?.totalUnread ?? 0)
 
   async function createInstance(payload: Omit<CreateWhatsAppInstancePayload, 'tenant_id'>) {
@@ -146,6 +146,7 @@ export function useWhatsAppInstances() {
     instances,
     totalUnread,
     pending,
+    showSkeleton,
     error,
     refresh,
     createInstance,

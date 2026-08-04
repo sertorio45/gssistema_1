@@ -39,9 +39,14 @@ const {
   data: stagesRaw,
   pending,
   refresh: refreshStages,
-} = await useAsyncData('crm-sales-stages', () => $fetch('/api/crm/sales_stage', { query: { tenant_id: tenantId.value } }), { watch: [tenantId] })
+  showSkeleton,
+} = await useCachedAsyncData<any[]>(
+  computed(() => `crm-sales-stages-${tenantId.value ?? 'none'}`),
+  () => $fetch('/api/crm/sales_stage', { query: { tenant_id: tenantId.value } }),
+  { watch: [tenantId], default: () => null, server: false },
+)
 
-const stagesArray = computed(() => (Array.isArray(stagesRaw.value) ? stagesRaw.value : []))
+const stagesArray = computed(() => stagesRaw.value ?? [])
 const { filteredData: stagesByTenant } = useTenantRoleFilter<any>(stagesArray, 'tenant_id')
 
 const filteredStages = computed(() => {
@@ -259,7 +264,7 @@ watch(tenantId, (val) => {
         Novo Estágio
       </Button>
     </div>
-    <div v-if="isLoading" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">

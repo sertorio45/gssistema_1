@@ -25,7 +25,7 @@ definePageMeta({
   title: 'Configurações WhatsApp',
 })
 
-const { settings, pending, saveSettings, testOllama } = useWhatsAppSettings()
+const { settings, pending, showSkeleton, saveSettings, testOllama } = useWhatsAppSettings()
 
 const generalForm = reactive({
   welcome_message: '',
@@ -100,7 +100,7 @@ async function handleTestOllama() {
   <div class="space-y-6">
     <WhatsAppPageHeader title="Configurações" description="Horários, notificações e integração com Ollama." />
 
-    <Skeleton v-if="pending" class="h-48 w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-48 w-full rounded-xl" />
 
     <div v-else class="grid gap-6 lg:grid-cols-2">
       <Card>

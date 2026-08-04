@@ -21,6 +21,7 @@ definePageMeta({
 const {
   flows,
   pending,
+  showSkeleton,
   search,
   statusFilter,
   refresh,
@@ -65,7 +66,7 @@ async function handleDelete(flow: WhatsAppFlow) {
       </template>
     </WhatsAppPageHeader>
 
-    <Skeleton v-if="pending && !flows.length" class="h-24 w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-24 w-full rounded-xl" />
     <FlowStatsCards v-else-if="flows.length" :flows="flows" />
 
     <div class="flex flex-col gap-4 rounded-xl border border-border/60 bg-muted/10 p-4">
@@ -99,7 +100,7 @@ async function handleDelete(flow: WhatsAppFlow) {
         </div>
       </div>
 
-      <Skeleton v-if="pending" class="h-64 w-full rounded-xl" />
+      <Skeleton v-if="showSkeleton" class="h-64 w-full rounded-xl" />
 
       <FlowEmptyState v-else-if="!flows.length">
         <Button @click="navigateTo('/whatsapp/flows/new')">

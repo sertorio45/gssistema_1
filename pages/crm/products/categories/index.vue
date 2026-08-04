@@ -39,16 +39,14 @@ const {
   data: categoriesRaw,
   pending,
   refresh,
-} = await useLazyAsyncData<ProductCategory[]>(
-  'crm-products-categories-page',
+  showSkeleton,
+} = await useCachedAsyncData<ProductCategory[]>(
+  computed(() => `crm-products-categories-page-${tenantId.value ?? 'none'}`),
   () => (tenantId.value ? $fetch<ProductCategory[]>('/api/crm/products/categories', { query: { tenant_id: tenantId.value } }) : Promise.resolve([])),
-  { watch: [tenantId], default: () => [], server: false },
+  { watch: [tenantId], default: () => null, server: false },
 )
 
-const categories = computed(() => {
-  const raw = categoriesRaw.value
-  return Array.isArray(raw) ? raw : []
-})
+const categories = computed(() => categoriesRaw.value ?? [])
 
 function openCreate() {
   formMode.value = 'create'
@@ -149,7 +147,7 @@ async function handleDelete(cat: ProductCategory) {
       </div>
     </div>
 
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">

@@ -98,7 +98,7 @@ const periodLabel = computed(() => {
   return format(anchor.value, 'MMMM yyyy', { locale: ptBR })
 })
 
-const { data: response, pending, refresh } = useMarketingFetch({
+const { data: response, showSkeleton, refresh } = useMarketingFetch({
   key: () => `marketing-calendar-${social.tenantId.value}-${format(interval.value.start, 'yyyy-MM-dd')}-${format(interval.value.end, 'yyyy-MM-dd')}-${JSON.stringify(filters.value)}`,
   handler: () => social.listPosts({
     start: interval.value.start.toISOString(),
@@ -354,7 +354,7 @@ const publicationLabels: Record<string, string> = {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="calendar" content-only />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="calendar" content-only />
 
     <template v-else>
     <div v-if="!isClientExperience && conflicts.length" class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">

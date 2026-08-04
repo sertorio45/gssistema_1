@@ -30,11 +30,11 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
     () => `whatsapp-messages-${tenantId.value}-${conversationId.value}`,
   )
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value || !conversationId.value)
-        return [] as WhatsAppMessage[]
+        return null
 
       const response = await $fetch<{ data: WhatsAppMessage[] }>(
         `/api/whatsapp/conversations/${conversationId.value}/messages`,
@@ -42,19 +42,15 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
       )
       return response.data || []
     },
-    { watch: [tenantId, conversationId], default: () => [], server: false },
+    { watch: [tenantId, conversationId], default: () => null, server: false },
   )
 
   const messages = computed({
-    get: () => data.value || [],
+    get: () => data.value ?? [],
     set: (value: WhatsAppMessage[]) => {
       data.value = value
     },
   })
-
-  const initialLoading = computed(
-    () => pending.value && messages.value.length === 0,
-  )
 
   const sending = ref(false)
   let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -76,7 +72,7 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
 
     try {
       const remote = await fetchMessages()
-      data.value = mergeMessages(data.value || [], remote)
+      data.value = mergeMessages(data.value ?? [], remote)
     }
     catch {
       /* non-blocking poll */
@@ -110,7 +106,7 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
     }
 
     stopPolling()
-    data.value = []
+    data.value = null
   }, { immediate: true })
 
   onUnmounted(stopPolling)
@@ -118,16 +114,16 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
   function appendMessage(message: WhatsAppMessage) {
     if (message.conversationId !== conversationId.value)
       return
-    const exists = (data.value || []).some(m => m.id === message.id)
+    const exists = (data.value ?? []).some(m => m.id === message.id)
     if (exists)
       return
-    data.value = sortMessages([...(data.value || []), message])
+    data.value = sortMessages([...(data.value ?? []), message])
   }
 
   function updateMessage(message: WhatsAppMessage) {
     if (message.conversationId !== conversationId.value)
       return
-    data.value = mergeMessages(data.value || [], [message])
+    data.value = mergeMessages(data.value ?? [], [message])
   }
 
   async function sendMessage(content: string) {
@@ -155,7 +151,8 @@ export function useWhatsAppMessages(conversationId: Ref<string | null>) {
   return {
     messages,
     pending,
-    initialLoading,
+    showSkeleton,
+    initialLoading: showSkeleton,
     sending,
     refresh,
     appendMessage,

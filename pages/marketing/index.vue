@@ -14,7 +14,7 @@ const canCreate = computed(() => workspace.can('marketing.social.create'))
 const canReports = computed(() => workspace.can('marketing.social.reports'))
 const canIntegrations = computed(() => workspace.can('marketing.social.integrations'))
 
-const { data: overview, pending } = useMarketingFetch({
+const { data: overview, showSkeleton } = useMarketingFetch({
   key: () => `marketing-social-overview-${tenantId.value}`,
   handler: async () => {
     const response = await $fetch<{ data: Record<string, number> }>('/api/marketing/social/overview', {
@@ -45,7 +45,7 @@ const cards = computed(() => {
 </script>
 
 <template>
-  <MarketingPageSkeleton v-if="pending" variant="dashboard" />
+  <MarketingPageSkeleton v-if="showSkeleton" variant="dashboard" />
   <div v-else class="space-y-8">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>

@@ -1,5 +1,9 @@
 import type { MaybeRefOrGetter, Ref, WatchSource } from 'vue'
 
+const DEFAULT_TTL_MS = 45_000
+
+type CacheMeta = { at: number }
+
 export interface UseMarketingFetchOptions<T> {
   /** Unique cache key — string or getter/computed that returns a string. */
   key: MaybeRefOrGetter<string>
@@ -9,27 +13,32 @@ export interface UseMarketingFetchOptions<T> {
   /** When false, skip the request and reset to default. */
   enabled?: MaybeRefOrGetter<boolean>
   immediate?: boolean
+  /** Skip network when cached data is younger than this (ms). Default 45s. */
+  ttlMs?: number
 }
 
 export interface UseMarketingFetchReturn<T> {
   data: Ref<T>
   pending: Ref<boolean>
+  /** True only on first load without payload cache (SWR keeps previous data visible). */
+  showSkeleton: Ref<boolean>
   error: Ref<unknown>
   refresh: () => Promise<void>
 }
 
 /**
  * Non-blocking marketing data loader based on `$fetch`.
- * Avoids Nuxt `useAsyncData` / `useLazyAsyncData` key quirks, paints skeletons
- * immediately, and reuses `payload.data` as a simple SWR cache.
+ * Paints from `payload.data` immediately and revalidates only after TTL.
  */
 export function useMarketingFetch<T>(
   options: UseMarketingFetchOptions<T>,
 ): UseMarketingFetchReturn<T> {
   const nuxtApp = useNuxtApp()
+  const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS
   const data = ref(options.default()) as Ref<T>
-  const pending = ref(options.immediate !== false)
+  const pending = ref(false)
   const error = ref<unknown>(null)
+  const stamps = useState<Record<string, CacheMeta>>('marketing-fetch-stamps', () => ({}))
 
   let requestId = 0
 
@@ -50,9 +59,17 @@ export function useMarketingFetch<T>(
 
   function writeCache(key: string, value: T): void {
     nuxtApp.payload.data[key] = value
+    stamps.value = { ...stamps.value, [key]: { at: Date.now() } }
   }
 
-  async function refresh(): Promise<void> {
+  function isFresh(key: string): boolean {
+    const meta = stamps.value[key]
+    if (!meta)
+      return false
+    return Date.now() - meta.at < ttlMs
+  }
+
+  async function refresh(force = false): Promise<void> {
     const currentRequest = ++requestId
     const key = resolveKey()
 
@@ -69,6 +86,8 @@ export function useMarketingFetch<T>(
     if (cached !== undefined) {
       data.value = cached
       pending.value = false
+      if (!force && isFresh(key))
+        return
     }
     else {
       pending.value = true
@@ -95,6 +114,12 @@ export function useMarketingFetch<T>(
     }
   }
 
+  const showSkeletonSafe = computed(() => {
+    if (!pending.value)
+      return false
+    return readCache(resolveKey()) === undefined
+  })
+
   const watchSources: WatchSource[] = [
     () => resolveKey(),
     ...(options.watch || []),
@@ -103,7 +128,7 @@ export function useMarketingFetch<T>(
     watchSources.push(() => isEnabled())
 
   watch(watchSources, () => {
-    void refresh()
+    void refresh(false)
   }, { flush: 'post' })
 
   if (options.immediate !== false) {
@@ -113,8 +138,17 @@ export function useMarketingFetch<T>(
       data.value = cached
       pending.value = false
     }
-    void refresh()
+    else {
+      pending.value = true
+    }
+    void refresh(false)
   }
 
-  return { data, pending, error, refresh }
+  return {
+    data,
+    pending,
+    showSkeleton: showSkeletonSafe,
+    error,
+    refresh: () => refresh(true),
+  }
 }

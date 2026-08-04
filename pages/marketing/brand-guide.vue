@@ -23,7 +23,7 @@ const form = ref({
   legalNotes: '',
 })
 
-const { pending, refresh } = useMarketingFetch({
+const { pending, showSkeleton, refresh } = useMarketingFetch({
   key: () => `brand-guide-${social.tenantId.value}`,
   handler: async () => {
     const response = await $fetch<{ data: any }>('/api/marketing/social/brand-guide', {
@@ -102,7 +102,7 @@ async function save() {
       </Button>
     </div>
 
-    <MarketingPageSkeleton v-if="pending" variant="detail" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="detail" />
 
     <Card v-else>
       <CardContent class="space-y-4 p-4">

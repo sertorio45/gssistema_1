@@ -21,7 +21,7 @@ const creatingFolder = ref(false)
 const { can } = useWorkspace()
 const canManageLibrary = computed(() => can('marketing.social.library.manage'))
 
-const { data: assets, pending, refresh } = useMarketingFetch({
+const { data: assets, showSkeleton, refresh } = useMarketingFetch({
   key: () => `marketing-library-${social.tenantId.value}-${category.value}`,
   handler: () => social.listAssets({
     ...(category.value !== 'all' ? { category: category.value } : {}),
@@ -230,7 +230,7 @@ function deleteFromPreview() {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="10" content-only />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="grid" :cards="10" content-only />
 
     <div v-else-if="filteredAssets.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
       <Card

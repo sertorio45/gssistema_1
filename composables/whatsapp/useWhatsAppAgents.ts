@@ -5,21 +5,21 @@ export function useWhatsAppAgents() {
 
   const cacheKey = computed(() => `whatsapp-agents-${tenantId.value}`)
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return [] as import('~/types/whatsapp').WhatsAppAgent[]
+        return null
 
       const response = await $fetch<{ data: import('~/types/whatsapp').WhatsAppAgent[] }>('/api/whatsapp/agents', {
         query: { tenant_id: tenantId.value },
       })
       return response.data || []
     },
-    { watch: [tenantId], default: () => [], server: false },
+    { watch: [tenantId], default: () => null, server: false },
   )
 
-  const agents = computed(() => data.value || [])
+  const agents = computed(() => data.value ?? [])
 
   async function createAgent(payload: {
     name: string
@@ -87,6 +87,7 @@ export function useWhatsAppAgents() {
   return {
     agents,
     pending,
+    showSkeleton,
     refresh,
     createAgent,
     updateAgent,

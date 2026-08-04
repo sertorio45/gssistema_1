@@ -27,13 +27,13 @@ const selectedContact = ref<Contact | null>(null)
 const isDialogOpen = ref(false)
 const selectedItems = ref<number[]>([])
 
-// Use useLazyAsyncData for proper SSR handling
 const {
   data: contactsData,
   pending,
   refresh,
-} = await useLazyAsyncData(
-  'contacts',
+  showSkeleton,
+} = await useCachedAsyncData<Contact[]>(
+  computed(() => `crm-contacts-${tenantId.value ?? 'none'}`),
   async () => {
     if (!tenantId.value)
       return []
@@ -55,10 +55,12 @@ const {
     }))
   },
   {
-    default: () => [],
+    default: () => null,
     watch: [tenantId],
   },
 )
+
+const contacts = computed(() => contactsData.value ?? [])
 
 function updateSelectedItems(items: number[]) {
   selectedItems.value = items
@@ -69,7 +71,7 @@ async function handleMultiDelete() {
     return
 
   const toDelete = selectedItems.value
-    .map(idx => contactsData.value?.[idx])
+    .map(idx => contacts.value[idx])
     .filter((contact): contact is Contact => Boolean(contact))
   const count = toDelete.length
 
@@ -159,7 +161,7 @@ function handleContactSaved() {
     </div>
 
     <!-- DataTable with Skeleton -->
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">
@@ -174,7 +176,7 @@ function handleContactSaved() {
     <template v-else>
       <!-- DataTable -->
       <DataTable
-        :data="contactsData || []"
+        :data="contacts"
         :columns="columns"
         :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
         @selection-change="updateSelectedItems"

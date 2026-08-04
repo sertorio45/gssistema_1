@@ -30,7 +30,7 @@ const agentId = computed(() => route.params.id as string)
 const { tenantId } = useTenant()
 const { updateAgent, testAgent, addAgentTool, removeAgentTool } = useWhatsAppAgents()
 
-const { data, pending, refresh } = await useAsyncData(
+const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
   () => `whatsapp-agent-${agentId.value}-${tenantId.value}`,
   async () => {
     if (!tenantId.value || !agentId.value)
@@ -39,7 +39,7 @@ const { data, pending, refresh } = await useAsyncData(
       query: { tenant_id: tenantId.value },
     })
   },
-  { watch: [tenantId, agentId] },
+  { watch: [tenantId, agentId], default: () => null },
 )
 
 const agent = computed(() => data.value?.data)
@@ -160,7 +160,7 @@ const internalTools = [
       </template>
     </WhatsAppPageHeader>
 
-    <Skeleton v-if="pending" class="h-48 w-full rounded-xl" />
+    <Skeleton v-if="showSkeleton" class="h-48 w-full rounded-xl" />
 
     <div v-else-if="agent" class="grid gap-6 xl:grid-cols-3">
       <div class="space-y-6 xl:col-span-2">

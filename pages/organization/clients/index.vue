@@ -19,8 +19,8 @@ const organizationId = computed(() => organization.value?.id ?? null)
 const canManage = computed(() => can('agency.clients.manage'))
 const canIntegrations = computed(() => can('marketing.social.integrations'))
 
-const { data: clients, pending, refresh } = await useAsyncData<AgencyClientRow[]>(
-  'agency-clients',
+const { data: clientsRaw, pending, refresh, showSkeleton } = await useCachedAsyncData<AgencyClientRow[]>(
+  computed(() => `agency-clients-${organizationId.value ?? 'none'}`),
   async () => {
     if (!organizationId.value)
       return []
@@ -29,8 +29,10 @@ const { data: clients, pending, refresh } = await useAsyncData<AgencyClientRow[]
     )
     return response.data
   },
-  { default: () => [], watch: [organizationId] },
+  { default: () => null, watch: [organizationId] },
 )
+
+const clients = computed(() => clientsRaw.value ?? [])
 
 const search = ref('')
 const busyTenantId = ref<string | null>(null)
@@ -108,7 +110,7 @@ async function deactivateClient(client: AgencyClientRow) {
       <Input v-model="search" class="pl-9" placeholder="Buscar cliente..." />
     </div>
 
-    <div v-if="pending" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div v-if="showSkeleton" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       <Skeleton v-for="n in 6" :key="n" class="h-56 rounded-lg" />
     </div>
 

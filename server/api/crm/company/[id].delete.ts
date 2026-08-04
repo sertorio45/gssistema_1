@@ -31,14 +31,19 @@ export default defineEventHandler(async (event) => {
   if (!existing)
     throw createError({ statusCode: 404, statusMessage: 'Empresa não encontrada' })
 
-  const { error } = await supabase
+  const { data: deleted, error } = await supabase
     .from('crm_company')
     .delete()
     .eq('id', companyId)
     .eq('tenant_id', tenantId)
+    .select('id')
+    .maybeSingle()
 
   if (error)
     throw createError({ statusCode: 400, statusMessage: error.message })
+
+  if (!deleted)
+    throw createError({ statusCode: 404, statusMessage: 'Empresa não encontrada' })
 
   return { success: true }
 })

@@ -1,7 +1,7 @@
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
+import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 
-/** Hard-delete product permanently. */
+/** Soft-toggle product active flag (deactivate / reactivate). */
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
@@ -9,31 +9,33 @@ export default defineEventHandler(async (event) => {
   }
 
   const id = getRouterParam(event, 'id')
-  const query = getQuery(event)
-  const tenant_id = String(query.tenant_id || '')
+  const body = await readBody(event) as { tenant_id?: string, active?: boolean }
 
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: 'ID is required' })
   }
-  if (!tenant_id) {
+  if (!body?.tenant_id) {
     throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+  }
+  if (typeof body.active !== 'boolean') {
+    throw createError({ statusCode: 400, statusMessage: 'active (boolean) is required' })
   }
 
   const client = serverSupabaseServiceRole(event)
-  const { data: deleted, error } = await client
+  const { data, error } = await client
     .from('crm_products')
-    .delete()
+    .update({ active: body.active, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('tenant_id', tenant_id)
-    .select('id')
+    .eq('tenant_id', body.tenant_id)
+    .select()
     .maybeSingle()
 
   if (error) {
     throw createError({ statusCode: 400, statusMessage: error.message })
   }
-  if (!deleted) {
+  if (!data) {
     throw createError({ statusCode: 404, statusMessage: 'Produto não encontrado' })
   }
 
-  return { success: true }
+  return { success: true, data }
 })

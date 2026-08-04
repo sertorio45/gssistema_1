@@ -16,11 +16,11 @@ export function useWhatsAppCampaigns() {
     () => `whatsapp-campaigns-${tenantId.value}-${statusFilter.value}-${search.value}`,
   )
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return { data: [] as WhatsAppCampaign[], total: 0 }
+        return null
 
       const response = await $fetch<{ data: WhatsAppCampaign[], total: number }>(
         '/api/whatsapp/campaigns',
@@ -35,11 +35,11 @@ export function useWhatsAppCampaigns() {
       )
       return response
     },
-    { watch: [tenantId, statusFilter, search], default: () => ({ data: [], total: 0 }), server: false },
+    { watch: [tenantId, statusFilter, search], default: () => null, server: false },
   )
 
-  const campaigns = computed(() => data.value?.data || [])
-  const total = computed(() => data.value?.total || 0)
+  const campaigns = computed(() => data.value?.data ?? [])
+  const total = computed(() => data.value?.total ?? 0)
 
   async function createCampaign(payload: Omit<CreateWhatsAppCampaignPayload, 'tenant_id'>) {
     const response = await $fetch<{ data: WhatsAppCampaign }>('/api/whatsapp/campaigns', {
@@ -118,6 +118,7 @@ export function useWhatsAppCampaigns() {
     campaigns,
     total,
     pending,
+    showSkeleton,
     search,
     statusFilter,
     refresh,

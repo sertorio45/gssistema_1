@@ -77,9 +77,13 @@ async function fetchStages() {
 const {
   data: funnelsRaw,
   refresh: refreshFunnels,
-} = await useAsyncData('crm-funnel', () => $fetch('/api/crm/funnel', { query: { tenant_id: tenantId.value } }), { watch: [tenantId] })
+} = await useCachedAsyncData<any[]>(
+  computed(() => `crm-funnel-${tenantId.value ?? 'none'}`),
+  () => $fetch('/api/crm/funnel', { query: { tenant_id: tenantId.value } }),
+  { watch: [tenantId], default: () => null, server: false },
+)
 
-const funnelsArray = computed(() => Array.isArray(funnelsRaw.value) ? funnelsRaw.value : [])
+const funnelsArray = computed(() => funnelsRaw.value ?? [])
 const { filteredData: funnelsByTenant } = useTenantRoleFilter<any>(funnelsArray, 'tenant_id')
 
 const filteredFunnels = computed(() => {

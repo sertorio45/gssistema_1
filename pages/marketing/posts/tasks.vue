@@ -19,7 +19,7 @@ const social = useMarketingSocial()
 const queue = ref<'mine' | 'designer' | 'copywriter' | 'social_media' | 'reviewer' | 'overdue'>('mine')
 const canManageTasks = computed(() => can('marketing.social.tasks.manage') || can('marketing.social.manage'))
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, showSkeleton, refresh } = useMarketingFetch({
   key: () => `production-tasks-${social.tenantId.value}-${queue.value}`,
   handler: () => $fetch<{ data: any[] }>('/api/marketing/social/production/tasks', {
     query: {
@@ -97,7 +97,7 @@ const queues = [
       </Button>
     </div>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="list" />
 
     <div v-else-if="!(data?.data || []).length" class="rounded-xl border p-8 text-center text-sm text-muted-foreground">
       Nenhuma tarefa nesta fila.

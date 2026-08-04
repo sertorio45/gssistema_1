@@ -14,11 +14,11 @@ export function useWhatsAppContacts() {
     () => `whatsapp-contacts-${tenantId.value}-${search.value}-${page.value}`,
   )
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return { data: [] as WhatsAppContact[], total: 0, page: 1, limit: 20 }
+        return null
 
       return $fetch<{ data: WhatsAppContact[], total: number, page: number, limit: number }>(
         '/api/whatsapp/contacts',
@@ -32,11 +32,11 @@ export function useWhatsAppContacts() {
         },
       )
     },
-    { watch: [tenantId, search, page, limit], default: () => ({ data: [], total: 0, page: 1, limit: 20 }), server: false },
+    { watch: [tenantId, search, page, limit], default: () => null, server: false },
   )
 
-  const contacts = computed(() => data.value?.data || [])
-  const total = computed(() => data.value?.total || 0)
+  const contacts = computed(() => data.value?.data ?? [])
+  const total = computed(() => data.value?.total ?? 0)
 
   async function createContact(payload: Omit<CreateWhatsAppContactPayload, 'tenant_id'>) {
     const response = await $fetch<{ data: WhatsAppContact }>('/api/whatsapp/contacts', {
@@ -97,6 +97,7 @@ export function useWhatsAppContacts() {
     contacts,
     total,
     pending,
+    showSkeleton,
     search,
     page,
     limit,

@@ -37,21 +37,21 @@ const {
   data: sourcesRaw,
   pending,
   refresh: refreshSources,
-} = await useAsyncData<any[]>(
-  'crm-lead-sources',
+  showSkeleton,
+} = await useCachedAsyncData<any[]>(
+  computed(() => `crm-lead-sources-${tenantId.value ?? 'none'}`),
   () =>
     $fetch('/api/crm/lead_source', {
       query: { tenant_id: tenantId.value },
     }),
   {
     watch: [tenantId],
-    default: () => [],
+    default: () => null,
     server: false,
   },
 )
 
-// Garante que sourcesRaw.value é sempre array
-const sourcesArray = computed(() => (Array.isArray(sourcesRaw.value) ? sourcesRaw.value : []))
+const sourcesArray = computed(() => sourcesRaw.value ?? [])
 // Filtra por tenant (cliente/admin/funcionário)
 const { filteredData: sourcesByTenant } = useTenantRoleFilter<any>(sourcesArray, 'tenant_id')
 
@@ -200,7 +200,7 @@ watch(tenantId, (val) => {
         Nova Origem
       </Button>
     </div>
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">
@@ -213,21 +213,7 @@ watch(tenantId, (val) => {
       </Card>
     </div>
     <template v-else>
-      <!-- DataTable with Skeleton -->
-      <div v-if="pending" class="space-y-4">
-        <Card class="border shadow-sm">
-          <CardContent class="p-4">
-            <div class="space-y-2">
-              <Skeleton class="h-8 w-[250px]" />
-              <Skeleton class="h-8 w-full" />
-              <Skeleton class="h-8 w-full" />
-              <Skeleton class="h-8 w-full" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      <template v-else>
-        <DataTable
+      <DataTable
           :data="filteredSources"
           :columns="sourceColumns"
           :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
@@ -244,7 +230,6 @@ watch(tenantId, (val) => {
             <DataTablePagination :table="table" />
           </template>
         </DataTable>
-      </template>
       <MultiActionBar
         v-if="selectedItems.length > 0"
         :count="selectedItems.length"

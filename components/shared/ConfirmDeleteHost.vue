@@ -1,29 +1,30 @@
 <script setup lang="ts">
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog'
+import Button from '~/components/ui/button/Button.vue'
 import { useConfirmDeleteHost } from '~/composables/useConfirmDelete'
 
 const { state, acceptConfirm, cancelConfirm } = useConfirmDeleteHost()
 
-const open = computed({
-  get: () => state.value.open,
-  set: (value: boolean) => {
-    if (!value)
-      cancelConfirm()
-  },
-})
+/**
+ * Radix AlertDialogAction closes the dialog before our click handler can resolve
+ * the promise as `true`, which made @update:open(false) cancel the delete.
+ * Plain Buttons keep open state fully controlled by our composable.
+ */
+function onOpenChange(value: boolean) {
+  if (!value)
+    cancelConfirm()
+}
 </script>
 
 <template>
-  <AlertDialog :open="open" @update:open="open = $event">
+  <AlertDialog :open="state.open" @update:open="onOpenChange">
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>
@@ -34,15 +35,16 @@ const open = computed({
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel @click="cancelConfirm">
+        <Button type="button" variant="outline" @click="cancelConfirm">
           {{ state.cancelLabel }}
-        </AlertDialogCancel>
-        <AlertDialogAction
-          class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          @click.prevent="acceptConfirm"
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          @click="acceptConfirm"
         >
           {{ state.confirmLabel }}
-        </AlertDialogAction>
+        </Button>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>

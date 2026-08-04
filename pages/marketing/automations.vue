@@ -13,7 +13,7 @@ const canRead = computed(() => can('marketing.social.automations.read'))
 const canManage = computed(() => can('marketing.social.automations.manage'))
 const toggling = ref<string | null>(null)
 
-const { data: rulesResponse, pending, refresh } = useMarketingFetch({
+const { data: rulesResponse, showSkeleton, refresh } = useMarketingFetch({
   key: () => `automations-rules-${social.tenantId.value}`,
   handler: () => $fetch<{ data: any[] }>('/api/marketing/social/automations', {
     query: { tenant_id: social.tenantId.value || undefined },
@@ -78,7 +78,7 @@ const statusLabels: Record<string, string> = {
     </Card>
 
     <template v-else>
-      <MarketingPageSkeleton v-if="pending" variant="list" />
+      <MarketingPageSkeleton v-if="showSkeleton" variant="list" />
 
       <div v-else class="space-y-3">
         <Card v-for="rule in rulesResponse?.data || []" :key="rule.triggerKey">

@@ -17,6 +17,7 @@ definePageMeta({
 const {
   instances,
   pending,
+  showSkeleton,
   refresh,
   connectInstance,
   disconnectInstance,
@@ -190,7 +191,7 @@ async function handleDelete(id: string) {
       </AlertDescription>
     </Alert>
 
-    <div v-if="pending" class="grid gap-4 md:grid-cols-2">
+    <div v-if="showSkeleton" class="grid gap-4 md:grid-cols-2">
       <Skeleton v-for="i in 2" :key="i" class="h-64 w-full rounded-xl" />
     </div>
 

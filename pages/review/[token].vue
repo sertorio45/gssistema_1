@@ -30,6 +30,8 @@ const { data, pending, error, refresh } = await useAsyncData(
   { watch: [token] },
 )
 
+const showSkeleton = useInitialSkeleton(pending, data)
+
 const review = computed(() => data.value?.data || null)
 const content = computed(() => review.value?.content || null)
 const brand = computed(() => review.value?.brand || { product: 'Blimber' })
@@ -157,7 +159,7 @@ async function sendComment() {
     </header>
 
     <main class="mx-auto max-w-5xl px-4 py-6">
-      <div v-if="pending" class="space-y-4">
+      <div v-if="showSkeleton" class="space-y-4">
         <Skeleton class="h-10 w-48" />
         <Skeleton class="h-80 w-full rounded-xl" />
       </div>

@@ -22,7 +22,7 @@ definePageMeta({
   description: 'Relatórios e analytics do WhatsApp',
 })
 
-const { periodDays, analytics, pending, refresh, exportCsv } = useWhatsAppReports()
+const { periodDays, analytics, pending, showSkeleton, refresh, exportCsv } = useWhatsAppReports()
 
 const periodModel = computed({
   get: () => String(periodDays.value),
@@ -66,19 +66,19 @@ const periodModel = computed({
       </template>
     </WhatsAppPageHeader>
 
-    <DashboardKpiGrid :overview="analytics?.overview" :loading="pending" />
+    <DashboardKpiGrid :overview="analytics?.overview" :loading="showSkeleton" />
 
     <div class="grid gap-4 xl:grid-cols-3">
       <div class="xl:col-span-2">
         <MessagesVolumeChart
           :data="analytics?.messagesByDay ?? []"
-          :loading="pending"
+          :loading="showSkeleton"
           :period-days="periodDays"
         />
       </div>
       <ConversationsStatusChart
         :data="analytics?.conversationsByStatus ?? []"
-        :loading="pending"
+        :loading="showSkeleton"
       />
     </div>
 
@@ -90,7 +90,7 @@ const periodModel = computed({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending" class="h-24 w-full" />
+          <Skeleton v-if="showSkeleton" class="h-24 w-full" />
           <div v-else-if="analytics?.campaigns.length" class="space-y-2 text-sm">
             <div
               v-for="campaign in analytics.campaigns"
@@ -123,7 +123,7 @@ const periodModel = computed({
           </CardTitle>
         </CardHeader>
         <CardContent class="space-y-2 text-sm">
-          <Skeleton v-if="pending" class="h-24 w-full" />
+          <Skeleton v-if="showSkeleton" class="h-24 w-full" />
           <template v-else-if="analytics">
             <div class="flex justify-between">
               <span>Execuções</span>
@@ -152,7 +152,7 @@ const periodModel = computed({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Skeleton v-if="pending" class="h-24 w-full" />
+          <Skeleton v-if="showSkeleton" class="h-24 w-full" />
           <div v-else-if="analytics" class="space-y-3 text-sm">
             <div class="flex justify-between">
               <span>Sessões</span>

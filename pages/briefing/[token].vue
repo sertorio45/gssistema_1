@@ -19,6 +19,8 @@ const { data, pending, error } = await useAsyncData(
   { watch: [token] },
 )
 
+const showSkeleton = useInitialSkeleton(pending, data)
+
 const briefing = computed(() => data.value?.data?.briefing || null)
 const brand = computed(() => data.value?.data?.brand || { product: 'Blimber' })
 const fields = computed(() => briefing.value?.fields || [])
@@ -84,7 +86,7 @@ async function submit() {
         </p>
       </div>
 
-      <div v-if="pending" class="space-y-2">
+      <div v-if="showSkeleton" class="space-y-2">
         <Skeleton class="h-10 w-full" />
         <Skeleton class="h-24 w-full" />
       </div>

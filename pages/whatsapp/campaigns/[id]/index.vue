@@ -25,14 +25,14 @@ const recipients = ref<WhatsAppCampaignRecipient[]>([])
 const recipientsPending = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
-const { data, pending, refresh } = await useAsyncData(
+const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
   () => `whatsapp-campaign-${campaignId.value}-${tenantId.value}`,
   async () => {
     if (!tenantId.value || !campaignId.value)
       return null
     return fetchCampaign(campaignId.value)
   },
-  { watch: [tenantId, campaignId] },
+  { watch: [tenantId, campaignId], default: () => null },
 )
 
 const campaign = computed(() => data.value?.data as WhatsAppCampaign | undefined)
@@ -160,7 +160,7 @@ async function handlePause() {
       </template>
     </WhatsAppPageHeader>
 
-    <Skeleton v-if="pending" class="mb-6 h-40 w-full" />
+    <Skeleton v-if="showSkeleton" class="mb-6 h-40 w-full" />
 
     <template v-else-if="campaign">
       <div class="mb-6 grid gap-4 md:grid-cols-4">

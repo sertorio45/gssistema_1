@@ -86,9 +86,14 @@ export default defineEventHandler(async (event) => {
 
   const ownerEmails = new Map<string, string | null>()
   if (ownerIds.length) {
-    const { data: listed } = await context.client.auth.admin.listUsers({ page: 1, perPage: 200 })
-    for (const user of listed?.users || []) {
-      if (ownerIds.includes(user.id))
+    const users = await Promise.all(
+      ownerIds.map(async (id) => {
+        const { data } = await context.client.auth.admin.getUserById(id)
+        return data.user
+      }),
+    )
+    for (const user of users) {
+      if (user)
         ownerEmails.set(user.id, user.email ?? null)
     }
   }

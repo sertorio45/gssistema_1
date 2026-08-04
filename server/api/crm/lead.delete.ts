@@ -1,32 +1,44 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
-
-import { createError, defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, getQuery, readBody } from 'h3'
 
 export default defineEventHandler(async (event) => {
   try {
-    const client = await serverSupabaseServiceRole(event)
-    const body = await readBody(event)
-    if (!body.id)
-      throw createError({ statusCode: 400, message: 'ID é obrigatório' })
-    let tenantId = body.tenant_id || event.context.auth?.tenantId
+    const client = serverSupabaseServiceRole(event)
+    const query = getQuery(event)
+    const body = await readBody(event).catch(() => ({} as Record<string, unknown>))
+
+    const id = String(body?.id || query.id || '')
+    let tenantId = String(body?.tenant_id || query.tenant_id || event.context.auth?.tenantId || '')
+
     if (!tenantId) {
       const {
         data: { user },
       } = await client.auth.getUser()
-      if (user && user.user_metadata?.tenant_id) {
-        tenantId = user.user_metadata.tenant_id
-      }
+      if (user?.user_metadata?.tenant_id)
+        tenantId = String(user.user_metadata.tenant_id)
+    }
+
+    if (!id) {
+      throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
     }
     if (!tenantId) {
-      throw createError({ statusCode: 400, message: 'Não foi possível identificar o tenant_id' })
+      throw createError({ statusCode: 400, statusMessage: 'Não foi possível identificar o tenant_id' })
     }
-    const { error } = await client.from('crm_lead').delete().eq('id', body.id).eq('tenant_id', tenantId)
+
+    const { data: deleted, error } = await client.from('crm_lead').delete().eq('id', id).eq('tenant_id', tenantId).select('id').maybeSingle()
     if (error) {
-      throw createError({ statusCode: 500, message: error.message || 'Falha ao remover lead' })
+      throw createError({ statusCode: 500, statusMessage: error.message || 'Falha ao remover lead' })
     }
-    return { statusCode: 200, message: 'Removido com sucesso' }
+    if (!deleted) {
+      throw createError({ statusCode: 404, statusMessage: 'Lead não encontrado' })
+    }
+
+    return { success: true, message: 'Removido com sucesso' }
   }
-  catch (error) {
-    throw createError({ statusCode: error.statusCode || 500, message: error.message || 'Erro interno do servidor' })
+  catch (error: any) {
+    throw createError({
+      statusCode: error.statusCode || 500,
+      statusMessage: error.statusMessage || error.message || 'Erro interno do servidor',
+    })
   }
 })

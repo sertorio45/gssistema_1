@@ -22,29 +22,29 @@ export function useWhatsAppConversations() {
     () => `whatsapp-conversations-${tenantId.value}-${inboxStore.activeInstanceId || 'all'}-${inboxStore.filters.status}-${inboxStore.filters.search}-${inboxStore.filters.unreadOnly}-${inboxStore.filters.assignedToMe}`,
   )
 
-  const { data, pending, refresh } = useAsyncData(
+  const { data, pending, refresh, showSkeleton } = useCachedAsyncData(
     cacheKey,
     async () => {
       if (!tenantId.value)
-        return [] as WhatsAppConversation[]
+        return null
 
       const response = await $fetch<{ data: WhatsAppConversation[] }>('/api/whatsapp/conversations', {
         query: queryParams.value,
       })
       return response.data || []
     },
-    { watch: [tenantId, queryParams], default: () => [], server: false },
+    { watch: [tenantId, queryParams], default: () => null, server: false },
   )
 
   const conversations = computed({
-    get: () => data.value || [],
+    get: () => data.value ?? [],
     set: (value: WhatsAppConversation[]) => {
       data.value = value
     },
   })
 
   function upsertConversation(conversation: WhatsAppConversation) {
-    const list = [...(data.value || [])]
+    const list = [...(data.value ?? [])]
     const key = conversationListKey(conversation)
     const existing = list.find(item => item.id === conversation.id)
 
@@ -102,7 +102,7 @@ export function useWhatsAppConversations() {
       method: 'DELETE',
       query: { tenant_id: tenantId.value },
     })
-    data.value = (data.value || []).filter(item => item.id !== id)
+    data.value = (data.value ?? []).filter(item => item.id !== id)
   }
 
   async function syncConversationToCrm(
@@ -205,7 +205,7 @@ export function useWhatsAppConversations() {
       },
     })
 
-    const conversation = (data.value || []).find(item => item.id === id)
+    const conversation = (data.value ?? []).find(item => item.id === id)
     if (conversation) {
       upsertConversation({
         ...conversation,
@@ -220,6 +220,7 @@ export function useWhatsAppConversations() {
   return {
     conversations,
     pending,
+    showSkeleton,
     refresh,
     upsertConversation,
     updateConversation,

@@ -59,12 +59,20 @@ const queryParams = computed(() => {
   return q
 })
 
+const productsCacheKey = computed(() => {
+  const tid = tenantId.value
+  if (!tid)
+    return 'crm-products-empty'
+  return `crm-products-${tid}-${filterType.value}-${filterCategory.value}-${filterActive.value}`
+})
+
 const {
   data: productsRaw,
   pending,
   refresh,
-} = await useLazyAsyncData<Product[]>(
-  'crm-products',
+  showSkeleton,
+} = await useCachedAsyncData<Product[]>(
+  productsCacheKey,
   async () => {
     if (!queryParams.value)
       return []
@@ -72,25 +80,19 @@ const {
   },
   {
     watch: [tenantId, filterType, filterCategory, filterActive],
-    default: () => [],
+    default: () => null,
     server: false,
   },
 )
 
-const products = computed(() => {
-  const raw = productsRaw.value
-  return Array.isArray(raw) ? raw : []
-})
+const products = computed(() => productsRaw.value ?? [])
 
-const { data: categoriesRaw } = await useLazyAsyncData<ProductCategory[]>(
-  'crm-products-categories',
+const { data: categoriesRaw } = await useCachedAsyncData<ProductCategory[]>(
+  computed(() => `crm-products-categories-${tenantId.value ?? 'none'}`),
   () => tenantId.value ? $fetch<ProductCategory[]>('/api/crm/products/categories', { query: { tenant_id: tenantId.value } }) : Promise.resolve([]),
-  { watch: [tenantId], default: () => [], server: false },
+  { watch: [tenantId], default: () => null, server: false },
 )
-const categoriesList = computed(() => {
-  const raw = categoriesRaw.value
-  return Array.isArray(raw) ? raw : []
-})
+const categoriesList = computed(() => categoriesRaw.value ?? [])
 
 const totalProducts = computed(() => products.value.length)
 const recurringCount = computed(() => products.value.filter(p => p.type === 'recorrente').length)
@@ -129,6 +131,39 @@ function handleProductSaved() {
   refresh()
 }
 
+async function setProductActive(product: Product, active: boolean) {
+  if (!tenantId.value)
+    return
+
+  const actionLabel = active ? 'reativar' : 'desativar'
+  const confirmed = await deleteWithConfirm(
+    () => $fetch(`/api/crm/products/${product.id}/status`, {
+      method: 'PUT',
+      body: { tenant_id: tenantId.value, active },
+    }),
+    {
+      title: active ? 'Reativar produto?' : 'Desativar produto?',
+      description: active
+        ? `Deseja reativar "${product.name}"?`
+        : `O produto "${product.name}" será marcado como inativo. Você pode reativá-lo depois.`,
+      confirmLabel: active ? 'Reativar' : 'Desativar',
+      successMessage: active ? 'Produto reativado.' : 'Produto desativado.',
+      errorMessage: `Não foi possível ${actionLabel} o produto.`,
+    },
+  )
+
+  if (confirmed)
+    refresh()
+}
+
+async function handleDeactivate(product: Product) {
+  await setProductActive(product, false)
+}
+
+async function handleReactivate(product: Product) {
+  await setProductActive(product, true)
+}
+
 async function handleDelete(product: Product) {
   if (!tenantId.value)
     return
@@ -136,11 +171,11 @@ async function handleDelete(product: Product) {
   const deleted = await deleteWithConfirm(
     () => $fetch(`/api/crm/products/${product.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
     {
-      title: 'Desativar produto?',
-      description: 'O produto será marcado como inativo. Você pode reativá-lo depois.',
-      confirmLabel: 'Desativar',
-      successMessage: 'Produto desativado.',
-      errorMessage: 'Não foi possível desativar o produto.',
+      title: 'Excluir produto?',
+      description: `Tem certeza que deseja excluir permanentemente "${product.name}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir',
+      successMessage: 'Produto excluído com sucesso.',
+      errorMessage: 'Não foi possível excluir o produto.',
     },
   )
 
@@ -153,22 +188,22 @@ async function handleMultiDelete() {
   if (!tid || !selectedItems.value.length)
     return
 
-  const toSoftDelete = selectedItems.value.map(i => products.value[i]).filter(Boolean)
-  const count = toSoftDelete.length
+  const toDelete = selectedItems.value.map(i => products.value[i]).filter(Boolean)
+  const count = toDelete.length
 
   if (!count)
     return
 
   const deleted = await deleteWithConfirm(
-    () => Promise.all(toSoftDelete.map(p =>
+    () => Promise.all(toDelete.map(p =>
       $fetch(`/api/crm/products/${p.id}?tenant_id=${tid}`, { method: 'DELETE' }),
     )),
     {
-      title: `Desativar ${count} produto(s)?`,
-      description: 'Os produtos serão marcados como inativos. Você pode reativá-los depois.',
-      confirmLabel: 'Desativar todos',
-      successMessage: `${count} produto(s) desativado(s).`,
-      errorMessage: 'Não foi possível desativar os produtos.',
+      title: `Excluir ${count} produto(s)?`,
+      description: 'Os produtos selecionados serão removidos permanentemente. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir todos',
+      successMessage: `${count} produto(s) excluído(s).`,
+      errorMessage: 'Não foi possível excluir os produtos.',
     },
   )
 
@@ -205,7 +240,7 @@ async function handleMultiDelete() {
 
     <!-- Stats -->
     <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card v-if="pending">
+      <Card v-if="showSkeleton">
         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
           <Skeleton class="h-4 w-24" />
         </CardHeader>
@@ -307,25 +342,25 @@ async function handleMultiDelete() {
         </SelectContent>
       </Select>
       <Select v-model="filterActive">
-        <SelectTrigger class="w-[140px]">
+        <SelectTrigger class="w-[160px]">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem :value="FILTER_ALL">
-            Todos
+            Todos (ativos e inativos)
           </SelectItem>
           <SelectItem value="true">
-            Ativo
+            Somente ativos
           </SelectItem>
           <SelectItem value="false">
-            Inativo
+            Somente inativos
           </SelectItem>
         </SelectContent>
       </Select>
     </div>
 
     <!-- DataTable com Skeleton -->
-    <div v-if="pending" class="space-y-4">
+    <div v-if="showSkeleton" class="space-y-4">
       <Card class="border shadow-sm">
         <CardContent class="p-4">
           <div class="space-y-2">
@@ -343,7 +378,12 @@ async function handleMultiDelete() {
       <DataTable
         :data="products"
         :columns="columns"
-        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
+        :meta="{
+          onEdit: handleEdit,
+          onDeactivate: handleDeactivate,
+          onReactivate: handleReactivate,
+          onDelete: handleDelete,
+        }"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">

@@ -159,6 +159,12 @@ async function ensureDraft() {
 async function saveDraft(advance = false) {
   if (!organizationId.value)
     return
+
+  if (advance && currentStep.value === 'client_invite' && !form.value.inviteEmail.trim()) {
+    toast.error('Informe o e-mail do aprovador para enviar o convite oficial.')
+    return
+  }
+
   saving.value = true
   try {
     const id = await ensureDraft()
@@ -186,6 +192,12 @@ async function saveDraft(advance = false) {
 async function complete() {
   if (!organizationId.value)
     return
+
+  if (!form.value.inviteEmail?.trim()) {
+    toast.error('Informe o e-mail do aprovador do cliente para enviar o convite.')
+    return
+  }
+
   completing.value = true
   try {
     const id = await ensureDraft()
@@ -194,7 +206,7 @@ async function complete() {
       body: { currentStep: 'review', payload: buildPayload() },
     })
 
-    const response = await $fetch<{ data: { tenant_id: string, invite: { email: string, temporary_password: string | null } | null } }>(
+    const response = await $fetch<{ data: { tenant_id: string, invite: { email: string, invite_sent: boolean, existing_user: boolean } | null } }>(
       `/api/organizations/${organizationId.value}/onboardings/${id}/complete`,
       {
         method: 'POST',
@@ -208,9 +220,10 @@ async function complete() {
           internalOwnerUserId: form.value.internalOwnerUserId || null,
           modules: form.value.modules,
           agencyOwnerMembershipIds: form.value.agencyOwnerMembershipIds,
-          clientInvite: form.value.inviteEmail
-            ? { email: form.value.inviteEmail, name: form.value.inviteName || undefined }
-            : undefined,
+          clientInvite: {
+            email: form.value.inviteEmail.trim(),
+            name: form.value.inviteName || undefined,
+          },
           approvalFlow: {
             policy: form.value.approvalPolicy,
             minimumApprovals: form.value.minimumApprovals,
@@ -227,8 +240,11 @@ async function complete() {
       },
     )
 
-    if (response.data.invite?.temporary_password) {
-      toast.success(`Cliente criado. Senha temporária do convidado: ${response.data.invite.temporary_password}`)
+    if (response.data.invite?.invite_sent) {
+      toast.success(`Cliente criado. Convite enviado para ${response.data.invite.email}.`)
+    }
+    else if (response.data.invite?.existing_user) {
+      toast.success(`Cliente criado. O usuário ${response.data.invite.email} já existia e foi vinculado.`)
     }
     else {
       toast.success('Cliente provisionado com sucesso')
@@ -372,13 +388,16 @@ function toggleMembership(membershipId: string) {
         </template>
 
         <template v-else-if="currentStep === 'client_invite'">
+          <p class="mb-4 text-sm text-muted-foreground">
+            O e-mail é obrigatório. Enviamos o convite oficial do Supabase Auth (template “Invite User”) para o cliente criar a senha e acessar o ambiente.
+          </p>
           <div class="space-y-2">
-            <Label>E-mail do administrador / aprovador</Label>
-            <Input v-model="form.inviteEmail" type="email" />
+            <Label>E-mail do administrador / aprovador <span class="text-destructive">*</span></Label>
+            <Input v-model="form.inviteEmail" type="email" required placeholder="cliente@empresa.com" />
           </div>
           <div class="space-y-2">
             <Label>Nome</Label>
-            <Input v-model="form.inviteName" />
+            <Input v-model="form.inviteName" placeholder="Nome do aprovador" />
           </div>
         </template>
 

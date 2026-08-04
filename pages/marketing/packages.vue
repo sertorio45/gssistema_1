@@ -45,7 +45,7 @@ const slaForm = ref(
   })),
 )
 
-const { data, pending, refresh } = useMarketingFetch({
+const { data, showSkeleton, refresh } = useMarketingFetch({
   key: () => `packages-${social.tenantId.value}-${status.value}`,
   handler: () => social.listPackages({ status: status.value }),
   default: () => ({ data: [] as any[] }),
@@ -180,7 +180,7 @@ function stageLabel(key: SocialSlaStageKey) {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" />
+    <MarketingPageSkeleton v-if="showSkeleton" variant="list" />
 
     <div v-else class="space-y-3">
       <Card v-for="pkg in data?.data || []" :key="pkg.id">
