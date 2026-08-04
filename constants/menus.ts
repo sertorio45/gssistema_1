@@ -112,7 +112,7 @@ export const navMenu: NavMenu[] = [
     heading: 'General',
     items: [
       {
-        title: 'Home',
+        title: 'Início',
         icon: 'i-lucide-home',
         link: '/',
       },

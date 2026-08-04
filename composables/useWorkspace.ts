@@ -120,9 +120,13 @@ function _useWorkspace() {
     tenants.value.filter(item => item.relationship_type === 'managed'),
   )
 
-  const showOrganizationSwitcher = computed(() =>
-    isPlatformStaff.value || organizations.value.length > 1,
-  )
+  const showOrganizationSwitcher = computed(() => {
+    if (isPlatformStaff.value) {
+      // Staff switches between agencies — not every technical Direct org.
+      return organizations.value.some(item => item.type === 'agency' && item.is_active)
+    }
+    return organizations.value.length > 1
+  })
 
   /** Agency portfolio clients (managed + own operational brands under the agency). */
   const agencyPortfolioTenants = computed(() => {
