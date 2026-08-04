@@ -198,8 +198,11 @@ export function useAuth() {
     }
   }
 
-  // Define nova senha após o link de recuperação
-  const updatePassword = async (password: string) => {
+  // Define nova senha após o link de recuperação ou convite.
+  const updatePassword = async (
+    password: string,
+    options?: { signOutAfter?: boolean },
+  ) => {
     loading.value = true
     error.value = null
 
@@ -211,7 +214,11 @@ export function useAuth() {
         return { success: false, error: updateError.message }
       }
 
-      await client.auth.signOut()
+      // Recovery flow signs out so the user logs in with the new password.
+      // Invite flow keeps the session and enters the app.
+      if (options?.signOutAfter !== false)
+        await client.auth.signOut()
+
       return { success: true }
     }
     catch (err: any) {

@@ -116,6 +116,7 @@ export interface AgencyClientRow {
   modules: string[]
   internal_owner: { user_id: string, email: string | null } | null
   client_user_count: number
+  client_invite_emails: string[]
   connected_networks: Array<{ platform: string, name: string | null, username: string | null }>
   posts_pending_approval: number
   posts_scheduled: number

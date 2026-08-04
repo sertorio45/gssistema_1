@@ -84,6 +84,7 @@ export default defineNuxtConfig({
     '/login': { prerender: true },
     '/forgot-password': { prerender: true },
     '/confirm': { headers: { 'Cache-Control': 'private, no-store' } },
+    '/invite': { headers: { 'Cache-Control': 'private, no-store' } },
   },
 
   experimental: {
@@ -123,6 +124,7 @@ export default defineNuxtConfig({
         '/forgot-password',
         '/reset-password',
         '/confirm',
+        '/invite',
         '/403',
         '/404',
         '/401',

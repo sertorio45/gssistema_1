@@ -52,7 +52,7 @@ export default defineEventHandler(async (event) => {
       .eq('is_active', true),
     context.client
       .from('user_tenant_role')
-      .select('tenant_id, user_id')
+      .select('tenant_id, user_id, role')
       .in('tenant_id', tenantIds),
     context.client
       .from('social_accounts')
@@ -107,9 +107,32 @@ export default defineEventHandler(async (event) => {
   }
 
   const usersByTenant = new Map<string, number>()
+  const clientEmailsByTenant = new Map<string, string[]>()
+
+  const clientRoleRows = (userRoles || []).filter((row: any) => String(row.role || '') === 'cliente')
+  const emailCandidateIds = [...new Set(clientRoleRows.map((row: any) => String(row.user_id)))]
+
+  const emailByUserId = new Map<string, string>()
+  await Promise.all(emailCandidateIds.map(async (userId) => {
+    const { data } = await context.client.auth.admin.getUserById(userId)
+    if (data.user?.email)
+      emailByUserId.set(userId, String(data.user.email).toLowerCase())
+  }))
+
   for (const row of userRoles || []) {
     const tenantId = String(row.tenant_id)
     usersByTenant.set(tenantId, (usersByTenant.get(tenantId) || 0) + 1)
+  }
+
+  for (const row of clientRoleRows) {
+    const tenantId = String(row.tenant_id)
+    const email = emailByUserId.get(String(row.user_id))
+    if (!email)
+      continue
+    const list = clientEmailsByTenant.get(tenantId) || []
+    if (!list.includes(email))
+      list.push(email)
+    clientEmailsByTenant.set(tenantId, list)
   }
 
   const networksByTenant = new Map<string, Array<{ platform: string, name: string | null, username: string | null }>>()
@@ -160,6 +183,7 @@ export default defineEventHandler(async (event) => {
             }
           : null,
         client_user_count: usersByTenant.get(tenantId) || 0,
+        client_invite_emails: clientEmailsByTenant.get(tenantId) || [],
         connected_networks: networksByTenant.get(tenantId) || [],
         posts_pending_approval: pendingByTenant.get(tenantId) || 0,
         posts_scheduled: scheduledByTenant.get(tenantId) || 0,

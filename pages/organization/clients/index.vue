@@ -3,9 +3,11 @@ import type { AgencyClientRow } from '~/types/workspace'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
-import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
+import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useWorkspace } from '~/composables/useWorkspace'
+import { MODULE_LABELS_PT } from '~/constants/modules'
 
 definePageMeta({
   middleware: ['auth', 'organization'],
@@ -37,6 +39,12 @@ const clients = computed(() => clientsRaw.value ?? [])
 const search = ref('')
 const busyTenantId = ref<string | null>(null)
 
+const resendOpen = ref(false)
+const resendSaving = ref(false)
+const resendClient = ref<AgencyClientRow | null>(null)
+const resendEmail = ref('')
+const resendName = ref('')
+
 const filtered = computed(() => {
   const query = search.value.trim().toLowerCase()
   if (!query)
@@ -44,14 +52,22 @@ const filtered = computed(() => {
   return clients.value.filter(client =>
     client.name.toLowerCase().includes(query)
     || client.tenant.name.toLowerCase().includes(query)
-    || client.tenant.slug.toLowerCase().includes(query),
+    || client.tenant.slug.toLowerCase().includes(query)
+    || (client.client_invite_emails || []).some(email => email.includes(query)),
   )
 })
+
+function moduleLabel(name: string) {
+  return MODULE_LABELS_PT[name] || name
+}
 
 async function openClient(tenantId: string, path = '/marketing') {
   busyTenantId.value = tenantId
   try {
-    await switchContext({ tenantId })
+    await switchContext({
+      organizationId: organizationId.value,
+      tenantId,
+    })
     await navigateTo(path)
   }
   catch (error: any) {
@@ -85,6 +101,49 @@ async function deactivateClient(client: AgencyClientRow) {
     busyTenantId.value = null
   }
 }
+
+function openResend(client: AgencyClientRow) {
+  resendClient.value = client
+  resendEmail.value = client.client_invite_emails?.[0] || ''
+  resendName.value = ''
+  resendOpen.value = true
+}
+
+async function submitResend() {
+  if (!organizationId.value || !resendClient.value)
+    return
+  if (!resendEmail.value.trim()) {
+    toast.error('Informe o e-mail do cliente')
+    return
+  }
+
+  resendSaving.value = true
+  try {
+    const response = await $fetch<{ data: { email: string, method: string } }>(
+      `/api/organizations/${organizationId.value}/tenants/${resendClient.value.tenant_id}/resend-invite`,
+      {
+        method: 'POST',
+        body: {
+          email: resendEmail.value.trim(),
+          name: resendName.value.trim() || undefined,
+        },
+      },
+    )
+    toast.success(
+      response.data.method === 'invite'
+        ? `Convite enviado para ${response.data.email}`
+        : `E-mail de acesso reenviado para ${response.data.email}`,
+    )
+    resendOpen.value = false
+    await refresh()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Não foi possível reenviar o convite')
+  }
+  finally {
+    resendSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -95,10 +154,13 @@ async function deactivateClient(client: AgencyClientRow) {
           Clientes
         </h1>
         <p class="mt-1 text-muted-foreground">
-          Carteira da agência com o alcance atribuído ao seu usuário.
+          Carteira da agência — abra o ambiente ou reenvie o acesso sem recriar a empresa.
         </p>
       </div>
       <div class="flex gap-2">
+        <Button variant="outline" size="sm" :disabled="pending" @click="refresh()">
+          Atualizar
+        </Button>
         <Button v-if="canManage" @click="navigateTo('/organization/clients/onboarding')">
           Novo cliente
         </Button>
@@ -107,11 +169,11 @@ async function deactivateClient(client: AgencyClientRow) {
 
     <div class="relative max-w-sm">
       <Icon name="lucide:search" class="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground -translate-y-1/2" />
-      <Input v-model="search" class="pl-9" placeholder="Buscar cliente..." />
+      <Input v-model="search" class="pl-9" placeholder="Buscar cliente ou e-mail..." />
     </div>
 
     <div v-if="showSkeleton" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="n in 6" :key="n" class="h-56 rounded-lg" />
+      <Skeleton v-for="n in 6" :key="n" class="h-56 rounded-xl" />
     </div>
 
     <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -132,7 +194,7 @@ async function deactivateClient(client: AgencyClientRow) {
                 {{ client.name }}
               </CardTitle>
               <CardDescription class="truncate">
-                {{ client.tenant.name }} · {{ client.tenant.slug }}
+                Empresa · {{ client.tenant.name }}
               </CardDescription>
             </div>
             <Badge :variant="client.status === 'active' ? 'default' : 'outline'">
@@ -143,7 +205,7 @@ async function deactivateClient(client: AgencyClientRow) {
         <CardContent class="space-y-3 text-sm">
           <div class="flex flex-wrap gap-1.5">
             <Badge v-for="moduleName in client.modules" :key="moduleName" variant="secondary">
-              {{ moduleName }}
+              {{ moduleLabel(moduleName) }}
             </Badge>
             <span v-if="!client.modules.length" class="text-xs text-muted-foreground">Sem módulos</span>
           </div>
@@ -189,6 +251,15 @@ async function deactivateClient(client: AgencyClientRow) {
               v-if="canManage"
               size="sm"
               variant="outline"
+              :disabled="busyTenantId === client.tenant_id"
+              @click="openResend(client)"
+            >
+              Reenviar convite
+            </Button>
+            <Button
+              v-if="canManage"
+              size="sm"
+              variant="outline"
               @click="navigateTo(`/organization/team?tenant=${client.tenant_id}`)"
             >
               Equipe
@@ -219,5 +290,53 @@ async function deactivateClient(client: AgencyClientRow) {
         Nenhum cliente no seu alcance.
       </p>
     </div>
+
+    <Dialog :open="resendOpen" @update:open="value => !value && (resendOpen = false)">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reenviar convite</DialogTitle>
+          <DialogDescription>
+            Envia o e-mail de acesso para
+            <span class="font-medium text-foreground">{{ resendClient?.name }}</span>
+            sem recriar a empresa. Se o usuário já existir, enviamos o link para criar/redefinir a senha.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="space-y-4 py-2">
+          <div class="space-y-2">
+            <Label>E-mail do administrador / aprovador</Label>
+            <Input
+              v-model="resendEmail"
+              type="email"
+              placeholder="cliente@empresa.com"
+              list="client-invite-emails"
+            />
+            <datalist
+              v-if="resendClient?.client_invite_emails?.length"
+              id="client-invite-emails"
+            >
+              <option
+                v-for="email in resendClient.client_invite_emails"
+                :key="email"
+                :value="email"
+              />
+            </datalist>
+          </div>
+          <div class="space-y-2">
+            <Label>Nome (opcional)</Label>
+            <Input v-model="resendName" placeholder="Nome do aprovador" />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" :disabled="resendSaving" @click="resendOpen = false">
+            Cancelar
+          </Button>
+          <Button :disabled="resendSaving" @click="submitResend">
+            {{ resendSaving ? 'Enviando…' : 'Reenviar e-mail' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

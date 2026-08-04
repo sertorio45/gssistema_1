@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 
 import { useWorkspace } from '~/composables/useWorkspace'
+import { MODULE_LABELS_PT } from '~/constants/modules'
 import { AGENCY_ONBOARDING_STEPS } from '~/constants/workspace'
 import { slugify } from '~/utils/slugify'
 
@@ -17,14 +18,27 @@ definePageMeta({
 
 const STEP_LABELS: Record<string, string> = {
   client_data: 'Dados do cliente',
-  tenant: 'Tenant',
+  tenant: 'Empresa',
   modules: 'Módulos',
   agency_owners: 'Responsáveis',
-  client_invite: 'Convite do cliente',
-  approval_flow: 'Fluxo de aprovação',
+  client_invite: 'Convite',
+  approval_flow: 'Aprovações',
   social_connect: 'Redes sociais',
   review: 'Revisão',
 }
+
+const STEP_HINTS: Record<string, string> = {
+  client_data: 'Nome comercial e identidade visual do cliente.',
+  tenant: 'Ambiente da empresa no Blimber (nome e identificador).',
+  modules: 'Quais produtos este cliente poderá usar.',
+  agency_owners: 'Quem da agência acompanha esta conta.',
+  client_invite: 'E-mail oficial para o cliente criar senha e acessar.',
+  approval_flow: 'Regras de revisão interna e do cliente.',
+  social_connect: 'Canais que devem ser conectados depois.',
+  review: 'Confira tudo antes de provisionar.',
+}
+
+const MODULE_OPTIONS = ['marketing', 'crm', 'whatsapp', 'article'] as const
 
 const { organization } = useWorkspace()
 const organizationId = computed(() => organization.value?.id ?? null)
@@ -55,6 +69,9 @@ const form = ref({
 })
 
 const currentStep = computed(() => AGENCY_ONBOARDING_STEPS[stepIndex.value])
+const progressPct = computed(() =>
+  Math.round(((stepIndex.value + 1) / AGENCY_ONBOARDING_STEPS.length) * 100),
+)
 
 const { data: members } = await useAsyncData<OrganizationMember[]>(
   'agency-onboarding-members',
@@ -86,7 +103,6 @@ watch(() => form.value.tenantName, (name) => {
 })
 
 watch(() => form.value.tenantSlug, (slug, previous) => {
-  // Mark as manual only when the user types a value that diverges from auto-slugify.
   if (form.value.tenantMode !== 'create')
     return
   const expected = slugify(form.value.tenantName || form.value.displayName)
@@ -160,6 +176,22 @@ async function saveDraft(advance = false) {
   if (!organizationId.value)
     return
 
+  if (advance && currentStep.value === 'client_data' && !form.value.displayName.trim()) {
+    toast.error('Informe o nome comercial do cliente.')
+    return
+  }
+
+  if (advance && currentStep.value === 'tenant') {
+    if (form.value.tenantMode === 'create' && (!form.value.tenantName.trim() || !form.value.tenantSlug.trim())) {
+      toast.error('Informe o nome e o identificador da empresa.')
+      return
+    }
+    if (form.value.tenantMode === 'select' && !form.value.tenantId.trim()) {
+      toast.error('Informe o ID da empresa existente.')
+      return
+    }
+  }
+
   if (advance && currentStep.value === 'client_invite' && !form.value.inviteEmail.trim()) {
     toast.error('Informe o e-mail do aprovador para enviar o convite oficial.')
     return
@@ -179,7 +211,8 @@ async function saveDraft(advance = false) {
     })
     if (advance)
       stepIndex.value = nextIndex
-    toast.success(advance ? 'Etapa salva' : 'Rascunho salvo')
+    else
+      toast.success('Rascunho salvo')
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || 'Não foi possível salvar o rascunho')
@@ -274,123 +307,198 @@ function toggleMembership(membershipId: string) {
   else set.add(membershipId)
   form.value.agencyOwnerMembershipIds = [...set]
 }
+
+function goToStep(index: number) {
+  if (index <= stepIndex.value)
+    stepIndex.value = index
+}
 </script>
 
 <template>
   <div class="mx-auto max-w-3xl space-y-6">
-    <div>
-      <h1 class="text-2xl font-bold tracking-tight">
-        Onboarding de cliente
-      </h1>
-      <p class="mt-1 text-muted-foreground">
-        Fluxo em etapas com rascunho. Nada é criado de fato até a conclusão.
-      </p>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div class="space-y-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          class="-ml-2 h-8 px-2 text-muted-foreground"
+          @click="navigateTo('/organization/clients')"
+        >
+          <Icon name="lucide:arrow-left" class="mr-1 h-4 w-4" />
+          Clientes
+        </Button>
+        <h1 class="text-2xl font-bold tracking-tight">
+          Novo cliente
+        </h1>
+        <p class="text-muted-foreground">
+          Fluxo em etapas com rascunho. A empresa só é criada ao concluir.
+        </p>
+      </div>
+      <div class="rounded-lg border bg-card px-3 py-2 text-right text-xs text-muted-foreground">
+        <p class="font-medium text-foreground">
+          Etapa {{ stepIndex + 1 }} de {{ AGENCY_ONBOARDING_STEPS.length }}
+        </p>
+        <p>{{ progressPct }}% concluído</p>
+      </div>
     </div>
 
-    <div class="flex flex-wrap gap-2">
-      <Badge
-        v-for="(step, index) in AGENCY_ONBOARDING_STEPS"
-        :key="step"
-        :variant="index === stepIndex ? 'default' : index < stepIndex ? 'secondary' : 'outline'"
-      >
-        {{ index + 1 }}. {{ STEP_LABELS[step] }}
-      </Badge>
+    <div class="space-y-3">
+      <div class="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          class="h-full rounded-full bg-primary transition-all duration-300"
+          :style="{ width: `${progressPct}%` }"
+        />
+      </div>
+      <div class="flex gap-1.5 overflow-x-auto pb-1">
+        <button
+          v-for="(step, index) in AGENCY_ONBOARDING_STEPS"
+          :key="step"
+          type="button"
+          class="shrink-0 rounded-full px-2.5 py-1 text-xs transition-colors"
+          :class="index === stepIndex
+            ? 'bg-primary text-primary-foreground'
+            : index < stepIndex
+              ? 'bg-muted text-foreground hover:bg-muted/80'
+              : 'bg-transparent text-muted-foreground'"
+          :disabled="index > stepIndex"
+          @click="goToStep(index)"
+        >
+          {{ index + 1 }}. {{ STEP_LABELS[step] }}
+        </button>
+      </div>
     </div>
 
-    <Card>
-      <CardHeader>
-        <CardTitle>{{ STEP_LABELS[currentStep] }}</CardTitle>
+    <Card class="overflow-hidden">
+      <CardHeader class="border-b bg-muted/30">
+        <CardTitle class="text-lg">
+          {{ STEP_LABELS[currentStep] }}
+        </CardTitle>
+        <CardDescription>
+          {{ STEP_HINTS[currentStep] }}
+        </CardDescription>
       </CardHeader>
-      <CardContent class="space-y-4">
+      <CardContent class="space-y-5 pt-6">
         <template v-if="currentStep === 'client_data'">
           <div class="space-y-2">
             <Label>Nome comercial</Label>
             <Input v-model="form.displayName" placeholder="Ex.: Padaria Central" />
           </div>
           <div class="space-y-2">
-            <Label>URL do logotipo (opcional)</Label>
+            <Label>URL do logotipo <span class="font-normal text-muted-foreground">(opcional)</span></Label>
             <Input v-model="form.logoUrl" placeholder="https://..." />
           </div>
         </template>
 
         <template v-else-if="currentStep === 'tenant'">
-          <div class="flex gap-2">
-            <Button
-              size="sm"
-              :variant="form.tenantMode === 'create' ? 'default' : 'outline'"
+          <div class="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              class="rounded-xl border p-4 text-left transition-colors"
+              :class="form.tenantMode === 'create' ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'"
               @click="form.tenantMode = 'create'"
             >
-              Criar tenant
-            </Button>
-            <Button
-              size="sm"
-              :variant="form.tenantMode === 'select' ? 'default' : 'outline'"
+              <p class="text-sm font-medium">
+                Criar empresa
+              </p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                Novo ambiente no Blimber para este cliente.
+              </p>
+            </button>
+            <button
+              type="button"
+              class="rounded-xl border p-4 text-left transition-colors"
+              :class="form.tenantMode === 'select' ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'"
               @click="form.tenantMode = 'select'"
             >
-              Selecionar existente
-            </Button>
+              <p class="text-sm font-medium">
+                Usar empresa existente
+              </p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                Vincular uma empresa que já está no sistema.
+              </p>
+            </button>
           </div>
+
           <template v-if="form.tenantMode === 'create'">
             <div class="space-y-2">
-              <Label>Nome do tenant</Label>
-              <Input v-model="form.tenantName" />
+              <Label>Nome da empresa</Label>
+              <Input v-model="form.tenantName" placeholder="Mesmo nome comercial, ou ajuste" />
             </div>
             <div class="space-y-2">
-              <Label>Slug</Label>
-              <Input v-model="form.tenantSlug" />
+              <Label>Identificador (slug)</Label>
+              <Input v-model="form.tenantSlug" placeholder="ex.: padaria-central" />
+              <p class="text-xs text-muted-foreground">
+                Usado internamente nas URLs e no sistema. Gere automaticamente a partir do nome.
+              </p>
             </div>
           </template>
           <div v-else class="space-y-2">
-            <Label>ID do tenant existente</Label>
-            <Input v-model="form.tenantId" placeholder="UUID do tenant" />
+            <Label>ID da empresa existente</Label>
+            <Input v-model="form.tenantId" placeholder="UUID da empresa" />
             <p class="text-xs text-muted-foreground">
-              O tenant não pode estar vinculado a outra agência ativa.
+              A empresa não pode estar vinculada a outra agência ativa.
             </p>
           </div>
         </template>
 
         <template v-else-if="currentStep === 'modules'">
-          <div class="flex flex-wrap gap-2">
-            <Button
-              v-for="moduleName in ['marketing', 'crm', 'whatsapp', 'article']"
+          <div class="grid gap-2 sm:grid-cols-2">
+            <button
+              v-for="moduleName in MODULE_OPTIONS"
               :key="moduleName"
-              size="sm"
-              :variant="form.modules.includes(moduleName) ? 'default' : 'outline'"
+              type="button"
+              class="flex items-center justify-between rounded-xl border px-4 py-3 text-left transition-colors"
+              :class="form.modules.includes(moduleName) ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'"
               @click="toggleModule(moduleName)"
             >
-              {{ moduleName }}
-            </Button>
+              <span class="text-sm font-medium">{{ MODULE_LABELS_PT[moduleName] || moduleName }}</span>
+              <Icon
+                :name="form.modules.includes(moduleName) ? 'lucide:check-circle-2' : 'lucide:circle'"
+                class="h-4 w-4"
+                :class="form.modules.includes(moduleName) ? 'text-primary' : 'text-muted-foreground'"
+              />
+            </button>
           </div>
         </template>
 
         <template v-else-if="currentStep === 'agency_owners'">
           <div class="space-y-2">
-            <Label>Responsável interno (user id)</Label>
+            <Label>Responsável interno <span class="font-normal text-muted-foreground">(user id, opcional)</span></Label>
             <Input v-model="form.internalOwnerUserId" placeholder="UUID do usuário da agência" />
           </div>
           <div class="space-y-2">
             <Label>Atribuir membros da agência</Label>
-            <div class="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+            <div class="max-h-52 space-y-1 overflow-y-auto rounded-xl border p-2">
               <label
                 v-for="member in members"
                 :key="member.id"
-                class="flex items-center gap-2 text-sm"
+                class="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted/50"
               >
                 <input
                   type="checkbox"
+                  class="accent-primary"
                   :checked="form.agencyOwnerMembershipIds.includes(member.id)"
                   @change="toggleMembership(member.id)"
                 >
-                <span>{{ member.email || member.user_id }} · {{ member.role_name || member.role }}</span>
+                <span class="min-w-0 flex-1 truncate">
+                  {{ member.email || member.user_id }}
+                </span>
+                <span class="shrink-0 text-xs text-muted-foreground">
+                  {{ member.role_name || member.role }}
+                </span>
               </label>
+              <p v-if="!members?.length" class="px-2 py-3 text-xs text-muted-foreground">
+                Nenhum membro encontrado nesta agência.
+              </p>
             </div>
           </div>
         </template>
 
         <template v-else-if="currentStep === 'client_invite'">
-          <p class="mb-4 text-sm text-muted-foreground">
-            O e-mail é obrigatório. Enviamos o convite oficial do Supabase Auth (template “Invite User”) para o cliente criar a senha e acessar o ambiente.
-          </p>
+          <div class="rounded-xl border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            Enviamos o convite oficial do Auth. O cliente abre o link, cria a senha e entra no hub.
+            Depois você pode reenviar o e-mail na lista de clientes, sem recriar a empresa.
+          </div>
           <div class="space-y-2">
             <Label>E-mail do administrador / aprovador <span class="text-destructive">*</span></Label>
             <Input v-model="form.inviteEmail" type="email" required placeholder="cliente@empresa.com" />
@@ -402,73 +510,83 @@ function toggleMembership(membershipId: string) {
         </template>
 
         <template v-else-if="currentStep === 'approval_flow'">
-          <div class="flex items-center gap-2">
-            <input id="req-internal" v-model="form.requireInternal" type="checkbox">
-            <Label for="req-internal">Exigir aprovação interna</Label>
-          </div>
-          <div class="flex items-center gap-2">
-            <input id="req-client" v-model="form.requireClient" type="checkbox">
-            <Label for="req-client">Exigir aprovação do cliente</Label>
+          <div class="space-y-3 rounded-xl border p-4">
+            <label class="flex cursor-pointer items-center gap-3 text-sm">
+              <input id="req-internal" v-model="form.requireInternal" type="checkbox" class="accent-primary">
+              Exigir aprovação interna da agência
+            </label>
+            <label class="flex cursor-pointer items-center gap-3 text-sm">
+              <input id="req-client" v-model="form.requireClient" type="checkbox" class="accent-primary">
+              Exigir aprovação do cliente
+            </label>
           </div>
           <div class="space-y-2">
             <Label>Mínimo de aprovações</Label>
-            <Input v-model.number="form.minimumApprovals" type="number" min="1" max="10" />
+            <Input v-model.number="form.minimumApprovals" type="number" min="1" max="10" class="max-w-[8rem]" />
           </div>
         </template>
 
         <template v-else-if="currentStep === 'social_connect'">
           <p class="text-sm text-muted-foreground">
-            A conexão OAuth acontece depois, no ambiente do cliente. Marque o que deve ser configurado.
+            A conexão OAuth acontece depois, no ambiente da empresa. Marque o que deve ser configurado.
           </p>
-          <div class="flex items-center gap-2">
-            <input id="ig" v-model="form.connectInstagram" type="checkbox">
-            <Label for="ig">Instagram</Label>
-          </div>
-          <div class="flex items-center gap-2">
-            <input id="fb" v-model="form.connectFacebook" type="checkbox">
-            <Label for="fb">Facebook</Label>
+          <div class="grid gap-2 sm:grid-cols-2">
+            <label
+              class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm"
+              :class="form.connectInstagram ? 'border-primary bg-primary/5' : ''"
+            >
+              <input v-model="form.connectInstagram" type="checkbox" class="accent-primary">
+              Instagram
+            </label>
+            <label
+              class="flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm"
+              :class="form.connectFacebook ? 'border-primary bg-primary/5' : ''"
+            >
+              <input v-model="form.connectFacebook" type="checkbox" class="accent-primary">
+              Facebook
+            </label>
           </div>
         </template>
 
         <template v-else>
-          <dl class="space-y-2 text-sm">
-            <div class="flex justify-between gap-4">
+          <dl class="divide-y rounded-xl border text-sm">
+            <div class="flex justify-between gap-4 px-4 py-3">
               <dt class="text-muted-foreground">
                 Cliente
               </dt>
-              <dd class="font-medium">
-                {{ form.displayName }}
+              <dd class="text-right font-medium">
+                {{ form.displayName || '—' }}
               </dd>
             </div>
-            <div class="flex justify-between gap-4">
+            <div class="flex justify-between gap-4 px-4 py-3">
               <dt class="text-muted-foreground">
-                Tenant
+                Empresa
               </dt>
-              <dd class="font-medium">
-                {{ form.tenantMode === 'create' ? `${form.tenantName} (${form.tenantSlug})` : form.tenantId }}
+              <dd class="text-right font-medium">
+                {{ form.tenantMode === 'create' ? `${form.tenantName} (${form.tenantSlug})` : form.tenantId || '—' }}
               </dd>
             </div>
-            <div class="flex justify-between gap-4">
+            <div class="flex justify-between gap-4 px-4 py-3">
               <dt class="text-muted-foreground">
                 Módulos
               </dt>
-              <dd class="font-medium">
-                {{ form.modules.join(', ') || '—' }}
+              <dd class="text-right font-medium">
+                {{ form.modules.map(m => MODULE_LABELS_PT[m] || m).join(', ') || '—' }}
               </dd>
             </div>
-            <div class="flex justify-between gap-4">
+            <div class="flex justify-between gap-4 px-4 py-3">
               <dt class="text-muted-foreground">
                 Convite
               </dt>
-              <dd class="font-medium">
+              <dd class="text-right font-medium">
                 {{ form.inviteEmail || '—' }}
               </dd>
             </div>
           </dl>
         </template>
       </CardContent>
-      <CardFooter class="flex flex-wrap justify-between gap-2">
-        <Button variant="outline" :disabled="stepIndex === 0 || saving" @click="stepIndex -= 1">
+      <CardFooter class="flex flex-wrap justify-between gap-2 border-t bg-muted/20">
+        <Button variant="outline" :disabled="stepIndex === 0 || saving || completing" @click="stepIndex -= 1">
           Voltar
         </Button>
         <div class="flex gap-2">
@@ -487,7 +605,7 @@ function toggleMembership(membershipId: string) {
             :disabled="saving || completing || !form.displayName"
             @click="complete"
           >
-            Concluir onboarding
+            {{ completing ? 'Concluindo…' : 'Concluir e enviar convite' }}
           </Button>
         </div>
       </CardFooter>

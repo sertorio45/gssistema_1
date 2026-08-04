@@ -145,10 +145,11 @@ export default defineEventHandler(async (event) => {
   const siteUrl = resolveAuthRedirectOrigin(event)
 
   // Supabase Auth default invite email (Invite User template via inviteUserByEmail).
+  // Landing: /confirm exchanges the token, then /invite asks for the first password.
   const invite = await inviteOrLinkAuthUserByEmail(context.client, {
     email,
     name: displayName,
-    redirectTo: `${siteUrl}/confirm`,
+    redirectTo: `${siteUrl}/confirm?flow=invite`,
   })
 
   await context.client

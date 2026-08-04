@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
     const invite = await inviteOrLinkAuthUserByEmail(context.client, {
       email,
       name: input.name,
-      redirectTo: `${resolveAuthRedirectOrigin(event)}/confirm`,
+      redirectTo: `${resolveAuthRedirectOrigin(event)}/confirm?flow=invite`,
     })
     userId = invite.userId
     createdUser = invite.invite_sent
