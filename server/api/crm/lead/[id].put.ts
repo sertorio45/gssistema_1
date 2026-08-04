@@ -2,16 +2,6 @@ import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
 import { defineEventHandler, readBody } from 'h3'
 
-import {
-  enqueueMetaConversion,
-  scheduleMetaCapiProcessing,
-} from '~/server/utils/crm/meta-capi'
-
-function isWonStageName(name?: string | null) {
-  const n = String(name || '').toLowerCase()
-  return n.includes('ganh') || n.includes('won')
-}
-
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
@@ -39,12 +29,6 @@ export default defineEventHandler(async (event) => {
   if (!existingLead)
     return { status: 404, message: 'Lead not found' }
 
-  const { data: stage } = await client
-    .from('crm_sales_stage')
-    .select('id, name')
-    .eq('id', sales_stage_id)
-    .maybeSingle()
-
   const updatePayload: Record<string, unknown> = { sales_stage_id }
   if (status !== undefined)
     updatePayload.status = status
@@ -56,17 +40,6 @@ export default defineEventHandler(async (event) => {
   if (error)
     return { status: 400, message: error.message }
 
-  const isWon = status === 'won' || isWonStageName(stage?.name)
-  const wasWon = existingLead.status === 'won'
-  if (isWon && !wasWon) {
-    await enqueueMetaConversion(client, {
-      tenantId: existingLead.tenant_id as string,
-      leadId: id,
-      eventName: 'Purchase',
-      eventTime: closed_at || new Date().toISOString(),
-    }).catch(() => {})
-    scheduleMetaCapiProcessing(event, client, existingLead.tenant_id as string)
-  }
-
+  // Meta CAPI: semi-manual only — user picks won leads in sync dialog.
   return { success: true }
 })

@@ -10,7 +10,7 @@ import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '~/components/ui/tabs'
 import DataTable from '~/components/ui/table/DataTable.vue'
-import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 definePageMeta({
   middleware: ['auth'],
@@ -40,16 +40,14 @@ function handleOpen(flow: WhatsAppFlow) {
 }
 
 async function handleDelete(flow: WhatsAppFlow) {
-  if (!import.meta.client || !confirm(`Excluir flow "${flow.name}"?`))
-    return
-
-  try {
-    await deleteFlow(flow.id)
-    toast.success('Flow excluído')
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao excluir')
-  }
+  await deleteWithConfirm(
+    () => deleteFlow(flow.id),
+    {
+      title: 'Excluir flow?',
+      description: `Tem certeza que deseja excluir "${flow.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Flow excluído com sucesso.',
+    },
+  )
 }
 </script>
 

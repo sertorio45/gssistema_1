@@ -18,6 +18,7 @@ import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
@@ -32,7 +33,6 @@ const meetingsData = ref<Meeting[]>([])
 const selectedMeeting = ref<Meeting | null>(null)
 const isDialogOpen = ref(false)
 const selectedItems = ref<number[]>([])
-const showMultiDeleteDialog = ref(false)
 const isLoading = ref(false)
 
 async function fetchMeetings() {
@@ -61,15 +61,34 @@ function updateSelectedItems(items: number[]) {
   selectedItems.value = items
 }
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
+async function handleMultiDelete() {
+  if (!tenantId.value || !selectedItems.value.length)
+    return
 
-function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
-  const toDelete = selectedItems.value.map(idx => meetingsData.value[idx]?.id)
-  meetingsData.value = meetingsData.value.filter(m => !toDelete.includes(m.id))
-  selectedItems.value = []
+  const toDelete = selectedItems.value
+    .map(idx => meetingsData.value[idx])
+    .filter(Boolean)
+  const count = toDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(meeting =>
+      $fetch(`/api/crm/meetings/${meeting.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir várias reuniões?',
+      description: `Tem certeza que deseja excluir ${count} reuniões? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} reunião(ões) excluída(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir as reuniões.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await fetchMeetings()
+  }
 }
 
 function handleEdit(meeting: Meeting) {
@@ -77,11 +96,22 @@ function handleEdit(meeting: Meeting) {
   isDialogOpen.value = true
 }
 
-function handleDelete(meeting: Meeting) {
-  const index = meetingsData.value.findIndex(m => m.id === meeting.id)
-  if (index > -1) {
-    meetingsData.value.splice(index, 1)
-  }
+async function handleDelete(meeting: Meeting) {
+  if (!tenantId.value)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/meetings/${meeting.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir reunião?',
+      description: `Tem certeza que deseja excluir "${meeting.title}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Reunião excluída com sucesso.',
+      errorMessage: 'Não foi possível excluir a reunião.',
+    },
+  )
+
+  if (deleted)
+    await fetchMeetings()
 }
 
 function handleCreateNew() {
@@ -225,31 +255,8 @@ function closeDialog() {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <!-- Multi Delete Dialog -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir várias reuniões
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} reuniões? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir todas
-          </Button>
-        </div>
-      </div>
-    </div>
 
     <!-- Dialog de Criação/Edição -->
     <Dialog v-model:open="isDialogOpen">

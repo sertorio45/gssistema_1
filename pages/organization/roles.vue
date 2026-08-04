@@ -5,6 +5,7 @@ import type { OrganizationRole } from '~/types/workspace'
 import { computed, ref } from 'vue'
 
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useWorkspace } from '~/composables/useWorkspace'
 import {
   CAPABILITY_GROUPS,
@@ -148,21 +149,27 @@ async function deleteRole(role: OrganizationRole) {
     replacementRoleId = candidates[0]!.id
   }
 
-  deletingId.value = role.id
-  try {
-    await $fetch(`/api/organizations/${organizationId.value}/roles/${role.id}`, {
-      method: 'DELETE',
-      body: replacementRoleId ? { replacementRoleId } : {},
-    })
-    toast.success('Cargo excluído')
+  const ok = await deleteWithConfirm(
+    async () => {
+      deletingId.value = role.id
+      try {
+        await $fetch(`/api/organizations/${organizationId.value}/roles/${role.id}`, {
+          method: 'DELETE',
+          body: replacementRoleId ? { replacementRoleId } : {},
+        })
+      }
+      finally {
+        deletingId.value = null
+      }
+    },
+    {
+      title: 'Excluir cargo?',
+      description: `Tem certeza que deseja excluir "${role.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Cargo excluído com sucesso.',
+    },
+  )
+  if (ok)
     await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || 'Não foi possível excluir o cargo')
-  }
-  finally {
-    deletingId.value = null
-  }
 }
 
 function capabilityLabel(capability: string) {

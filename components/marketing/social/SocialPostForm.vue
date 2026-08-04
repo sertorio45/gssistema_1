@@ -404,7 +404,7 @@ function submit() {
           <AlertTitle>Nenhuma conta social conectada</AlertTitle>
           <AlertDescription>
             Conecte Meta ou LinkedIn antes de continuar.
-            <Button type="button" variant="link" class="h-auto p-0" @click="navigateTo('/marketing/integrations')">
+            <Button type="button" variant="link" class="h-auto p-0" @click="navigateTo('/settings/integrations')">
               Abrir integrações
             </Button>
           </AlertDescription>

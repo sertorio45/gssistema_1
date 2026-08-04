@@ -25,6 +25,7 @@ import {
   TENANT_TEAM_STAFF_ASSIGNABLE_ROLES,
 } from '~/constants/roles'
 import { useAuth } from '~/composables/useAuth'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantTeam, useTenantTeamManagement } from '~/composables/crm/useTenantTeam'
 import { useTenantPage } from '~/composables/useTenantPage'
 
@@ -46,9 +47,6 @@ const { createMember, updateMember, deleteMember } = useTenantTeamManagement()
 const { currentRole } = useAuth()
 
 const selectedItems = ref<number[]>([])
-const showMultiDeleteDialog = ref(false)
-const showDeleteDialog = ref(false)
-const memberToDelete = ref<TenantTeamMember | null>(null)
 const isFormOpen = ref(false)
 const editingMember = ref<TenantTeamMember | null>(null)
 const saving = ref(false)
@@ -77,48 +75,44 @@ function handleEdit(member: TenantTeamMember) {
   isFormOpen.value = true
 }
 
-function handleDelete(member: TenantTeamMember) {
-  memberToDelete.value = member
-  showDeleteDialog.value = true
-}
+async function handleDelete(member: TenantTeamMember) {
+  const deleted = await deleteWithConfirm(
+    () => deleteMember(member.id),
+    {
+      title: 'Remover usuário?',
+      description: `Tem certeza que deseja remover "${member.name}" da equipe? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Remover',
+      successMessage: 'Usuário removido com sucesso.',
+      errorMessage: 'Não foi possível remover o usuário.',
+    },
+  )
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleDeleteConfirm() {
-  if (!memberToDelete.value)
-    return
-
-  showDeleteDialog.value = false
-  try {
-    await deleteMember(memberToDelete.value.id)
-    toast.success('Usuário removido com sucesso')
-    memberToDelete.value = null
+  if (deleted)
     await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao remover usuário')
-  }
 }
 
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
+async function handleMultiDelete() {
   const toDelete = selectedItems.value
     .map(idx => members.value[idx])
     .filter(Boolean) as TenantTeamMember[]
+  const count = toDelete.length
 
-  if (!toDelete.length)
+  if (!count)
     return
 
-  try {
-    await Promise.all(toDelete.map(member => deleteMember(member.id)))
-    toast.success(`${toDelete.length} usuário(s) removido(s)`)
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(member => deleteMember(member.id))),
+    {
+      title: 'Remover vários usuários?',
+      description: `Tem certeza que deseja remover ${count} usuários? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Remover todos',
+      successMessage: `${count} usuário(s) removido(s) com sucesso.`,
+      errorMessage: 'Não foi possível remover os usuários.',
+    },
+  )
+
+  if (deleted) {
     selectedItems.value = []
-    await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao remover usuários')
     await refresh()
   }
 }
@@ -208,52 +202,8 @@ async function handleSubmit(payload: {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <div
-      v-if="showDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Remover usuário
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja remover "{{ memberToDelete?.name }}" da equipe? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Remover
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Remover vários usuários
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja remover {{ selectedItems.length }} usuários? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Remover todos
-          </Button>
-        </div>
-      </div>
-    </div>
 
     <Dialog v-model:open="isFormOpen">
       <DialogContent class="mx-auto w-full overflow-hidden p-0 sm:max-w-lg">

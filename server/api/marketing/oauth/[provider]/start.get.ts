@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import process from 'node:process'
 
-import { createError, defineEventHandler, getRequestURL } from 'h3'
+import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
 
 import { requireSocialContext } from '~/server/utils/social-context'
 
@@ -44,12 +44,19 @@ export default defineEventHandler(async (event) => {
   const state = randomBytes(32).toString('base64url')
   const stateHash = createHash('sha256').update(state).digest('hex')
 
+  const query = getQuery(event)
+  const redirectPath = typeof query.redirect_path === 'string'
+    && query.redirect_path.startsWith('/')
+    && !query.redirect_path.startsWith('//')
+    ? query.redirect_path
+    : '/settings/integrations'
+
   const { error: stateError } = await client.from('oauth_states').insert({
     tenant_id: tenantId,
     user_id: user.id,
     provider,
     state_hash: stateHash,
-    redirect_path: '/marketing/integrations',
+    redirect_path: redirectPath,
     expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
   })
 

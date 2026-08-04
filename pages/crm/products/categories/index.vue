@@ -13,16 +13,6 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
-import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -30,6 +20,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { useTenant } from '~/composables/useTenant'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { toast } from 'vue-sonner'
 
 definePageMeta({
@@ -40,8 +31,6 @@ definePageMeta({
 
 const { tenantId } = useTenant()
 const showDialog = ref(false)
-const showDeleteDialog = ref(false)
-const categoryToDelete = ref<ProductCategory | null>(null)
 const formMode = ref<'create' | 'edit'>('create')
 const formName = ref('')
 const editingCategory = ref<ProductCategory | null>(null)
@@ -115,26 +104,23 @@ async function handleSave() {
   }
 }
 
-function handleDeleteClick(cat: ProductCategory) {
-  categoryToDelete.value = cat
-  showDeleteDialog.value = true
-}
-
-async function handleDeleteConfirm() {
-  const cat = categoryToDelete.value
+async function handleDelete(cat: ProductCategory) {
   const tid = tenantId.value
-  if (!cat || !tid)
+  if (!tid)
     return
-  showDeleteDialog.value = false
-  try {
-    await $fetch(`/api/crm/products/categories/${cat.id}?tenant_id=${tid}`, { method: 'DELETE' })
-    toast.success('Categoria excluída')
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/products/categories/${cat.id}?tenant_id=${tid}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir categoria?',
+      description: `Tem certeza que deseja excluir "${cat.name}"? Os produtos desta categoria ficarão sem categoria.`,
+      successMessage: 'Categoria excluída.',
+      errorMessage: 'Não foi possível excluir a categoria.',
+    },
+  )
+
+  if (deleted)
     refresh()
-  }
-  catch (e: any) {
-    toast.error(e?.data?.message || e?.message || 'Erro ao excluir')
-  }
-  categoryToDelete.value = null
 }
 </script>
 
@@ -179,7 +165,7 @@ async function handleDeleteConfirm() {
       <DataTable
         :data="categories"
         :columns="categoryColumns"
-        :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
+        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
       >
         <template #toolbar="{ table }">
           <DataTableToolbar :table="table" placeholder="Buscar categorias..." filter-column="name">
@@ -222,23 +208,5 @@ async function handleDeleteConfirm() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-    <AlertDialog :open="showDeleteDialog" @update:open="showDeleteDialog = $event">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Excluir categoria</AlertDialogTitle>
-          <AlertDialogDescription>
-            Tem certeza que deseja excluir "{{ categoryToDelete?.name }}"?
-            Os produtos desta categoria ficarão sem categoria.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="handleDeleteConfirm">
-            Excluir
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   </div>
 </template>

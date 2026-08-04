@@ -8,6 +8,8 @@ export interface Lead {
   source: 'website' | 'referral' | 'social' | 'email' | 'phone' | 'other'
   source_id?: string | null
   value: number
+  /** Proposal amount options; when length > 1 the card shows a min-max range. */
+  values?: number[]
   priority: 'low' | 'medium' | 'high'
   assignedTo?: string
   notes?: string
@@ -86,6 +88,17 @@ export interface Company {
   tenant_id: string
 }
 
+export interface CrmCompanyLookupResult {
+  id: string
+  name: string
+  website: string | null
+  address: string | null
+  cep: string | null
+  city: string | null
+  country: string | null
+  notes: string | null
+}
+
 export interface Meeting {
   id: string
   title: string
@@ -135,10 +148,16 @@ export interface CrmLeadLookupResult {
   source: string | null
   priority: string | null
   value: number | null
+  values: number[] | null
   lead_notes: string | null
+  company_id: string | null
   company_name: string | null
   company_website: string | null
   company_address: string | null
+  company_cep: string | null
+  company_city: string | null
+  company_country: string | null
+  company_notes: string | null
 }
 
 // @deprecated — use types/whatsapp.ts

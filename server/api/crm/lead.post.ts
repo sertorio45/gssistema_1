@@ -3,9 +3,9 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 import { createError, defineEventHandler, readBody } from 'h3'
 
 import {
-  enqueueMetaConversion,
-  scheduleMetaCapiProcessing,
-} from '~/server/utils/crm/meta-capi'
+  ensureAdLeadSource,
+  hasMetaCampaignAttribution,
+} from '~/server/utils/crm/lead-source-ads'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -23,13 +23,32 @@ export default defineEventHandler(async (event) => {
     if (!tenantId) {
       throw createError({ statusCode: 400, message: 'Não foi possível identificar o tenant_id' })
     }
+
+    const attribution = {
+      meta_lead_id: body.meta_lead_id ?? null,
+      fbc: body.fbc ?? null,
+      fbp: body.fbp ?? null,
+      fbclid: body.fbclid ?? null,
+    }
+
+    let sourceId = body.source_id ?? null
+    let source = body.source
+    if (hasMetaCampaignAttribution(attribution)) {
+      const adSourceId = await ensureAdLeadSource(client, tenantId)
+      if (!sourceId)
+        sourceId = adSourceId
+      if (!source)
+        source = 'social'
+    }
+
     const leadToInsert = {
       name: body.name,
       company: body.company,
       status: body.status,
-      source: body.source,
-      source_id: body.source_id ?? null,
+      source,
+      source_id: sourceId,
       value: body.value,
+      values: Array.isArray(body.values) ? body.values : [],
       priority: body.priority,
       assigned_to: body.assigned_to,
       notes: body.notes,
@@ -41,10 +60,10 @@ export default defineEventHandler(async (event) => {
       tenant_id: tenantId,
       funnel_id: body.funnel_id ?? null,
       sales_stage_id: body.sales_stage_id ?? null,
-      meta_lead_id: body.meta_lead_id ?? null,
-      fbc: body.fbc ?? null,
-      fbp: body.fbp ?? null,
-      fbclid: body.fbclid ?? null,
+      meta_lead_id: attribution.meta_lead_id,
+      fbc: attribution.fbc,
+      fbp: attribution.fbp,
+      fbclid: attribution.fbclid,
     }
     if (!leadToInsert.name) {
       throw createError({ statusCode: 400, message: 'Nome é obrigatório' })
@@ -54,14 +73,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, message: error.message || 'Falha ao criar lead' })
     }
 
-    await enqueueMetaConversion(client, {
-      tenantId,
-      leadId: data.id as string,
-      eventName: 'Lead',
-      eventTime: data.created_at as string,
-    }).catch(() => {})
-    scheduleMetaCapiProcessing(event, client, tenantId)
-
+    // CAPI is semi-manual: only Purchase for selected won leads via sync UI.
     return { statusCode: 201, body: data }
   }
   catch (error: any) {

@@ -15,7 +15,7 @@ function toProvider(value: string) {
 }
 
 export default defineEventHandler(async (event) => {
-  const failRedirect = (message: string) => sendRedirect(event, `/marketing/integrations?oauth=error&message=${encodeURIComponent(message)}`, 302)
+  const failRedirect = (message: string) => sendRedirect(event, `/settings/integrations?oauth=error&message=${encodeURIComponent(message)}`, 302)
   const providerParam = event.context.params?.provider || ''
   const provider = toProvider(providerParam)
   if (!provider)
@@ -233,7 +233,7 @@ export default defineEventHandler(async (event) => {
     },
   })
 
-  const redirectBase = oauthState.redirect_path || '/marketing/integrations'
+  const redirectBase = oauthState.redirect_path || '/settings/integrations'
   if (provider === 'meta' && missingPublishScopes.length) {
     const message = `Conectado, mas faltam permissões de publicação: ${missingPublishScopes.join(', ')}. Reconecte e aceite todas as permissões, ou solicite Advanced Access no app Meta.`
     return sendRedirect(event, `${redirectBase}?oauth=error&provider=meta&message=${encodeURIComponent(message)}`, 302)

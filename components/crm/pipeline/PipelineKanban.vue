@@ -10,6 +10,7 @@ import CardContent from '@/components/ui/card/CardContent.vue'
 import CardHeader from '@/components/ui/card/CardHeader.vue'
 import CardTitle from '@/components/ui/card/CardTitle.vue'
 import Progress from '@/components/ui/progress/Progress.vue'
+import { formatLeadValueRange } from '~/composables/crm/useCrmLeadValue'
 
 // Tipos locais para Stage e Lead
 interface Stage {
@@ -24,6 +25,8 @@ interface Lead {
   company?: string
   priority: 'high' | 'medium' | 'low'
   value: number
+  values?: number[]
+  status?: string
   createdAt: string | Date
   assignedTo?: string
   source?: string
@@ -46,6 +49,10 @@ defineProps({
   getPriorityColor: { type: Function as PropType<(priority: string) => string>, required: true },
   formatCurrency: { type: Function as PropType<(value: number) => string>, required: true },
 })
+
+function formatLeadValueLabel(lead: Lead) {
+  return formatLeadValueRange(lead.values, lead.value)
+}
 
 function getPriorityLabel(priority: string) {
   const labels: Record<string, string> = {
@@ -149,7 +156,7 @@ function getSourceLabel(source?: string) {
                   </Badge>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-xs font-medium">{{ formatCurrency(lead.value) }}</span>
+                  <span class="text-xs font-medium">{{ formatLeadValueLabel(lead) }}</span>
                   <div class="flex items-center gap-1 text-xs text-muted-foreground">
                     <Icon name="lucide:calendar" class="h-3 w-3" />
                     {{ new Date(lead.createdAt).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' }) }}

@@ -1,8 +1,20 @@
 <script setup lang="ts">
-import type { Contact } from '~/types/crm'
+import type { Company, Contact, CrmCompanyLookupResult } from '~/types/crm'
 import { Loader2 } from 'lucide-vue-next'
 
 import { toast } from 'vue-sonner'
+import CompanyNameAutofillInput from '~/components/crm/leads/CompanyNameAutofillInput.vue'
+import CompanyForm from '~/components/crm/company/CompanyForm.vue'
+import Button from '~/components/ui/button/Button.vue'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { BR_PHONE_MASKS } from '~/composables/crm/useCrmLeadValue'
 import { useTenant } from '~/composables/useTenant'
 
 interface Props {
@@ -20,8 +32,8 @@ const emit = defineEmits<Emits>()
 const { tenantId } = useTenant()
 
 const isSubmitting = ref(false)
-const companiesData = ref<Array<{ id: string, name: string }>>([])
-const isLoadingCompanies = ref(false)
+const isCompanyDialogOpen = ref(false)
+const companyName = ref('')
 
 const formData = reactive({
   name: props.initialData?.name || '',
@@ -32,40 +44,48 @@ const formData = reactive({
   notes: props.initialData?.notes || '',
 })
 
-async function fetchCompanies() {
-  if (!tenantId.value)
+async function hydrateCompanyName() {
+  if (!tenantId.value || !formData.company_id) {
+    companyName.value = props.initialData?.company_name || ''
     return
+  }
 
-  isLoadingCompanies.value = true
   try {
-    const response = await $fetch('/api/crm/company', {
-      query: { tenant_id: tenantId.value, limit: 100 },
+    const response = await $fetch<{ data: Company }>(`/api/crm/company/${formData.company_id}`, {
+      query: { tenant_id: tenantId.value },
     })
-    companiesData.value = response.data || []
-    if (formData.company_id && !companiesData.value.find(c => c.id === formData.company_id)) {
-      try {
-        const company = await $fetch(`/api/crm/company/${formData.company_id}`, {
-          query: { tenant_id: tenantId.value },
-        })
-        if (company?.data && !companiesData.value.find(c => c.id === company.data.id))
-          companiesData.value.push(company.data)
-      }
-      catch {
-        // ignore missing company
-      }
-    }
+    companyName.value = response.data?.name || props.initialData?.company_name || ''
   }
-  catch (error) {
-    console.error('Failed to fetch companies:', error)
-  }
-  finally {
-    isLoadingCompanies.value = false
+  catch {
+    companyName.value = props.initialData?.company_name || ''
   }
 }
 
 onMounted(() => {
-  fetchCompanies()
+  hydrateCompanyName()
 })
+
+function handleCompanyAutofill(match: CrmCompanyLookupResult) {
+  formData.company_id = match.id
+  companyName.value = match.name
+}
+
+function openNewCompanyDialog() {
+  isCompanyDialogOpen.value = true
+}
+
+function handleCompanyCreated(company?: Company) {
+  if (company?.id) {
+    formData.company_id = company.id
+    companyName.value = company.name
+  }
+  isCompanyDialogOpen.value = false
+}
+
+function clearCompany() {
+  formData.company_id = null
+  companyName.value = ''
+}
 
 async function handleSubmit() {
   if (!formData.name.trim()) {
@@ -146,7 +166,7 @@ async function handleSubmit() {
         <Input
           id="phone"
           v-model="formData.phone"
-          v-maska="{ mask: ['(##) #####-####', '(##) ####-####'] }"
+          v-maska="{ mask: [...BR_PHONE_MASKS] }"
           placeholder="(00) 00000-0000"
           type="tel"
         />
@@ -160,21 +180,36 @@ async function handleSubmit() {
       </div>
 
       <div class="space-y-2">
-        <Label for="company">Empresa</Label>
-        <Select v-model="formData.company_id" :disabled="isLoadingCompanies">
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione uma empresa" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="company in companiesData" :key="company.id" :value="company.id">
-              {{ company.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <div v-if="isLoadingCompanies" class="flex items-center text-sm text-muted-foreground">
-          <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-          Carregando empresas...
+        <div class="flex items-center justify-between gap-2">
+          <Label for="company">Empresa</Label>
+          <div class="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-7 px-2 text-xs"
+              @click="clearCompany"
+            >
+              Limpar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="h-7"
+              @click="openNewCompanyDialog"
+            >
+              <Icon name="lucide:plus" class="mr-1 h-3.5 w-3.5" />
+              Nova empresa
+            </Button>
+          </div>
         </div>
+        <CompanyNameAutofillInput
+          v-model="companyName"
+          input-id="company"
+          placeholder="Buscar empresa pelo nome"
+          @autofill="handleCompanyAutofill"
+        />
       </div>
     </div>
 
@@ -188,4 +223,24 @@ async function handleSubmit() {
       />
     </div>
   </form>
+
+  <Dialog v-model:open="isCompanyDialogOpen">
+    <DialogContent class="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Nova empresa</DialogTitle>
+        <DialogDescription>
+          Cadastre uma empresa no tenant e vincule a este contato.
+        </DialogDescription>
+      </DialogHeader>
+      <CompanyForm @success="handleCompanyCreated" />
+      <DialogFooter>
+        <Button type="button" variant="outline" @click="isCompanyDialogOpen = false">
+          Cancelar
+        </Button>
+        <Button type="submit" form="company-form">
+          Salvar empresa
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

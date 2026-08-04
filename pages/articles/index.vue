@@ -8,6 +8,7 @@ import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { isStaffRole } from '~/constants/roles'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
@@ -18,46 +19,55 @@ definePageMeta({
 const { tenantId, currentRole, whenTenantReady } = useTenantPage()
 const isStaff = computed(() => isStaffRole(currentRole.value))
 
-const showDeleteDialog = ref(false)
-const articleToDelete = ref<any | null>(null)
 const selectedItems = ref([])
-const showMultiDeleteDialog = ref(false)
 
 const { data: articlesRaw, pending: loading, refresh: refreshArticles } = useFetch<any[]>('/api/articles')
 const { filteredData: articles } = useTenantRoleFilter<any>(articlesRaw as any, 'tenant_id')
 
-function handleDeleteClick(article: any) {
-  articleToDelete.value = article
-  showDeleteDialog.value = true
+async function handleDelete(article: any) {
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/articles/${article.id}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir artigo?',
+      description: `Tem certeza que deseja excluir "${article.title}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Artigo excluído com sucesso.',
+      errorMessage: 'Não foi possível excluir o artigo.',
+    },
+  )
+
+  if (deleted)
+    await refreshArticles()
+}
+
+async function handleMultiDelete() {
+  const toDelete = selectedItems.value
+    .map(idx => articles.value[idx])
+    .filter(Boolean)
+  const count = toDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(article =>
+      $fetch(`/api/articles/${article.id}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir vários artigos?',
+      description: `Tem certeza que deseja excluir ${count} artigos? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} artigo(s) excluído(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir os artigos.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await refreshArticles()
+  }
 }
 
 function handleEditClick(article: any) {
   navigateTo(`/articles/edit/${article.id}`)
-}
-
-async function handleDeleteConfirm() {
-  if (!articleToDelete.value)
-    return
-  showDeleteDialog.value = false
-  await $fetch(`/api/articles/${articleToDelete.value.id}`, { method: 'DELETE' as any })
-  articleToDelete.value = null
-  await refreshArticles()
-}
-
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
-  for (const idx of selectedItems.value) {
-    const article = articles.value[idx]
-    if (article) {
-      await $fetch(`/api/articles/${article.id}`, { method: 'DELETE' as any })
-    }
-  }
-  selectedItems.value = []
-  await refreshArticles()
 }
 
 function updateSelectedItems(items: any) {
@@ -106,8 +116,8 @@ watch(tenantId, () => {
       <DataTable
         :data="articles"
         :columns="columns"
-        :meta="{ onEdit: handleEditClick, onDelete: handleDeleteClick }"
-        @delete="handleDeleteClick"
+        :meta="{ onEdit: handleEditClick, onDelete: handleDelete }"
+        @delete="handleDelete"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
@@ -117,7 +127,7 @@ watch(tenantId, () => {
           <DataTablePagination :table="table" />
         </template>
         <template #actions="{ row }">
-          <DataTableRowActions :row="row" :on-edit="handleEditClick" :on-delete="handleDeleteClick" />
+          <DataTableRowActions :row="row" :on-edit="handleEditClick" :on-delete="handleDelete" />
         </template>
       </DataTable>
       <div
@@ -140,51 +150,8 @@ watch(tenantId, () => {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <!-- Delete Dialog -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Delete Article
-        </h2>
-        <p class="mb-4">
-          Are you sure you want to delete the article "{{ articleToDelete?.title }}"? This action cannot be undone.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancel
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Delete
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Multi Delete Dialog -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Delete Multiple Articles
-        </h2>
-        <p class="mb-4">
-          Are you sure you want to delete {{ selectedItems.length }} articles? This action cannot be undone.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancel
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Delete All
-          </Button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

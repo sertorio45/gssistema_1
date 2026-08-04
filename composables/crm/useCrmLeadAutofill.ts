@@ -1,5 +1,8 @@
-import type { CrmLeadLookupResult } from '~/types/crm'
-import { formatLeadValueInput } from '~/composables/crm/useCrmLeadValue'
+import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
+import {
+  formatLeadValueInput,
+  normalizeLeadValues,
+} from '~/composables/crm/useCrmLeadValue'
 
 export interface CrmLeadAutofillLeadForm {
   name: string
@@ -7,7 +10,10 @@ export interface CrmLeadAutofillLeadForm {
   status?: string
   sales_stage_id?: string
   priority: string
-  value: string
+  /** @deprecated prefer valuesInputs */
+  value?: string
+  valuesInputs?: string[]
+  closedValue?: string
   notes: string
 }
 
@@ -23,6 +29,10 @@ export interface CrmLeadAutofillCompanyForm {
   name: string
   website: string
   address: string
+  cep?: string
+  city?: string
+  country?: string
+  notes?: string
 }
 
 function resolveSourceId(
@@ -63,6 +73,23 @@ function resolveSourceId(
   return mapped?.id || ''
 }
 
+export function applyCompanyAutofill(
+  match: CrmCompanyLookupResult,
+  companyForm: { value: CrmLeadAutofillCompanyForm },
+  options?: { onCompanyId?: (companyId: string | null) => void },
+) {
+  companyForm.value = {
+    name: match.name || '',
+    website: match.website || '',
+    address: match.address || '',
+    cep: match.cep || '',
+    city: match.city || '',
+    country: match.country || '',
+    notes: match.notes || '',
+  }
+  options?.onCompanyId?.(match.id || null)
+}
+
 export function applyCrmLeadAutofill(
   match: CrmLeadLookupResult,
   forms: {
@@ -74,6 +101,7 @@ export function applyCrmLeadAutofill(
     leadSources?: Array<{ id: string, name: string }>
     preserveLeadStatus?: boolean
     fillLeadFields?: boolean
+    onCompanyId?: (companyId: string | null) => void
   },
 ) {
   if (options?.fillLeadFields !== false) {
@@ -88,8 +116,15 @@ export function applyCrmLeadAutofill(
     if (match.priority)
       forms.leadForm.value.priority = match.priority
 
-    if (match.value != null && !Number.isNaN(match.value))
+    const values = normalizeLeadValues(match.values)
+    if (values.length) {
+      forms.leadForm.value.valuesInputs = values.map(formatLeadValueInput)
+      forms.leadForm.value.value = formatLeadValueInput(values[0])
+    }
+    else if (match.value != null && !Number.isNaN(match.value)) {
+      forms.leadForm.value.valuesInputs = [formatLeadValueInput(match.value)]
       forms.leadForm.value.value = formatLeadValueInput(match.value)
+    }
 
     if (match.lead_notes)
       forms.leadForm.value.notes = match.lead_notes
@@ -107,7 +142,13 @@ export function applyCrmLeadAutofill(
     name: match.company_name || '',
     website: match.company_website || '',
     address: match.company_address || '',
+    cep: match.company_cep || '',
+    city: match.company_city || '',
+    country: match.company_country || '',
+    notes: match.company_notes || '',
   }
+
+  options?.onCompanyId?.(match.company_id || null)
 }
 
-export type { CrmLeadLookupResult } from '~/types/crm'
+export type { CrmLeadLookupResult, CrmCompanyLookupResult } from '~/types/crm'

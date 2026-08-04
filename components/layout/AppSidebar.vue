@@ -60,8 +60,10 @@ function hasCapability(item: NavLink | NavGroup | NavSectionTitle) {
 
 function matchesAudience(item: NavLink | NavGroup | NavSectionTitle) {
   // Hard whitelist for Marketing on the client portal — ignore stale caps.
-  if (isClientExperience.value && 'link' in item && item.link?.startsWith('/marketing'))
-    return isClientPortalMarketingLink(item.link)
+  if (isClientExperience.value && 'link' in item && item.link) {
+    if (item.link.startsWith('/marketing') || item.link.startsWith('/settings/integrations'))
+      return isClientPortalMarketingLink(item.link)
+  }
 
   if (!('audience' in item) || !item.audience)
     return true

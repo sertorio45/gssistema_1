@@ -15,6 +15,7 @@ import {
 import { Skeleton } from '~/components/ui/skeleton'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 definePageMeta({
   middleware: ['auth'],
@@ -46,16 +47,16 @@ function handleEdit(campaign: WhatsAppCampaign) {
 }
 
 async function handleDelete(campaign: WhatsAppCampaign) {
-  if (!import.meta.client || !confirm(`Excluir campanha "${campaign.name}"?`))
-    return
-
   actionLoadingId.value = campaign.id
   try {
-    await deleteCampaign(campaign.id)
-    toast.success('Campanha excluída')
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao excluir')
+    await deleteWithConfirm(
+      () => deleteCampaign(campaign.id),
+      {
+        title: 'Excluir campanha?',
+        description: `Tem certeza que deseja excluir "${campaign.name}"? Esta ação não pode ser desfeita.`,
+        successMessage: 'Campanha excluída com sucesso.',
+      },
+    )
   }
   finally {
     actionLoadingId.value = null

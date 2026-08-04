@@ -61,12 +61,43 @@ export default defineEventHandler(async (event) => {
     if (typeof body.enabled === 'boolean')
       config.capi_enabled = body.enabled
 
-    if (typeof body.pixel_id === 'string') {
-      const pixelId = body.pixel_id.trim()
-      if (pixelId)
-        config.pixel_id = pixelId
-      else
+    if (body.setup_mode === 'manual' || body.setup_mode === 'oauth')
+      config.capi_setup_mode = body.setup_mode
+
+    if (typeof body.pixel_id === 'string' || typeof body.dataset_id === 'string') {
+      const datasetId = String(body.dataset_id ?? body.pixel_id ?? '').trim()
+      if (datasetId) {
+        config.pixel_id = datasetId
+        config.dataset_id = datasetId
+      }
+      else {
         delete config.pixel_id
+        delete config.dataset_id
+      }
+    }
+
+    if (typeof body.ad_account_id === 'string') {
+      const adAccountId = body.ad_account_id.trim().replace(/^act_/i, '')
+      if (adAccountId)
+        config.ad_account_id = adAccountId
+      else
+        delete config.ad_account_id
+    }
+
+    if (typeof body.business_id === 'string') {
+      const businessId = body.business_id.trim()
+      if (businessId)
+        config.business_id = businessId
+      else
+        delete config.business_id
+    }
+
+    if (typeof body.business_name === 'string') {
+      const businessName = body.business_name.trim()
+      if (businessName)
+        config.business_name = businessName
+      else
+        delete config.business_name
     }
 
     if (typeof body.test_event_code === 'string') {

@@ -4,16 +4,6 @@ import type { WhatsAppAgent, WhatsAppConversation, WhatsAppConversationLead } fr
 
 import { formatLeadCurrency, formatLeadValueInput, parseLeadValueInput } from '~/composables/crm/useCrmLeadValue'
 import TeamMemberSelect from '~/components/crm/team/TeamMemberSelect.vue'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Button } from '~/components/ui/button'
 import {
@@ -54,7 +44,6 @@ const emit = defineEmits<{
 }>()
 
 const showCrmDialog = ref(false)
-const showDeleteDialog = ref(false)
 const showAgentMenu = ref(false)
 const agentEnabled = ref(false)
 const selectedAgentId = ref<string | null>(null)
@@ -212,7 +201,7 @@ const toolbarSelectClass = 'h-8 w-[120px] text-xs'
           variant="outline"
           size="sm"
           :class="toolbarButtonClass"
-          @click="showDeleteDialog = true"
+          @click="emit('deleteConversation')"
         >
           <span class="i-lucide-trash-2 h-4 w-4" />
           Excluir
@@ -394,25 +383,5 @@ const toolbarSelectClass = 'h-8 w-[120px] text-xs'
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-    <AlertDialog v-model:open="showDeleteDialog">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Excluir conversa?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Todas as mensagens de <strong>{{ conversation.contactName }}</strong> serão removidas permanentemente.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            @click="showDeleteDialog = false; emit('deleteConversation')"
-          >
-            Excluir
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   </div>
 </template>

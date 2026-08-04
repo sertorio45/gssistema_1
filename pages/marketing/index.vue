@@ -148,7 +148,7 @@ const cards = computed(() => {
               v-if="canIntegrations"
               variant="outline"
               class="h-auto justify-start p-4"
-              @click="navigateTo('/marketing/integrations')"
+              @click="navigateTo('/settings/integrations')"
             >
               <Icon name="lucide:plug" class="mr-3 h-5 w-5" />
               <span class="text-left">

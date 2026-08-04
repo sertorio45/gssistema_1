@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 definePageMeta({
   middleware: ['auth'],
@@ -12,8 +13,6 @@ const purpose = ref<'all' | 'publication' | 'reference'>('all')
 const category = ref('all')
 const uploadPurpose = ref<'publication' | 'reference'>('publication')
 const uploading = ref(false)
-const deleting = ref(false)
-const deleteDialogOpen = ref(false)
 const previewDialogOpen = ref(false)
 const activeAsset = ref<any>(null)
 const newFolderName = ref('')
@@ -114,34 +113,35 @@ function openPreview(asset: any) {
   previewDialogOpen.value = true
 }
 
-function openDelete(asset: any) {
-  activeAsset.value = asset
-  deleteDialogOpen.value = true
+async function deleteAsset(asset?: any) {
+  const target = asset || activeAsset.value
+  if (!target)
+    return
+
+  previewDialogOpen.value = false
+
+  const deleted = await deleteWithConfirm(
+    () => social.deleteAsset(target.id),
+    {
+      title: `Excluir “${target.name}”?`,
+      description: 'Esta ação remove definitivamente o arquivo. Se ele estiver vinculado a uma publicação, remova o vínculo antes de tentar novamente.',
+      confirmLabel: 'Excluir definitivamente',
+      successMessage: target.purpose === 'reference' ? 'Referência excluída com sucesso.' : 'Peça excluída com sucesso.',
+      errorMessage: 'Não foi possível excluir o arquivo.',
+    },
+  )
+
+  if (deleted) {
+    if (activeAsset.value?.id === target.id)
+      activeAsset.value = null
+    await refresh()
+  }
 }
 
 function deleteFromPreview() {
-  previewDialogOpen.value = false
-  openDelete(activeAsset.value)
+  deleteAsset(activeAsset.value)
 }
 
-async function deleteAsset() {
-  if (!activeAsset.value)
-    return
-  deleting.value = true
-  try {
-    await social.deleteAsset(activeAsset.value.id)
-    toast.success(activeAsset.value.purpose === 'reference' ? 'Referência excluída' : 'Peça excluída')
-    deleteDialogOpen.value = false
-    activeAsset.value = null
-    await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível excluir o arquivo')
-  }
-  finally {
-    deleting.value = false
-  }
-}
 </script>
 
 <template>
@@ -244,7 +244,7 @@ async function deleteAsset() {
           size="icon"
           class="absolute right-2 top-2 z-10 h-8 w-8 opacity-0 shadow-sm transition-opacity focus:opacity-100 group-hover:opacity-100"
           title="Excluir arquivo"
-          @click.stop="openDelete(asset)"
+          @click.stop="deleteAsset(asset)"
         >
           <Icon name="lucide:trash-2" class="h-4 w-4 text-destructive" />
         </Button>
@@ -324,26 +324,6 @@ async function deleteAsset() {
           >
             <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
             Excluir arquivo
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    <Dialog v-model:open="deleteDialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Excluir “{{ activeAsset?.name }}”?</DialogTitle>
-          <DialogDescription>
-            Esta ação remove definitivamente o arquivo. Se ele estiver vinculado a uma publicação, remova o vínculo antes de tentar novamente.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" :disabled="deleting" @click="deleteDialogOpen = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" :disabled="deleting" @click="deleteAsset">
-            <Icon v-if="deleting" name="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
-            {{ deleting ? 'Excluindo...' : 'Excluir definitivamente' }}
           </Button>
         </DialogFooter>
       </DialogContent>

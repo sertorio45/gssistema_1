@@ -138,12 +138,14 @@ describe('matchesNavAudience', () => {
       '/marketing/calendar',
       '/marketing/posts',
       '/marketing/reports',
-      '/marketing/integrations',
+      '/settings/integrations',
     ])
     expect(isClientPortalMarketingLink('/marketing/packages')).toBe(false)
     expect(isClientPortalMarketingLink('/marketing/posts')).toBe(true)
     expect(isClientPortalMarketingLink('/marketing/posts/new')).toBe(true)
     expect(isClientPortalMarketingLink('/marketing/posts/tasks')).toBe(false)
     expect(isClientPortalMarketingLink('/marketing/calendar')).toBe(true)
+    expect(isClientPortalMarketingLink('/settings/integrations')).toBe(true)
+    expect(isClientPortalMarketingLink('/settings/integrations/meta-capi')).toBe(true)
   })
 })

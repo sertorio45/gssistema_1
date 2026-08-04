@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/select'
 import { Stepper, StepperDescription, StepperItem, StepperSeparator, StepperTitle, StepperTrigger } from '@/components/ui/stepper'
 import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
+import CompanyNameAutofillInput from '~/components/crm/leads/CompanyNameAutofillInput.vue'
+import LeadValuesFields from '~/components/crm/leads/LeadValuesFields.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
@@ -19,9 +21,16 @@ import CardTitle from '~/components/ui/card/CardTitle.vue'
 import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
-import { formatLeadValueInput, parseLeadValueInput } from '~/composables/crm/useCrmLeadValue'
-import { applyCrmLeadAutofill } from '~/composables/crm/useCrmLeadAutofill'
-import type { CrmLeadLookupResult } from '~/types/crm'
+import {
+  BR_PHONE_MASKS,
+  parseLeadValueInput,
+  parseLeadValuesInputs,
+} from '~/composables/crm/useCrmLeadValue'
+import {
+  applyCompanyAutofill,
+  applyCrmLeadAutofill,
+} from '~/composables/crm/useCrmLeadAutofill'
+import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
 import { useTenant } from '~/composables/useTenant'
 
 const props = withDefaults(
@@ -136,7 +145,8 @@ const leadForm = ref({
   source: '',
   status: '',
   priority: 'medium', // Valor padrão
-  value: '',
+  valuesInputs: [''] as string[],
+  closedValue: '',
   notes: '',
 })
 const contactForm = ref({
@@ -150,7 +160,12 @@ const companyForm = ref({
   name: '',
   website: '',
   address: '',
+  cep: '',
+  city: '',
+  country: '',
+  notes: '',
 })
+const companyId = ref<string | null>(null)
 const meetingForm = ref({
   date: '',
   time: '',
@@ -161,16 +176,31 @@ const meetingForm = ref({
 
 const loading = ref(false)
 
-function handleLeadValueInput(event: Event) {
-  const input = event.target as HTMLInputElement
-  leadForm.value.value = formatLeadValueInput(input.value)
-}
-
 function handleLeadAutofill(match: CrmLeadLookupResult, scope: 'lead' | 'contact' = 'lead') {
   applyCrmLeadAutofill(match, { leadForm, contactForm, companyForm }, {
     leadSources: leadSources.value || [],
     fillLeadFields: scope === 'lead',
+    onCompanyId: (id) => { companyId.value = id },
   })
+}
+
+function handleCompanyAutofill(match: CrmCompanyLookupResult) {
+  applyCompanyAutofill(match, companyForm, {
+    onCompanyId: (id) => { companyId.value = id },
+  })
+}
+
+function startNewCompany() {
+  companyId.value = null
+  companyForm.value = {
+    name: '',
+    website: '',
+    address: '',
+    cep: '',
+    city: '',
+    country: '',
+    notes: '',
+  }
 }
 
 // Função para recarregar dados
@@ -270,6 +300,12 @@ async function submitLead() {
     const funnelId = getActiveFunnelId()
     const salesStageId = props.defaultSalesStageId ?? getFirstStageIdForFunnel(funnelId)
 
+    const proposalValues = parseLeadValuesInputs(leadForm.value.valuesInputs)
+    const closedAmount = parseLeadValueInput(leadForm.value.closedValue)
+    const scalarValue = closedAmount > 0
+      ? closedAmount
+      : (proposalValues.length ? Math.max(...proposalValues) : 0)
+
     // 1. Cria o Lead (sales_stage_id = estágio "Novo" ou o estágio clicado no Kanban)
     const leadData = {
       name: leadForm.value.name,
@@ -279,7 +315,8 @@ async function submitLead() {
       funnel_id: funnelId,
       status: 'new' as any,
       priority: (leadForm.value.priority as any) || 'medium',
-      value: parseLeadValueInput(leadForm.value.value),
+      value: scalarValue,
+      values: proposalValues,
       notes: leadForm.value.notes || null,
       tenant_id: tenantId.value,
       tags: [] as string[],
@@ -300,7 +337,51 @@ async function submitLead() {
       throw new Error('Falha ao criar lead: nenhum dado retornado')
     }
 
-    // 2. Cria o Contact vinculado ao lead
+    // 2. Resolve company (reuse autofill match or create)
+    let resolvedCompanyId = companyId.value
+    if (companyForm.value.name && companyForm.value.name.trim()) {
+      if (resolvedCompanyId) {
+        await supabase
+          .from('crm_company')
+          .update({
+            name: companyForm.value.name.trim(),
+            website: companyForm.value.website || null,
+            address: companyForm.value.address || null,
+            cep: companyForm.value.cep || null,
+            city: companyForm.value.city || null,
+            country: companyForm.value.country || null,
+            notes: companyForm.value.notes || null,
+          })
+          .eq('id', resolvedCompanyId)
+          .eq('tenant_id', tenantId.value)
+      }
+      else {
+        const { data: companyResult, error: companyError } = await supabase
+          .from('crm_company')
+          .insert([{
+            name: companyForm.value.name.trim(),
+            website: companyForm.value.website || null,
+            address: companyForm.value.address || null,
+            cep: companyForm.value.cep || null,
+            city: companyForm.value.city || null,
+            country: companyForm.value.country || null,
+            notes: companyForm.value.notes || null,
+            tenant_id: tenantId.value,
+          }])
+          .select()
+          .single()
+
+        if (companyError) {
+          console.error('Erro ao criar empresa:', companyError)
+          console.warn('Falha ao criar empresa, continuando sem empresa')
+        }
+        else {
+          resolvedCompanyId = companyResult?.id ?? null
+        }
+      }
+    }
+
+    // 3. Cria o Contact vinculado ao lead
     const { data: contact, error: contactError } = await supabase
       .from('crm_contact')
       .insert([{
@@ -311,6 +392,7 @@ async function submitLead() {
         notes: contactForm.value.notes,
         tenant_id: tenantId.value,
         lead_id: lead.id,
+        company_id: resolvedCompanyId,
       }])
       .select()
       .single()
@@ -324,35 +406,6 @@ async function submitLead() {
       throw new Error('Falha ao criar contato: nenhum dado retornado')
     }
 
-    // 3. Cria a Company se preenchido - simplificado
-    let company = null
-    if (companyForm.value.name && companyForm.value.name.trim()) {
-      const { data: companyResult, error: companyError } = await supabase
-        .from('crm_company')
-        .insert([{
-          name: companyForm.value.name.trim(),
-          website: companyForm.value.website || null,
-          address: companyForm.value.address || null,
-          tenant_id: tenantId.value,
-        }])
-        .select()
-        .single()
-
-      if (companyError) {
-        console.error('Erro ao criar empresa:', companyError)
-        console.warn('Falha ao criar empresa, continuando sem empresa')
-      }
-      else {
-        company = companyResult
-
-        // Atualiza o contato com o company_id
-        await supabase
-          .from('crm_contact')
-          .update({ company_id: company.id })
-          .eq('id', contact.id)
-      }
-    }
-
     // 4. Não criar meeting por enquanto para evitar erros de tipo
     // O meeting pode ser adicionado depois com os tipos corretos
 
@@ -362,7 +415,8 @@ async function submitLead() {
       source: '',
       status: '',
       priority: 'medium',
-      value: '',
+      valuesInputs: [''],
+      closedValue: '',
       notes: '',
     }
     contactForm.value = {
@@ -376,7 +430,12 @@ async function submitLead() {
       name: '',
       website: '',
       address: '',
+      cep: '',
+      city: '',
+      country: '',
+      notes: '',
     }
+    companyId.value = null
     meetingForm.value = {
       date: '',
       time: '',
@@ -581,15 +640,12 @@ async function submitLead() {
                   </SelectContent>
                 </Select>
               </div>
-              <div class="space-y-2">
-                <Label for="lead-value">Valor estimado</Label>
-                <Input
-                  id="lead-value"
-                  v-model="leadForm.value"
-                  placeholder="R$ 0,00"
-                  type="text"
-                  inputmode="numeric"
-                  @input="handleLeadValueInput"
+              <div class="md:col-span-2">
+                <LeadValuesFields
+                  v-model="leadForm.valuesInputs"
+                  v-model:closed-value="leadForm.closedValue"
+                  show-closed-value
+                  id-prefix="step-lead-value"
                 />
               </div>
               <div class="md:col-span-2 space-y-2">
@@ -618,7 +674,12 @@ async function submitLead() {
               </div>
               <div class="space-y-2">
                 <Label for="contact-phone">Telefone</Label>
-                <Input id="contact-phone" v-model="contactForm.phone" placeholder="(00) 00000-0000" />
+                <Input
+                  id="contact-phone"
+                  v-model="contactForm.phone"
+                  v-maska="{ mask: [...BR_PHONE_MASKS] }"
+                  placeholder="(00) 00000-0000"
+                />
               </div>
               <div class="space-y-2">
                 <Label for="contact-position">Cargo</Label>
@@ -632,18 +693,53 @@ async function submitLead() {
           </template>
           <template v-else-if="step === 2">
             <!-- Company Info Form -->
+            <div class="mb-4 flex items-center justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-medium">
+                  Empresa
+                </h3>
+                <p class="text-xs text-muted-foreground">
+                  Busque uma empresa cadastrada ou crie uma nova.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="startNewCompany">
+                <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
+                Nova empresa
+              </Button>
+            </div>
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div class="space-y-2">
+              <div class="space-y-2 md:col-span-2">
                 <Label for="company-name">Nome da empresa</Label>
-                <Input id="company-name" v-model="companyForm.name" placeholder="Nome da empresa" />
+                <CompanyNameAutofillInput
+                  v-model="companyForm.name"
+                  input-id="company-name"
+                  placeholder="Digite para buscar empresas do tenant"
+                  @autofill="handleCompanyAutofill"
+                />
               </div>
               <div class="space-y-2">
                 <Label for="company-website">Site</Label>
-                <Input id="company-website" v-model="companyForm.website" placeholder="www.exemplo.com" />
+                <Input id="company-website" v-model="companyForm.website" placeholder="https://exemplo.com" />
+              </div>
+              <div class="space-y-2">
+                <Label for="company-cep">CEP</Label>
+                <Input id="company-cep" v-model="companyForm.cep" placeholder="00000-000" />
+              </div>
+              <div class="space-y-2">
+                <Label for="company-city">Cidade</Label>
+                <Input id="company-city" v-model="companyForm.city" placeholder="Cidade" />
+              </div>
+              <div class="space-y-2">
+                <Label for="company-country">País</Label>
+                <Input id="company-country" v-model="companyForm.country" placeholder="País" />
               </div>
               <div class="md:col-span-2 space-y-2">
                 <Label for="company-address">Endereço</Label>
-                <Input id="company-address" v-model="companyForm.address" placeholder="Endereço da empresa" />
+                <Textarea id="company-address" v-model="companyForm.address" placeholder="Endereço completo" rows="2" />
+              </div>
+              <div class="md:col-span-2 space-y-2">
+                <Label for="company-notes">Observações</Label>
+                <Textarea id="company-notes" v-model="companyForm.notes" placeholder="Observações sobre a empresa" rows="3" />
               </div>
             </div>
           </template>

@@ -9,16 +9,6 @@ import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
 import CardHeader from '~/components/ui/card/CardHeader.vue'
 import CardTitle from '~/components/ui/card/CardTitle.vue'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
@@ -38,7 +28,7 @@ import SheetFooter from '~/components/ui/sheet/SheetFooter.vue'
 import SheetHeader from '~/components/ui/sheet/SheetHeader.vue'
 import SheetTitle from '~/components/ui/sheet/SheetTitle.vue'
 import { useTenant } from '~/composables/useTenant'
-import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 definePageMeta({
   middleware: ['auth', 'tenant'],
@@ -50,9 +40,6 @@ const { tenantId } = useTenant()
 const isSheetOpen = ref(false)
 const selectedProduct = ref<Product | null>(null)
 const selectedItems = ref<number[]>([])
-const showMultiDeleteDialog = ref(false)
-const showDeleteDialog = ref(false)
-const productToDelete = ref<Product | null>(null)
 const FILTER_ALL = '__all__'
 const filterType = ref<string>(FILTER_ALL)
 const filterCategory = ref<string>(FILTER_ALL)
@@ -142,48 +129,52 @@ function handleProductSaved() {
   refresh()
 }
 
-function handleDeleteClick(product: Product) {
-  productToDelete.value = product
-  showDeleteDialog.value = true
-}
-
-async function handleDeleteConfirm() {
-  const p = productToDelete.value
-  if (!p || !tenantId.value)
+async function handleDelete(product: Product) {
+  if (!tenantId.value)
     return
-  showDeleteDialog.value = false
-  try {
-    await $fetch(`/api/crm/products/${p.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' })
-    toast.success('Produto desativado')
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/products/${product.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    {
+      title: 'Desativar produto?',
+      description: 'O produto será marcado como inativo. Você pode reativá-lo depois.',
+      confirmLabel: 'Desativar',
+      successMessage: 'Produto desativado.',
+      errorMessage: 'Não foi possível desativar o produto.',
+    },
+  )
+
+  if (deleted)
     refresh()
-  }
-  catch (e: any) {
-    toast.error(e?.data?.message || 'Erro ao excluir')
-  }
-  productToDelete.value = null
 }
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
+async function handleMultiDelete() {
   const tid = tenantId.value
-  if (!tid)
+  if (!tid || !selectedItems.value.length)
     return
-  const indices = selectedItems.value
-  const toSoftDelete = indices.map(i => products.value[i]).filter(Boolean)
-  try {
-    await Promise.all(
-      toSoftDelete.map(p => $fetch(`/api/crm/products/${p.id}?tenant_id=${tid}`, { method: 'DELETE' })),
-    )
-    toast.success(`${toSoftDelete.length} produto(s) desativado(s)`)
+
+  const toSoftDelete = selectedItems.value.map(i => products.value[i]).filter(Boolean)
+  const count = toSoftDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toSoftDelete.map(p =>
+      $fetch(`/api/crm/products/${p.id}?tenant_id=${tid}`, { method: 'DELETE' }),
+    )),
+    {
+      title: `Desativar ${count} produto(s)?`,
+      description: 'Os produtos serão marcados como inativos. Você pode reativá-los depois.',
+      confirmLabel: 'Desativar todos',
+      successMessage: `${count} produto(s) desativado(s).`,
+      errorMessage: 'Não foi possível desativar os produtos.',
+    },
+  )
+
+  if (deleted) {
     selectedItems.value = []
     refresh()
-  }
-  catch (e: any) {
-    toast.error(e?.data?.message || 'Erro ao excluir alguns produtos')
   }
 }
 
@@ -352,7 +343,7 @@ async function handleMultiDeleteConfirm() {
       <DataTable
         :data="products"
         :columns="columns"
-        :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
+        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
@@ -371,44 +362,8 @@ async function handleMultiDeleteConfirm() {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <!-- Delete confirmation -->
-    <AlertDialog v-model:open="showDeleteDialog">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Desativar produto?</AlertDialogTitle>
-          <AlertDialogDescription>
-            O produto será marcado como inativo. Você pode reativá-lo depois.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="handleDeleteConfirm">
-            Desativar
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
-    <!-- Multi delete -->
-    <AlertDialog v-model:open="showMultiDeleteDialog">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Desativar {{ selectedItems.length }} produto(s)?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Os produtos serão marcados como inativos. Você pode reativá-los depois.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground" @click="handleMultiDeleteConfirm">
-            Desativar todos
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
 
     <!-- Sheet: New / Edit Product -->
     <Sheet v-model:open="isSheetOpen">

@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Skeleton } from '~/components/ui/skeleton'
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 definePageMeta({
   middleware: ['auth'],
@@ -143,17 +144,19 @@ async function handleSetDefault(id: string, isDefault: boolean) {
 }
 
 async function handleDelete(id: string) {
-  if (!import.meta.client || !confirm('Excluir esta instância? Esta ação não pode ser desfeita.'))
-    return
-
   actionLoadingId.value = id
   try {
-    stopPolling(id)
-    await deleteInstance(id)
-    toast.success('Instância excluída')
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao excluir')
+    await deleteWithConfirm(
+      async () => {
+        stopPolling(id)
+        await deleteInstance(id)
+      },
+      {
+        title: 'Excluir instância?',
+        description: 'Tem certeza que deseja excluir esta instância? Esta ação não pode ser desfeita.',
+        successMessage: 'Instância excluída com sucesso.',
+      },
+    )
   }
   finally {
     actionLoadingId.value = null

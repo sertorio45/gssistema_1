@@ -8,6 +8,7 @@ import ConversationList from '~/components/whatsapp/conversations/ConversationLi
 import InboxMobileSwitcher from '~/components/whatsapp/conversations/InboxMobileSwitcher.vue'
 import InboxSidebar from '~/components/whatsapp/conversations/InboxSidebar.vue'
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 const route = useRoute()
 const router = useRouter()
@@ -395,18 +396,24 @@ function handleLeadUpdated(lead: WhatsAppConversationLead) {
 }
 
 async function handleDeleteConversation() {
-  const id = resolvedConversation.value?.id
+  const conversation = resolvedConversation.value
+  const id = conversation?.id
   if (!id)
     return
-  try {
-    await deleteConversation(id)
+
+  const contactName = conversation.contactName || 'este contato'
+  const ok = await deleteWithConfirm(
+    () => deleteConversation(id),
+    {
+      title: 'Excluir conversa?',
+      description: `Todas as mensagens de "${contactName}" serão removidas permanentemente. Esta ação não pode ser desfeita.`,
+      successMessage: 'Conversa excluída com sucesso.',
+    },
+  )
+  if (ok) {
     activeId.value = null
     resolvedConversation.value = null
     conversationLead.value = null
-    toast.success('Conversa excluída')
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao excluir conversa')
   }
 }
 

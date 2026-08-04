@@ -5,7 +5,7 @@ import { createError, defineEventHandler, readBody } from 'h3'
 import {
   processMetaConversionQueue,
   scheduleMetaCapiProcessing,
-  syncPendingWonPurchases,
+  syncSelectedWonPurchases,
 } from '~/server/utils/crm/meta-capi'
 import {
   assertScopedTenantAccess,
@@ -27,16 +27,27 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
   assertScopedTenantAccess(role, userTenantId, tenantId)
 
+  const leadIds = Array.isArray(body?.lead_ids)
+    ? body.lead_ids.map((id: unknown) => String(id)).filter(Boolean)
+    : []
+
+  if (!leadIds.length) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Selecione ao menos um lead em Ganho para enviar',
+    })
+  }
+
   const client = await serverSupabaseServiceRole(event)
-  const syncResult = await syncPendingWonPurchases(client, {
+  const syncResult = await syncSelectedWonPurchases(client, {
     tenantId,
-    limit: Number(body?.limit) || 50,
+    leadIds,
     force: Boolean(body?.force),
   })
 
   const processResult = await processMetaConversionQueue(client, {
     tenantId,
-    limit: 50,
+    limit: Math.min(leadIds.length + 10, 50),
   })
 
   scheduleMetaCapiProcessing(event, client, tenantId)

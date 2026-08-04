@@ -6,6 +6,7 @@
 import type { TenantTeamMember, TenantTeamRole } from '~/types/tenant-team'
 
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 import { columns } from '~/components/crm/team/columns'
 import TeamMemberForm from '~/components/crm/team/TeamMemberForm.vue'
@@ -55,17 +56,16 @@ function handleEdit(member: TenantTeamMember) {
 }
 
 async function handleDelete(member: TenantTeamMember) {
-  if (!confirm(`Remover ${member.name} da equipe?`))
-    return
-
-  try {
-    await deleteMember(member.id)
-    toast.success('Usuário removido')
+  const ok = await deleteWithConfirm(
+    () => deleteMember(member.id),
+    {
+      title: 'Remover usuário?',
+      description: `Tem certeza que deseja remover "${member.name}" da equipe? Esta ação não pode ser desfeita.`,
+      successMessage: 'Usuário removido com sucesso.',
+    },
+  )
+  if (ok)
     await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao remover usuário')
-  }
 }
 
 async function handleSubmit(payload: {

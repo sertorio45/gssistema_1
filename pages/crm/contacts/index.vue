@@ -11,6 +11,7 @@ import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
@@ -25,7 +26,6 @@ const { tenantId } = useTenantPage()
 const selectedContact = ref<Contact | null>(null)
 const isDialogOpen = ref(false)
 const selectedItems = ref<number[]>([])
-const showMultiDeleteDialog = ref(false)
 
 // Use useLazyAsyncData for proper SSR handling
 const {
@@ -64,31 +64,57 @@ function updateSelectedItems(items: number[]) {
   selectedItems.value = items
 }
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
+async function handleMultiDelete() {
+  if (!tenantId.value || !selectedItems.value.length)
+    return
+
+  const toDelete = selectedItems.value
+    .map(idx => contactsData.value?.[idx])
+    .filter((contact): contact is Contact => Boolean(contact))
+  const count = toDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(contact =>
+      $fetch(`/api/crm/contacts/${contact.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir vários contatos?',
+      description: `Tem certeza que deseja excluir ${count} contatos? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} contato(s) excluído(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir os contatos.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await refresh()
+  }
 }
 
-function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
-  const toDelete = selectedItems.value.map(idx => contactsData.value?.[idx]?.id)
-  if (contactsData.value) {
-    contactsData.value = contactsData.value.filter(c => !toDelete.includes(c.id))
-  }
-  selectedItems.value = []
+async function handleDelete(contact: Contact) {
+  if (!tenantId.value)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/contacts/${contact.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir contato?',
+      description: `Tem certeza que deseja excluir "${contact.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Contato excluído com sucesso.',
+      errorMessage: 'Não foi possível excluir o contato.',
+    },
+  )
+
+  if (deleted)
+    await refresh()
 }
 
 function handleEdit(contact: Contact) {
   selectedContact.value = contact
   isDialogOpen.value = true
-}
-
-function handleDelete(contact: Contact) {
-  if (contactsData.value) {
-    const index = contactsData.value.findIndex(c => c.id === contact.id)
-    if (index > -1) {
-      contactsData.value.splice(index, 1)
-    }
-  }
 }
 
 function handleNewContact() {
@@ -169,31 +195,8 @@ function handleContactSaved() {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <!-- Multi Delete Dialog -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir vários contatos
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} contatos? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir todos
-          </Button>
-        </div>
-      </div>
-    </div>
 
     <!-- Contact Dialog -->
     <Dialog v-model:open="isDialogOpen">

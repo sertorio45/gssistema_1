@@ -13,6 +13,7 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 definePageMeta({
   middleware: ['auth'],
@@ -52,16 +53,15 @@ function handleView(contact: WhatsAppContact) {
 }
 
 async function handleDelete(contact: WhatsAppContact) {
-  if (!import.meta.client || !confirm(`Excluir contato ${contact.name || contact.phone}?`))
-    return
-
-  try {
-    await deleteContact(contact.id)
-    toast.success('Contato excluído')
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Erro ao excluir')
-  }
+  const label = contact.name || contact.phone
+  await deleteWithConfirm(
+    () => deleteContact(contact.id),
+    {
+      title: 'Excluir contato?',
+      description: `Tem certeza que deseja excluir "${label}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Contato excluído com sucesso.',
+    },
+  )
 }
 
 async function handleSync(contact: WhatsAppContact) {

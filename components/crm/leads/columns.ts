@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
+import { formatLeadValueRange } from '~/composables/crm/useCrmLeadValue'
 
 const statusOptions = [
   { value: 'new', label: 'Novo', color: 'border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -162,14 +163,11 @@ export const columns: ColumnDef<any>[] = [
     accessorKey: 'value',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Valor' }),
     cell: ({ row }) => {
-      const value = row.getValue('value') as number
+      const lead = row.original as { value?: number, values?: number[] }
       return h(
         'span',
         { class: 'font-medium' },
-        new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        }).format(value),
+        formatLeadValueRange(lead.values, lead.value),
       )
     },
   },

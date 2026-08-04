@@ -40,6 +40,7 @@ export default defineEventHandler(async (event) => {
       sent_at,
       created_at,
       updated_at,
+      is_test,
       crm_lead:crm_lead!crm_meta_conversion_events_lead_id_fkey(id, name, value, status)
     `)
     .eq('tenant_id', tenantId)
@@ -55,7 +56,7 @@ export default defineEventHandler(async (event) => {
       return {
         id: row.id,
         lead_id: row.lead_id,
-        lead_name: lead?.name || null,
+        lead_name: lead?.name || (row.is_test ? 'Evento de teste' : null),
         lead_value: lead?.value ?? null,
         event_name: row.event_name,
         event_id: row.event_id,
@@ -67,6 +68,7 @@ export default defineEventHandler(async (event) => {
         sent_at: row.sent_at,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        is_test: Boolean(row.is_test),
       }
     }),
   }

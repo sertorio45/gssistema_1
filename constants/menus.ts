@@ -55,7 +55,7 @@ export const navMenu: NavMenu[] = [
           {
             title: 'Integrações',
             icon: 'i-lucide-plug',
-            link: '/marketing/integrations',
+            link: '/settings/integrations',
             roles: ['admin', 'funcionario', 'cliente'],
             capability: 'marketing.social.integrations',
           },

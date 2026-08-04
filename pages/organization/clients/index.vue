@@ -3,6 +3,7 @@ import type { AgencyClientRow } from '~/types/workspace'
 
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 import { useWorkspace } from '~/composables/useWorkspace'
 
@@ -62,19 +63,21 @@ async function openClient(tenantId: string, path = '/marketing') {
 async function deactivateClient(client: AgencyClientRow) {
   if (!organizationId.value || !canManage.value)
     return
-  if (!confirm(`Desativar o vínculo com ${client.name}?`))
-    return
 
   busyTenantId.value = client.tenant_id
   try {
-    await $fetch(`/api/organizations/${organizationId.value}/tenants/${client.tenant_id}`, {
-      method: 'DELETE',
-    })
-    toast.success('Vínculo desativado')
-    await refresh()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || 'Falha ao desativar vínculo')
+    const ok = await deleteWithConfirm(
+      () => $fetch(`/api/organizations/${organizationId.value}/tenants/${client.tenant_id}`, {
+        method: 'DELETE',
+      }),
+      {
+        title: 'Desativar vínculo?',
+        description: `Tem certeza que deseja desativar o vínculo com "${client.name}"? Esta ação não pode ser desfeita.`,
+        successMessage: 'Vínculo desativado com sucesso.',
+      },
+    )
+    if (ok)
+      await refresh()
   }
   finally {
     busyTenantId.value = null
@@ -192,7 +195,7 @@ async function deactivateClient(client: AgencyClientRow) {
               v-if="canIntegrations"
               size="sm"
               variant="outline"
-              @click="openClient(client.tenant_id, '/marketing/integrations')"
+              @click="openClient(client.tenant_id, '/settings/integrations')"
             >
               Integrações
             </Button>

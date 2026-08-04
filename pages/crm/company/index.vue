@@ -2,8 +2,6 @@
 import type { Company } from '~/types/crm'
 import { ref, watch } from 'vue'
 
-import { toast } from 'vue-sonner'
-
 import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import { columns } from '~/components/crm/company/columns'
 import CompanyForm from '~/components/crm/company/CompanyForm.vue'
@@ -20,6 +18,7 @@ import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
@@ -33,7 +32,6 @@ const { tenantId, whenTenantReady } = useTenantPage()
 const companiesData = ref<Company[]>([])
 const isLoading = ref(false)
 const selectedItems = ref<Company[]>([])
-const showMultiDeleteDialog = ref(false)
 const isFormOpen = ref(false)
 const editingCompany = ref<Company | undefined>(undefined)
 const page = ref(1)
@@ -103,38 +101,45 @@ watch(tenantId, (val) => {
   editingCompany.value = undefined
 })
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
 async function handleDelete(company: Company) {
   if (!company || !tenantId.value)
     return
-  try {
-    await $fetch(`/api/crm/company/${company.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' })
-    toast.success('Empresa excluída com sucesso')
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/company/${company.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir empresa?',
+      description: `Tem certeza que deseja excluir "${company.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Empresa excluída com sucesso.',
+      errorMessage: 'Não foi possível excluir a empresa.',
+    },
+  )
+
+  if (deleted)
     await fetchCompanies()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.data?.message || 'Falha ao excluir empresa')
-  }
 }
 
-async function handleMultiDeleteConfirm() {
-  if (!tenantId.value)
+async function handleMultiDelete() {
+  if (!tenantId.value || !selectedItems.value.length)
     return
-  showMultiDeleteDialog.value = false
+
   const toDelete = [...selectedItems.value]
-  try {
-    await Promise.all(toDelete.map(company =>
+  const count = toDelete.length
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(company =>
       $fetch(`/api/crm/company/${company.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
-    ))
-    toast.success(`${toDelete.length} empresa(s) excluída(s)`)
+    )),
+    {
+      title: 'Excluir várias empresas?',
+      description: `Tem certeza que deseja excluir ${count} empresas? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} empresa(s) excluída(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir as empresas.',
+    },
+  )
+
+  if (deleted) {
     selectedItems.value = []
-    await fetchCompanies()
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.data?.message || 'Falha ao excluir empresas')
     await fetchCompanies()
   }
 }
@@ -202,31 +207,8 @@ async function handleMultiDeleteConfirm() {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <!-- Multi Delete Dialog -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir várias empresas
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} empresas? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir todas
-          </Button>
-        </div>
-      </div>
-    </div>
 
     <!-- Dialog de Criação/Edição -->
     <Dialog v-model:open="isFormOpen">

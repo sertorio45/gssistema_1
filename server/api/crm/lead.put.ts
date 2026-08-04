@@ -2,11 +2,6 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { createError, defineEventHandler, readBody } from 'h3'
 
-import {
-  enqueueMetaConversion,
-  scheduleMetaCapiProcessing,
-} from '~/server/utils/crm/meta-capi'
-
 export default defineEventHandler(async (event) => {
   try {
     const client = await serverSupabaseServiceRole(event)
@@ -26,13 +21,6 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Não foi possível identificar o tenant_id' })
     }
 
-    const { data: existing } = await client
-      .from('crm_lead')
-      .select('id, status')
-      .eq('id', body.id)
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-
     const updateData = { ...body }
     delete updateData.id
     delete updateData.tenant_id
@@ -47,16 +35,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 500, message: error.message || 'Falha ao atualizar lead' })
     }
 
-    if (data?.status === 'won' && existing?.status !== 'won') {
-      await enqueueMetaConversion(client, {
-        tenantId,
-        leadId: data.id as string,
-        eventName: 'Purchase',
-        eventTime: data.closed_at as string | null,
-      }).catch(() => {})
-      scheduleMetaCapiProcessing(event, client, tenantId)
-    }
-
+    // Meta CAPI: semi-manual only (selected won leads). No auto Purchase on status change.
     return { statusCode: 200, body: data }
   }
   catch (error: any) {

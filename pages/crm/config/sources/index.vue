@@ -18,6 +18,7 @@ import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { isTenantScopedRole } from '~/constants/roles'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
@@ -30,9 +31,6 @@ const selectedItems = ref<any[]>([])
 const showDialog = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
 const formModel = ref<any>({ name: '', description: '', is_default: false })
-const showDeleteDialog = ref(false)
-const sourceToDelete = ref<any | null>(null)
-const showMultiDeleteDialog = ref(false)
 
 // SSR-friendly fetch dos sources com tenant
 const {
@@ -131,35 +129,47 @@ async function handleFormSubmit(_data: any) {
   }
 }
 
-function handleDeleteClick(source: any) {
-  sourceToDelete.value = source
-  showDeleteDialog.value = true
-}
-
-async function handleDeleteConfirm() {
-  if (!sourceToDelete.value)
+async function handleDelete(source: any) {
+  if (!source?.id || source.is_default)
     return
 
-  showDeleteDialog.value = false
-  await useFetch(`/api/crm/lead_source/${sourceToDelete.value.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' })
-  sourceToDelete.value = null
-  await refreshSources()
-}
-
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
-  const idsToDelete = selectedItems.value.filter(item => item && !item.is_default).map(item => item.id)
-  await Promise.all(
-    idsToDelete.map(id =>
-      useFetch(`/api/crm/lead_source/${id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
-    ),
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/lead_source/${source.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir origem?',
+      description: `Tem certeza que deseja excluir "${source.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Origem excluída com sucesso.',
+      errorMessage: 'Não foi possível excluir a origem.',
+    },
   )
-  selectedItems.value = []
-  await refreshSources()
+
+  if (deleted)
+    await refreshSources()
+}
+
+async function handleMultiDelete() {
+  const toDelete = selectedItems.value.filter(item => item && !item.is_default)
+  const count = toDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(item =>
+      $fetch(`/api/crm/lead_source/${item.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir várias origens?',
+      description: `Tem certeza que deseja excluir ${count} origens? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} origem(ns) excluída(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir as origens.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await refreshSources()
+  }
 }
 
 whenTenantReady(() => {
@@ -220,7 +230,7 @@ watch(tenantId, (val) => {
         <DataTable
           :data="filteredSources"
           :columns="sourceColumns"
-          :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
+          :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
           @selection-change="updateSelectedItems"
         >
           <template #toolbar="{ table }">
@@ -238,7 +248,7 @@ watch(tenantId, (val) => {
       <MultiActionBar
         v-if="selectedItems.length > 0"
         :count="selectedItems.length"
-        :on-delete="showMultiDeleteConfirmation"
+        :on-delete="handleMultiDelete"
       />
     </template>
     <!-- Dialog de criar/editar -->
@@ -255,47 +265,6 @@ watch(tenantId, (val) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <!-- Dialog de deletar -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir origem
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir a origem "{{ sourceToDelete?.name }}"? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Excluir
-          </Button>
-        </div>
-      </div>
-    </div>
-    <!-- Dialog de deletar múltiplos -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir várias origens
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} origens? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir todas
-          </Button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

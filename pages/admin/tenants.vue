@@ -26,6 +26,7 @@ import { columns } from '@/components/users/tenant-columns'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import TenantModulePicker from '~/components/admin/TenantModulePicker.vue'
 import { useToast } from '~/components/ui/toast'
+import { confirmDelete, deleteWithConfirm } from '~/composables/useConfirmDelete'
 import {
   ASSIGNABLE_MODULE_SLUGS,
   TENANT_MODULE_BUNDLE_ALL,
@@ -40,10 +41,7 @@ definePageMeta({
 const { toast } = useToast()
 const tenants = ref<Tenant[]>([])
 const isLoading = ref(true)
-const isDeleteAlertOpen = ref(false)
-const selectedTenant = ref<Tenant | null>(null)
 const selectedItems = ref([])
-const showMultiDeleteDialog = ref(false)
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const showModulesDialog = ref(false)
@@ -204,36 +202,17 @@ async function saveTenantModules() {
   }
 }
 
-function handleDeleteClick(tenant: Tenant) {
-  selectedTenant.value = tenant
-  isDeleteAlertOpen.value = true
-}
-
-// Delete tenant (via API — removes modules and other NO ACTION dependencies first)
-async function deleteTenant() {
-  if (!selectedTenant.value)
-    return
-
-  try {
-    await $fetch(`/api/admin/tenants/${selectedTenant.value.id}`, { method: 'DELETE' })
-
-    toast({
-      title: 'Sucesso',
-      description: 'Empresa excluída com sucesso',
-    })
-
-    isDeleteAlertOpen.value = false
-    selectedTenant.value = null
+async function handleDeleteClick(tenant: Tenant) {
+  const ok = await deleteWithConfirm(
+    () => $fetch(`/api/admin/tenants/${tenant.id}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir empresa?',
+      description: `Tem certeza que deseja excluir "${tenant.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Empresa excluída com sucesso.',
+    },
+  )
+  if (ok)
     await loadData()
-  }
-  catch (error: any) {
-    console.error('Error deleting tenant:', error)
-    toast({
-      title: 'Erro',
-      description: error?.data?.statusMessage || error?.message || 'Não foi possível excluir a empresa',
-      variant: 'destructive',
-    })
-  }
 }
 
 function generateSlug(name: string) {
@@ -338,13 +317,18 @@ function updateSelectedItems(items: any) {
 }
 
 // Show multiple delete confirmation
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-// Delete multiple tenants
-async function handleMultiDeleteConfirm() {
+async function showMultiDeleteConfirmation() {
   const itemIds = selectedItems.value.map((index: number) => tenants.value[index].id)
+  if (!itemIds.length)
+    return
+
+  const confirmed = await confirmDelete({
+    title: 'Excluir várias empresas',
+    description: `Tem certeza que deseja excluir ${itemIds.length} empresa(s)? Esta ação não pode ser desfeita.`,
+  })
+  if (!confirmed)
+    return
+
   let failed = 0
   let lastError = ''
 
@@ -359,7 +343,6 @@ async function handleMultiDeleteConfirm() {
     }
   }
 
-  showMultiDeleteDialog.value = false
   selectedItems.value = []
 
   if (failed === 0) {
@@ -623,58 +606,6 @@ onMounted(() => {
             <Icon name="lucide:save" class="mr-2 h-4 w-4" />
             {{ isSavingModules ? 'Salvando...' : 'Salvar módulos' }}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
-    <!-- Delete confirmation dialog -->
-    <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Esta ação não pode ser desfeita. A empresa
-            <span class="font-medium">{{ selectedTenant?.name }}</span>
-            será excluída permanentemente do sistema.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel @click="isDeleteAlertOpen = false">
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            @click="deleteTenant"
-          >
-            <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-            Excluir
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
-    <!-- Multiple delete confirmation dialog -->
-    <AlertDialog :open="showMultiDeleteDialog" @update:open="showMultiDeleteDialog = $event">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Excluir várias empresas</AlertDialogTitle>
-          <AlertDialogDescription>
-            Tem certeza que deseja excluir
-            <span class="font-medium">{{ selectedItems.length }}</span>
-            empresa(s)? Esta ação não pode ser desfeita.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel @click="showMultiDeleteDialog = false">
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            @click="handleMultiDeleteConfirm"
-          >
-            <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-            Excluir {{ selectedItems.length }} empresa(s)
-          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

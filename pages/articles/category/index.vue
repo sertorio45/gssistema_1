@@ -8,6 +8,7 @@ import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { isStaffRole } from '~/constants/roles'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
@@ -18,10 +19,7 @@ definePageMeta({
 const { tenantId, currentRole, whenTenantReady } = useTenantPage()
 const isStaff = computed(() => isStaffRole(currentRole.value))
 
-const showDeleteDialog = ref(false)
-const categoryToDelete = ref<any | null>(null)
 const selectedItems = ref([])
-const showMultiDeleteDialog = ref(false)
 
 // Debug: log tenantId and categoriesRaw
 watch(
@@ -44,38 +42,50 @@ watch(
   { immediate: true },
 )
 
-function handleDeleteClick(category: any) {
-  categoryToDelete.value = category
-  showDeleteDialog.value = true
+async function handleDelete(category: any) {
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/articles/category/${category.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir categoria?',
+      description: `Tem certeza que deseja excluir "${category.title}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Categoria excluída com sucesso.',
+      errorMessage: 'Não foi possível excluir a categoria.',
+    },
+  )
+
+  if (deleted)
+    await refreshCategories()
+}
+
+async function handleMultiDelete() {
+  const toDelete = selectedItems.value
+    .map(idx => categories.value[idx])
+    .filter(Boolean)
+  const count = toDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(category =>
+      $fetch(`/api/articles/category/${category.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir várias categorias?',
+      description: `Tem certeza que deseja excluir ${count} categorias? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} categoria(s) excluída(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir as categorias.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await refreshCategories()
+  }
 }
 
 function handleEditClick(category: any) {
   navigateTo(`/articles/category/edit/${category.id}`)
-}
-
-async function handleDeleteConfirm() {
-  if (!categoryToDelete.value)
-    return
-  showDeleteDialog.value = false
-  await $fetch(`/api/articles/category/${categoryToDelete.value.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' as any })
-  categoryToDelete.value = null
-  await refreshCategories()
-}
-
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
-  for (const idx of selectedItems.value) {
-    const category = categories.value[idx]
-    if (category) {
-      await $fetch(`/api/articles/category/${category.id}?tenant_id=${tenantId.value}`, { method: 'DELETE' as any })
-    }
-  }
-  selectedItems.value = []
-  await refreshCategories()
 }
 
 function updateSelectedItems(items: any) {
@@ -120,8 +130,8 @@ watch(tenantId, () => {
       <DataTable
         :data="categories"
         :columns="columns"
-        :meta="{ onEdit: handleEditClick, onDelete: handleDeleteClick }"
-        @delete="handleDeleteClick"
+        :meta="{ onEdit: handleEditClick, onDelete: handleDelete }"
+        @delete="handleDelete"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
@@ -131,7 +141,7 @@ watch(tenantId, () => {
           <DataTablePagination :table="table" />
         </template>
         <template #actions="{ row }">
-          <DataTableRowActions :row="row" :on-edit="handleEditClick" :on-delete="handleDeleteClick" />
+          <DataTableRowActions :row="row" :on-edit="handleEditClick" :on-delete="handleDelete" />
         </template>
       </DataTable>
       <div
@@ -154,51 +164,8 @@ watch(tenantId, () => {
     <MultiActionBar
       v-if="selectedItems.length > 0"
       :count="selectedItems.length"
-      :on-delete="showMultiDeleteConfirmation"
+      :on-delete="handleMultiDelete"
     />
-
-    <!-- Delete Dialog -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Delete Category
-        </h2>
-        <p class="mb-4">
-          Are you sure you want to delete the category "{{ categoryToDelete?.title }}"? This action cannot be undone.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancel
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Delete
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Multi Delete Dialog -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Delete Multiple Categories
-        </h2>
-        <p class="mb-4">
-          Are you sure you want to delete {{ selectedItems.length }} categories? This action cannot be undone.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancel
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Delete All
-          </Button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

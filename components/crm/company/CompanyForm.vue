@@ -11,7 +11,7 @@ interface Props {
 }
 
 interface Emits {
-  success: []
+  success: [company?: Company]
 }
 
 const props = defineProps<Props>()
@@ -52,21 +52,21 @@ async function handleSubmit() {
     }
 
     if (props.initialData?.id) {
-      await $fetch(`/api/crm/company/${props.initialData.id}`, {
+      const response = await $fetch<{ data: Company }>(`/api/crm/company/${props.initialData.id}`, {
         method: 'PUT',
         body: payload,
       })
       toast.success('Empresa atualizada com sucesso')
+      emit('success', response.data)
     }
     else {
-      await $fetch('/api/crm/company', {
+      const response = await $fetch<{ data: Company }>('/api/crm/company', {
         method: 'POST',
         body: payload,
       })
       toast.success('Empresa criada com sucesso')
+      emit('success', response.data)
     }
-
-    emit('success')
   }
   catch (error: any) {
     toast.error(error?.data?.message || 'Erro ao salvar empresa')

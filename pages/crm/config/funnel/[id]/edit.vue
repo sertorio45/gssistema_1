@@ -13,6 +13,7 @@ import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
 import Input from '~/components/ui/input/Input.vue'
 import { toast } from '~/components/ui/toast/use-toast'
 import { isTenantScopedRole } from '~/constants/roles'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
@@ -25,9 +26,6 @@ const selectedItems = ref<any[]>([])
 const showDialog = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
 const formModel = ref<any>({ name: '', description: '', is_default: false })
-const showDeleteDialog = ref(false)
-const funnelToDelete = ref<any | null>(null)
-const showMultiDeleteDialog = ref(false)
 const nameError = ref('')
 const route = useRoute()
 const funnelId = computed(() => route.params.id as string)
@@ -183,36 +181,59 @@ async function handleFormSubmit(_data: any) {
   }
 }
 
-function handleDeleteClick(funil: any) {
-  funnelToDelete.value = funil
-  showDeleteDialog.value = true
+async function handleDelete(funil: any) {
+  if (!tenantId.value || !funil?.id)
+    return
+
+  const tenantUuid = typeof tenantId.value === 'object' && tenantId.value !== null
+    ? (tenantId.value as { id: string }).id
+    : tenantId.value
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/funnel/${funil.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir funil?',
+      description: `Tem certeza que deseja excluir "${funil.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Funil excluído com sucesso.',
+      errorMessage: 'Não foi possível excluir o funil.',
+    },
+  )
+
+  if (deleted) {
+    await refreshFunnels()
+    await navigateTo('/crm/config/funnel')
+  }
 }
 
-async function handleDeleteConfirm() {
-  if (!funnelToDelete.value)
+async function handleMultiDelete() {
+  if (!tenantId.value || !selectedItems.value.length)
     return
-  showDeleteDialog.value = false
-  if (!tenantId.value || !funnelToDelete.value.id)
-    return
-  const tenantUuid = typeof tenantId.value === 'object' && tenantId.value !== null ? (tenantId.value as { id: string }).id : tenantId.value
-  await useFetch(`/api/crm/funnel/${funnelToDelete.value.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })
-  funnelToDelete.value = null
-  await refreshFunnels()
-}
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
+  const tenantUuid = typeof tenantId.value === 'object' && tenantId.value !== null
+    ? (tenantId.value as { id: string }).id
+    : tenantId.value
+  const toDelete = (selectedItems.value as any[]).filter(item => item && !item.is_default && item.id)
+  const count = toDelete.length
 
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
-  if (!tenantId.value)
+  if (!count)
     return
-  const tenantUuid = typeof tenantId.value === 'object' && tenantId.value !== null ? (tenantId.value as { id: string }).id : tenantId.value
-  const idsToDelete = (selectedItems.value as any[]).filter(item => item && !item.is_default && item.id).map(item => item.id)
-  await Promise.all(idsToDelete.map(id => useFetch(`/api/crm/funnel/${id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })))
-  selectedItems.value = []
-  await refreshFunnels()
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(item =>
+      $fetch(`/api/crm/funnel/${item.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir vários funis?',
+      description: `Tem certeza que deseja excluir ${count} funis? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} funil(is) excluído(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir os funis.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await refreshFunnels()
+  }
 }
 
 // Stages fixos
@@ -380,44 +401,6 @@ watch(funnelId, async () => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <!-- Dialog de deletar -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir funil
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir o funil "{{ funnelToDelete?.name }}"? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Excluir
-          </Button>
-        </div>
-      </div>
-    </div>
-    <!-- Dialog de deletar múltiplos -->
-    <div v-if="showMultiDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir vários funis
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} funis? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir todos
-          </Button>
-        </div>
-      </div>
-    </div>
 
     <Card class="p-6">
       <form class="flex flex-col gap-4" @submit.prevent="handleFormSubmit(formModel)">

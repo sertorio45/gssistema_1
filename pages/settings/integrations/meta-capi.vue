@@ -21,7 +21,7 @@ useSeoMeta({
           Meta Conversões
         </h1>
         <p class="mt-2 max-w-2xl text-sm text-muted-foreground leading-relaxed">
-          Integração do CRM com a API de Conversões da Meta — disponível sem o módulo de Marketing.
+          Conecte o app Blimber na Meta: empresa, conta de anúncios e dataset. Envio semi-manual de ganhos (CRM CAPI).
         </p>
       </div>
       <Button variant="outline" as-child>

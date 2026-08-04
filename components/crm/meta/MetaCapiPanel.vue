@@ -13,13 +13,28 @@ import CardHeader from '@/components/ui/card/CardHeader.vue'
 import CardTitle from '@/components/ui/card/CardTitle.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Label from '@/components/ui/label/Label.vue'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import Switch from '@/components/ui/switch/Switch.vue'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import MetaCapiSyncDialog from '@/components/crm/meta/MetaCapiSyncDialog.vue'
 import { useTenant } from '~/composables/useTenant'
 
 interface CapiSettings {
   enabled: boolean
   pixel_id: string | null
+  dataset_id: string | null
+  ad_account_id: string | null
+  business_id: string | null
+  business_name: string | null
   has_token: boolean
+  has_oauth: boolean
+  setup_mode: 'manual' | 'oauth'
   test_event_code: string | null
   meta_connected: boolean
   pending_won_count: number
@@ -36,26 +51,42 @@ interface CapiEventRow {
   last_error: string | null
   sent_at: string | null
   created_at: string
+  is_test?: boolean
+}
+
+interface MetaOption {
+  id: string
+  name: string
 }
 
 const props = defineProps<{
   autoFocus?: boolean
 }>()
 
+const route = useRoute()
 const { tenantId } = useTenant()
 const rootEl = ref<HTMLElement | null>(null)
 
 const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
-const syncing = ref(false)
+const oauthLoading = ref(false)
+const accountsLoading = ref(false)
+const syncDialogOpen = ref(false)
 const settings = ref<CapiSettings | null>(null)
 const events = ref<CapiEventRow[]>([])
 const enabled = ref(false)
+const setupMode = ref<'manual' | 'oauth'>('oauth')
 const pixelId = ref('')
+const adAccountId = ref('')
+const businessId = ref('')
+const businessName = ref('')
 const accessToken = ref('')
 const testEventCode = ref('')
 const lastError = ref('')
+const metaBusinesses = ref<MetaOption[]>([])
+const metaAccounts = ref<MetaOption[]>([])
+const metaPixels = ref<MetaOption[]>([])
 
 async function loadAll() {
   if (!tenantId.value)
@@ -73,9 +104,16 @@ async function loadAll() {
     ])
     settings.value = settingsRes.data
     enabled.value = Boolean(settingsRes.data.enabled)
-    pixelId.value = settingsRes.data.pixel_id || ''
+    setupMode.value = settingsRes.data.setup_mode || (settingsRes.data.has_oauth ? 'oauth' : 'oauth')
+    pixelId.value = settingsRes.data.dataset_id || settingsRes.data.pixel_id || ''
+    adAccountId.value = settingsRes.data.ad_account_id || ''
+    businessId.value = settingsRes.data.business_id || ''
+    businessName.value = settingsRes.data.business_name || ''
     testEventCode.value = settingsRes.data.test_event_code || ''
     events.value = eventsRes.data || []
+
+    if (settingsRes.data.has_oauth)
+      await loadMetaWizard({ silent: true })
   }
   catch (error: any) {
     lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar CAPI'
@@ -85,28 +123,212 @@ async function loadAll() {
   }
 }
 
+async function loadMetaWizard(opts?: { silent?: boolean }) {
+  if (!tenantId.value)
+    return
+  accountsLoading.value = true
+  if (!opts?.silent)
+    lastError.value = ''
+  try {
+    const businesses = await $fetch<{ data: MetaOption[] }>('/api/crm/meta-capi/accounts', {
+      query: {
+        tenant_id: tenantId.value,
+        resource: 'businesses',
+      },
+    })
+    metaBusinesses.value = businesses.data || []
+    if (!businessId.value && metaBusinesses.value.length === 1) {
+      businessId.value = metaBusinesses.value[0].id
+      businessName.value = metaBusinesses.value[0].name
+    }
+    if (businessId.value) {
+      const match = metaBusinesses.value.find(b => b.id === businessId.value)
+      if (match)
+        businessName.value = match.name
+      else if (!metaBusinesses.value.some(b => b.id === businessId.value))
+        businessId.value = ''
+    }
+
+    await loadAdAccounts({ silent: true })
+    if (adAccountId.value || businessId.value)
+      await loadDatasets({ silent: true })
+  }
+  catch (error: any) {
+    if (!opts?.silent) {
+      lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar empresas Meta'
+      toast.error(lastError.value)
+    }
+  }
+  finally {
+    accountsLoading.value = false
+  }
+}
+
+async function loadAdAccounts(opts?: { silent?: boolean }) {
+  if (!tenantId.value)
+    return
+  const ads = await $fetch<{ data: MetaOption[] }>('/api/crm/meta-capi/accounts', {
+    query: {
+      tenant_id: tenantId.value,
+      resource: 'ad_accounts',
+      business_id: businessId.value || undefined,
+    },
+  }).catch((error: any) => {
+    if (!opts?.silent)
+      throw error
+    return { data: [] as MetaOption[] }
+  })
+  metaAccounts.value = ads.data || []
+  if (adAccountId.value && !metaAccounts.value.some(a => a.id === adAccountId.value))
+    adAccountId.value = ''
+  if (!adAccountId.value && metaAccounts.value.length === 1)
+    adAccountId.value = metaAccounts.value[0].id
+}
+
+async function loadDatasets(opts?: { silent?: boolean }) {
+  if (!tenantId.value || (!adAccountId.value && !businessId.value)) {
+    metaPixels.value = []
+    return
+  }
+  const px = await $fetch<{ data: MetaOption[] }>('/api/crm/meta-capi/accounts', {
+    query: {
+      tenant_id: tenantId.value,
+      resource: 'datasets',
+      ad_account_id: adAccountId.value || undefined,
+      business_id: businessId.value || undefined,
+    },
+  }).catch((error: any) => {
+    if (!opts?.silent)
+      throw error
+    return { data: [] as MetaOption[] }
+  })
+  metaPixels.value = px.data || []
+  if (pixelId.value && !metaPixels.value.some(p => p.id === pixelId.value))
+    pixelId.value = ''
+  if (!pixelId.value && metaPixels.value.length === 1)
+    pixelId.value = metaPixels.value[0].id
+}
+
+async function onBusinessPicked(value: string | null) {
+  businessId.value = value || ''
+  const match = metaBusinesses.value.find(b => b.id === businessId.value)
+  businessName.value = match?.name || ''
+  adAccountId.value = ''
+  pixelId.value = ''
+  metaAccounts.value = []
+  metaPixels.value = []
+  if (!value)
+    return
+  accountsLoading.value = true
+  lastError.value = ''
+  try {
+    await loadAdAccounts()
+    if (adAccountId.value)
+      await loadDatasets()
+  }
+  catch (error: any) {
+    lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar contas'
+    toast.error(lastError.value)
+  }
+  finally {
+    accountsLoading.value = false
+  }
+}
+
+async function onAdAccountPicked(value: string | null) {
+  adAccountId.value = value || ''
+  pixelId.value = ''
+  metaPixels.value = []
+  if (!value)
+    return
+  accountsLoading.value = true
+  lastError.value = ''
+  try {
+    await loadDatasets()
+  }
+  catch (error: any) {
+    lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao carregar datasets'
+    toast.error(lastError.value)
+  }
+  finally {
+    accountsLoading.value = false
+  }
+}
+
+async function connectMeta() {
+  if (!tenantId.value)
+    return
+  oauthLoading.value = true
+  lastError.value = ''
+  try {
+    const res = await $fetch<{ redirectTo: string }>('/api/crm/meta-capi/oauth/start', {
+      query: {
+        tenant_id: tenantId.value,
+        redirect_path: '/settings/integrations/meta-capi',
+      },
+    })
+    if (res.redirectTo)
+      window.location.href = res.redirectTo
+  }
+  catch (error: any) {
+    lastError.value = error?.data?.statusMessage || error?.message || 'Erro ao iniciar OAuth'
+    toast.error(lastError.value)
+    oauthLoading.value = false
+  }
+}
+
+function buildSaveBody(): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    tenant_id: tenantId.value,
+    enabled: enabled.value,
+    setup_mode: setupMode.value,
+    pixel_id: pixelId.value,
+    dataset_id: pixelId.value,
+    ad_account_id: adAccountId.value,
+    business_id: businessId.value,
+    business_name: businessName.value,
+    test_event_code: testEventCode.value,
+  }
+  if (accessToken.value.trim())
+    body.access_token = accessToken.value.trim()
+  return body
+}
+
 async function saveSettings() {
   if (!tenantId.value)
     return
+  if (setupMode.value === 'oauth') {
+    if (metaBusinesses.value.length && !businessId.value.trim()) {
+      toast.error('Selecione a empresa (Business Manager)')
+      return
+    }
+    if (!adAccountId.value.trim()) {
+      toast.error('Selecione a conta de anúncios')
+      return
+    }
+    if (!pixelId.value.trim()) {
+      toast.error('Selecione o Dataset (Pixel)')
+      return
+    }
+  }
+  if (setupMode.value === 'manual' && !pixelId.value.trim()) {
+    toast.error('Informe o ID do Dataset/Pixel')
+    return
+  }
   saving.value = true
   lastError.value = ''
   try {
-    const body: Record<string, unknown> = {
-      tenant_id: tenantId.value,
-      enabled: enabled.value,
-      pixel_id: pixelId.value,
-      test_event_code: testEventCode.value,
-    }
-    if (accessToken.value.trim())
-      body.access_token = accessToken.value.trim()
-
     const res = await $fetch<{ data: CapiSettings }>('/api/crm/meta-capi/settings', {
       method: 'PUT',
-      body,
+      body: buildSaveBody(),
     })
     settings.value = res.data
     enabled.value = Boolean(res.data.enabled)
-    pixelId.value = res.data.pixel_id || ''
+    setupMode.value = res.data.setup_mode
+    pixelId.value = res.data.dataset_id || res.data.pixel_id || ''
+    adAccountId.value = res.data.ad_account_id || ''
+    businessId.value = res.data.business_id || ''
+    businessName.value = res.data.business_name || ''
     testEventCode.value = res.data.test_event_code || ''
     accessToken.value = ''
     toast.success('Configuração CAPI salva')
@@ -127,16 +349,10 @@ async function sendTest() {
   testing.value = true
   lastError.value = ''
   try {
-    const body: Record<string, unknown> = {
-      tenant_id: tenantId.value,
-      enabled: enabled.value,
-      pixel_id: pixelId.value,
-      test_event_code: testEventCode.value,
-    }
-    if (accessToken.value.trim())
-      body.access_token = accessToken.value.trim()
-
-    await $fetch('/api/crm/meta-capi/settings', { method: 'PUT', body })
+    await $fetch('/api/crm/meta-capi/settings', {
+      method: 'PUT',
+      body: buildSaveBody(),
+    })
     accessToken.value = ''
 
     await $fetch('/api/crm/meta-capi/test', {
@@ -159,39 +375,28 @@ async function syncPending() {
   if (!tenantId.value)
     return
   if (!enabled.value) {
-    toast.error('Ative o envio automático e clique em Salvar antes de sincronizar')
+    toast.error('Ative as Conversões Meta e salve antes de sincronizar')
     return
   }
-  if (!pixelId.value.trim() || !(settings.value?.has_token || accessToken.value.trim())) {
-    toast.error('Informe o Pixel e o token da API de Conversões antes de sincronizar')
+  const hasAuth = Boolean(settings.value?.has_token || accessToken.value.trim() || settings.value?.has_oauth)
+  if (!pixelId.value.trim() || !hasAuth) {
+    toast.error('Configure Pixel e autenticação Meta antes de sincronizar')
     return
   }
-  syncing.value = true
-  lastError.value = ''
-  try {
-    if (accessToken.value.trim() || pixelId.value !== settings.value?.pixel_id) {
-      await saveSettings()
-    }
-    const res = await $fetch<{ data: { enqueued: number, sent: number, candidates: number } }>(
-      '/api/crm/meta-capi/sync-pending',
-      {
-        method: 'POST',
-        body: { tenant_id: tenantId.value, limit: 50 },
-      },
-    )
-    if (res.data.candidates === 0)
-      toast.info('Nenhum ganho pendente para enviar')
-    else
-      toast.success(`Sincronização: ${res.data.enqueued} enfileirados, ${res.data.sent} enviados`)
-    await loadAll()
+  if (
+    accessToken.value.trim()
+    || pixelId.value !== (settings.value?.dataset_id || settings.value?.pixel_id || '')
+    || adAccountId.value !== (settings.value?.ad_account_id || '')
+    || businessId.value !== (settings.value?.business_id || '')
+    || setupMode.value !== settings.value?.setup_mode
+  ) {
+    await saveSettings()
   }
-  catch (error: any) {
-    lastError.value = error?.data?.statusMessage || error?.message || 'Falha na sincronização'
-    toast.error(lastError.value)
-  }
-  finally {
-    syncing.value = false
-  }
+  syncDialogOpen.value = true
+}
+
+async function onSyncDone() {
+  await loadAll()
 }
 
 function statusLabel(status: string) {
@@ -221,12 +426,32 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString('pt-BR')
 }
 
+function consumeOauthQuery() {
+  const oauth = String(route.query.oauth || '')
+  const message = typeof route.query.message === 'string' ? route.query.message : ''
+  if (!oauth)
+    return
+  if (oauth === 'success') {
+    toast.success('Conta Meta conectada')
+    setupMode.value = 'oauth'
+  }
+  else if (oauth === 'error') {
+    toast.error(message || 'Falha na autenticação Meta')
+  }
+  const nextQuery = { ...route.query }
+  delete nextQuery.oauth
+  delete nextQuery.provider
+  delete nextQuery.message
+  navigateTo({ path: route.path, query: nextQuery }, { replace: true })
+}
+
 watch(tenantId, () => {
   if (tenantId.value)
     loadAll()
 }, { immediate: true })
 
 onMounted(() => {
+  consumeOauthQuery()
   if (props.autoFocus && rootEl.value)
     rootEl.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
 })
@@ -242,8 +467,8 @@ onMounted(() => {
               Conversões CRM (Meta CAPI)
             </CardTitle>
             <CardDescription class="mt-1 max-w-2xl">
-              Integração independente do Marketing. Informe o Pixel e o token do Events Manager
-              (mesmo fluxo do RD Station). Envia Lead na criação e Purchase no ganho.
+              Conecte com a Meta (empresa → anúncios → dataset) no padrão CRM do Events Manager.
+              Envio semi-manual de ganhos (Purchase, BRL, action_source system_generated).
             </CardDescription>
           </div>
           <Badge
@@ -267,68 +492,201 @@ onMounted(() => {
         </div>
 
         <template v-else-if="settings">
-          <Alert>
-            <Icon name="lucide:info" class="h-4 w-4" />
-            <AlertTitle>Como obter Pixel e token</AlertTitle>
-            <AlertDescription class="text-sm">
-              No Gerenciador de Eventos da Meta: abra o conjunto de dados (Pixel) →
-              Configurações → Gere o token de acesso da API de Conversões. O ID do Pixel
-              aparece abaixo do nome do conjunto de dados.
-            </AlertDescription>
-          </Alert>
-
-          <div class="grid gap-4 md:grid-cols-2">
-            <div class="flex items-center justify-between gap-3 border rounded-xl px-4 py-3 md:col-span-2">
-              <div>
+          <div class="flex items-center justify-between gap-3 border rounded-xl px-4 py-3">
+            <div>
                 <p class="text-sm font-medium">
-                  Ativar envio automático
+                  Ativar Conversões Meta
                 </p>
                 <p class="text-xs text-muted-foreground">
-                  Lead na criação e Purchase ao mover para Ganho
+                  Permite o envio semi-manual de ganhos qualificáveis (Purchase)
                 </p>
-              </div>
-              <Switch v-model:checked="enabled" />
             </div>
-
-            <div class="space-y-2">
-              <Label>ID do Pixel</Label>
-              <Input
-                v-model="pixelId"
-                autocomplete="off"
-                placeholder="Ex: 123456789012345"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label>Código de teste (opcional)</Label>
-              <Input
-                v-model="testEventCode"
-                autocomplete="off"
-                placeholder="TEST12345"
-              />
-            </div>
-
-            <div class="space-y-2 md:col-span-2">
-              <Label>Token da API de Conversões</Label>
-              <Input
-                v-model="accessToken"
-                type="password"
-                autocomplete="off"
-                :placeholder="settings.has_token ? '•••••••• (já configurado — cole para substituir)' : 'Cole o token do Events Manager'"
-              />
-            </div>
+            <Switch v-model:checked="enabled" />
           </div>
+
+          <Tabs v-model="setupMode" class="w-full">
+            <TabsList class="grid w-full grid-cols-2">
+              <TabsTrigger value="oauth">
+                Conectar Meta
+              </TabsTrigger>
+              <TabsTrigger value="manual">
+                Manual
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="oauth" class="mt-4 space-y-4">
+              <Alert>
+                <Icon name="lucide:info" class="h-4 w-4" />
+                <AlertTitle>App Blimber na Meta</AlertTitle>
+                <AlertDescription class="text-sm">
+                  1) Conectar com a Meta · 2) escolher a empresa · 3) conta de anúncios ·
+                  4) dataset (Pixel). Eventos saem como CRM (<code>system_generated</code>, fonte Blimber).
+                  Em Development, use um usuário tester/admin do app.
+                </AlertDescription>
+              </Alert>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <Button
+                  :disabled="oauthLoading"
+                  @click="connectMeta"
+                >
+                  <Icon name="lucide:link" class="mr-2 h-4 w-4" />
+                  {{ oauthLoading ? 'Redirecionando...' : settings.has_oauth ? 'Reconectar Meta' : 'Conectar com a Meta' }}
+                </Button>
+                <Button
+                  v-if="settings.has_oauth"
+                  variant="outline"
+                  size="sm"
+                  :disabled="accountsLoading"
+                  @click="loadMetaWizard()"
+                >
+                  <Icon name="lucide:refresh-cw" class="mr-1 h-3.5 w-3.5" :class="{ 'animate-spin': accountsLoading }" />
+                  Atualizar listas
+                </Button>
+                <Badge :variant="settings.has_oauth ? 'default' : 'outline'">
+                  {{ settings.has_oauth ? 'Autorizado' : 'Não conectado' }}
+                </Badge>
+              </div>
+
+              <div v-if="settings.has_oauth" class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-2 md:col-span-2">
+                  <Label>1. Empresa (Business Manager)</Label>
+                  <Select
+                    :model-value="businessId || undefined"
+                    :disabled="accountsLoading"
+                    @update:model-value="onBusinessPicked"
+                  >
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="Selecione a empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="business in metaBusinesses"
+                        :key="business.id"
+                        :value="business.id"
+                      >
+                        {{ business.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div class="space-y-2">
+                  <Label>2. Conta de anúncios</Label>
+                  <Select
+                    :model-value="adAccountId || undefined"
+                    :disabled="accountsLoading || (!businessId && metaBusinesses.length > 0)"
+                    @update:model-value="onAdAccountPicked"
+                  >
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="account in metaAccounts"
+                        :key="account.id"
+                        :value="account.id"
+                      >
+                        {{ account.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div class="space-y-2">
+                  <Label>3. Dataset (Pixel)</Label>
+                  <Select
+                    v-model="pixelId"
+                    :disabled="!adAccountId || accountsLoading"
+                  >
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="Selecione o dataset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem
+                        v-for="pixel in metaPixels"
+                        :key="pixel.id"
+                        :value="pixel.id"
+                      >
+                        {{ pixel.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div class="space-y-2">
+                  <Label>Código de teste (opcional)</Label>
+                  <Input
+                    v-model="testEventCode"
+                    autocomplete="off"
+                    placeholder="TEST12345"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label>Token CAPI (opcional)</Label>
+                  <Input
+                    v-model="accessToken"
+                    type="password"
+                    autocomplete="off"
+                    :placeholder="settings.has_token ? '•••••••• (já há token)' : 'Fallback Events Manager — opcional'"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="manual" class="mt-4 space-y-4">
+              <Alert>
+                <Icon name="lucide:info" class="h-4 w-4" />
+                <AlertTitle>Cadastro manual (fallback)</AlertTitle>
+                <AlertDescription class="text-sm">
+                  Preferimos o fluxo Conectar Meta. Use manual só se precisar colar Dataset ID + token do Events Manager.
+                </AlertDescription>
+              </Alert>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-2">
+                  <Label>ID do Dataset / Pixel</Label>
+                  <Input
+                    v-model="pixelId"
+                    autocomplete="off"
+                    placeholder="Ex: 123456789012345"
+                  />
+                </div>
+
+                <div class="space-y-2">
+                  <Label>Código de teste (opcional)</Label>
+                  <Input
+                    v-model="testEventCode"
+                    autocomplete="off"
+                    placeholder="TEST12345"
+                  />
+                </div>
+
+                <div class="space-y-2 md:col-span-2">
+                  <Label>Token da API de Conversões</Label>
+                  <Input
+                    v-model="accessToken"
+                    type="password"
+                    autocomplete="off"
+                    :placeholder="settings.has_token ? '•••••••• (já configurado — cole para substituir)' : 'Cole o token do Events Manager'"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <div class="rounded-xl border border-dashed bg-muted/20 p-4 space-y-3">
             <div>
               <p class="text-sm font-semibold">
-                Envio manual (backfill)
+                Envio semi-manual (ganhos)
               </p>
               <p class="text-xs text-muted-foreground">
-                Envia leads em Ganho ainda não sincronizados com a Meta.
+                Abra a seleção e escolha quais leads em Ganho enviar à Meta.
+                Telefone obrigatório; valor em BRL e data/hora inclusos.
                 {{ settings.pending_won_count
-                  ? `Há ${settings.pending_won_count} ganho(s) pendente(s).`
-                  : 'Nenhum ganho pendente no momento.' }}
+                  ? `Há ${settings.pending_won_count} ganho(s) elegível(is).`
+                  : 'Nenhum ganho elegível no momento.' }}
               </p>
             </div>
             <div class="flex flex-wrap gap-2">
@@ -340,16 +698,16 @@ onMounted(() => {
                 <Icon name="lucide:flask-conical" class="mr-2 h-4 w-4" />
                 {{ testing ? 'Enviando...' : 'Evento de teste' }}
               </Button>
-              <Button variant="default" :disabled="syncing || saving" @click="syncPending">
-                <Icon name="lucide:share-2" class="mr-2 h-4 w-4" :class="{ 'animate-spin': syncing }" />
-                {{ syncing ? 'Sincronizando...' : 'Sincronizar ganhos pendentes' }}
+              <Button variant="default" :disabled="saving" @click="syncPending">
+                <Icon name="lucide:share-2" class="mr-2 h-4 w-4" />
+                Selecionar ganhos e enviar
                 <Badge v-if="settings.pending_won_count" variant="secondary" class="ml-2">
                   {{ settings.pending_won_count }}
                 </Badge>
               </Button>
             </div>
             <p v-if="!enabled" class="text-xs text-amber-700 dark:text-amber-400">
-              Ative o envio automático e salve antes de sincronizar.
+              Ative as Conversões Meta e salve antes de sincronizar.
             </p>
           </div>
 
@@ -390,8 +748,11 @@ onMounted(() => {
                   <tr v-for="row in events" :key="row.id" class="border-t">
                     <td class="px-3 py-2">
                       <div class="font-medium">
-                        {{ row.lead_name || row.lead_id }}
+                        {{ row.lead_name || row.lead_id || '—' }}
                       </div>
+                      <Badge v-if="row.is_test" variant="outline" class="mt-1">
+                        Teste
+                      </Badge>
                       <div v-if="row.last_error" class="max-w-xs truncate text-xs text-destructive">
                         {{ row.last_error }}
                       </div>
@@ -415,5 +776,7 @@ onMounted(() => {
         </template>
       </CardContent>
     </Card>
+
+    <MetaCapiSyncDialog v-model:open="syncDialogOpen" @synced="onSyncDone" />
   </div>
 </template>

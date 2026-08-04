@@ -19,6 +19,7 @@ import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { toast } from '~/components/ui/toast'
 import { isTenantScopedRole } from '~/constants/roles'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 import { useTenantRoleFilter } from '~/composables/useTenantRoleFilter'
 
@@ -31,9 +32,6 @@ const selectedItems = ref<any[]>([])
 const showDialog = ref(false)
 const formMode = ref<'create' | 'edit'>('create')
 const formModel = ref<any>({ name: '', order: 1, color: '#cccccc', description: '', is_default: false })
-const showDeleteDialog = ref(false)
-const stageToDelete = ref<any | null>(null)
-const showMultiDeleteDialog = ref(false)
 const nameError = ref('')
 const isLoading = ref(false)
 
@@ -157,35 +155,50 @@ async function handleFormSubmit(_data: any) {
   }
 }
 
-function handleDeleteClick(stage: any) {
-  stageToDelete.value = stage
-  showDeleteDialog.value = true
-}
-
-async function handleDeleteConfirm() {
-  if (!stageToDelete.value) {
+async function handleDelete(stage: any) {
+  if (!stage?.id || stage.is_default)
     return
-  }
-  showDeleteDialog.value = false
-  const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : tenantId.value || ''
-  await useFetch(`/api/crm/sales_stage/${stageToDelete.value.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })
-  stageToDelete.value = null
-  await refreshStages()
-}
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
   const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : tenantId.value || ''
-  const idsToDelete = selectedItems.value.filter(item => item && !item.is_default).map(item => item.id)
-  await Promise.all(
-    idsToDelete.map(id => useFetch(`/api/crm/sales_stage/${id}?tenant_id=${tenantUuid}`, { method: 'DELETE' })),
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch(`/api/crm/sales_stage/${stage.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' }),
+    {
+      title: 'Excluir estágio?',
+      description: `Tem certeza que deseja excluir "${stage.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Estágio excluído com sucesso.',
+      errorMessage: 'Não foi possível excluir o estágio.',
+    },
   )
-  selectedItems.value = []
-  await refreshStages()
+
+  if (deleted)
+    await refreshStages()
+}
+
+async function handleMultiDelete() {
+  const tenantUuid = typeof tenantId.value === 'object' ? tenantId.value.id : tenantId.value || ''
+  const toDelete = selectedItems.value.filter(item => item && !item.is_default)
+  const count = toDelete.length
+
+  if (!count)
+    return
+
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(item =>
+      $fetch(`/api/crm/sales_stage/${item.id}?tenant_id=${tenantUuid}`, { method: 'DELETE' }),
+    )),
+    {
+      title: 'Excluir vários estágios?',
+      description: `Tem certeza que deseja excluir ${count} estágios? Esta ação não pode ser desfeita.`,
+      successMessage: `${count} estágio(s) excluído(s) com sucesso.`,
+      errorMessage: 'Não foi possível excluir os estágios.',
+    },
+  )
+
+  if (deleted) {
+    selectedItems.value = []
+    await refreshStages()
+  }
 }
 
 async function fetchSalesStages() {
@@ -262,7 +275,7 @@ watch(tenantId, (val) => {
       <DataTable
         :data="filteredStages"
         :columns="salesStageColumns"
-        :meta="{ onEdit: handleEdit, onDelete: handleDeleteClick }"
+        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
@@ -279,7 +292,7 @@ watch(tenantId, (val) => {
       <MultiActionBar
         v-if="selectedItems.length > 0"
         :count="selectedItems.length"
-        :on-delete="showMultiDeleteConfirmation"
+        :on-delete="handleMultiDelete"
       />
     </template>
     <!-- Dialog de criar/editar -->
@@ -302,46 +315,5 @@ watch(tenantId, (val) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <!-- Dialog de deletar -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir estágio
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir o estágio "{{ stageToDelete?.name }}"? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Excluir
-          </Button>
-        </div>
-      </div>
-    </div>
-    <!-- Dialog de deletar múltiplos -->
-    <div
-      v-if="showMultiDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir vários estágios
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir {{ selectedItems.length }} estágios? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showMultiDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleMultiDeleteConfirm">
-            Excluir todos
-          </Button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>

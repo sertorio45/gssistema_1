@@ -17,15 +17,26 @@ import {
 //   TabsTrigger,
 // } from '@/components/ui/tabs'
 import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
+import CompanyNameAutofillInput from '~/components/crm/leads/CompanyNameAutofillInput.vue'
+import LeadValuesFields from '~/components/crm/leads/LeadValuesFields.vue'
 import TeamMemberSelect from '~/components/crm/team/TeamMemberSelect.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
-import { formatLeadValueInput, parseLeadValueInput } from '~/composables/crm/useCrmLeadValue'
-import { applyCrmLeadAutofill } from '~/composables/crm/useCrmLeadAutofill'
+import {
+  BR_PHONE_MASKS,
+  formatLeadValueInput,
+  normalizeLeadValues,
+  parseLeadValueInput,
+  parseLeadValuesInputs,
+} from '~/composables/crm/useCrmLeadValue'
+import {
+  applyCompanyAutofill,
+  applyCrmLeadAutofill,
+} from '~/composables/crm/useCrmLeadAutofill'
 import { useCrmLeadWhatsapp } from '~/composables/crm/useCrmLeadWhatsapp'
-import type { CrmLeadLookupResult } from '~/types/crm'
+import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
 import { useTenant } from '~/composables/useTenant'
 
 // Props
@@ -110,22 +121,52 @@ const leadForm = ref({
   sales_stage_id: '',
   status: 'new',
   priority: 'medium',
-  value: '',
+  valuesInputs: [''] as string[],
+  closedValue: '',
   notes: '',
   assigned_to: null as string | null,
 })
 
-// Contact form data
-const contactId = ref<string | null>(null)
+// Contact form data (support multiple contacts per lead)
+interface LeadContactDraft {
+  key: string
+  id: string | null
+  name: string
+  email: string
+  phone: string
+  position: string
+  notes: string
+}
+
+function createEmptyContact(): LeadContactDraft {
+  return {
+    key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: null,
+    name: '',
+    email: '',
+    phone: '',
+    position: '',
+    notes: '',
+  }
+}
+
+const contacts = ref<LeadContactDraft[]>([createEmptyContact()])
+const removedContactIds = ref<string[]>([])
+const companyId = ref<string | null>(null)
 const whatsappConversationId = ref<string | null>(null)
 const whatsappConversationStatus = ref<string | null>(null)
-const contactForm = ref({
+
+const companyForm = ref({
   name: '',
-  email: '',
-  phone: '',
-  position: '',
+  website: '',
+  address: '',
+  cep: '',
+  city: '',
+  country: '',
   notes: '',
 })
+
+const primaryContact = computed(() => contacts.value[0] || createEmptyContact())
 
 const {
   isSyncingWhatsapp,
@@ -142,56 +183,163 @@ const {
 
 const leadWhatsappState = computed(() => ({
   id: props.lead?.id as string,
-  phone: contactForm.value.phone || props.lead?.phone || null,
+  phone: primaryContact.value.phone || props.lead?.phone || null,
   whatsapp_conversation_id: whatsappConversationId.value,
   whatsapp_conversation_status: whatsappConversationStatus.value,
 }))
 
-async function loadLeadContact(leadId: string) {
+function emptyCompanyForm() {
+  return {
+    name: '',
+    website: '',
+    address: '',
+    cep: '',
+    city: '',
+    country: '',
+    notes: '',
+  }
+}
+
+async function loadLeadContacts(leadId: string) {
   if (!tenantId.value)
     return
 
   const { data, error } = await supabase
     .from('crm_contact')
-    .select('id, name, email, phone, position, notes')
+    .select('id, name, email, phone, position, notes, company_id, company:crm_company(id, name, website, address, cep, city, country, notes)')
     .eq('lead_id', leadId)
     .eq('tenant_id', tenantId.value)
     .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
 
   if (error) {
-    console.warn('Falha ao carregar contato do lead:', error)
+    console.warn('Falha ao carregar contatos do lead:', error)
   }
 
-  if (data) {
-    contactId.value = data.id
-    contactForm.value = {
-      name: data.name || '',
-      email: data.email || '',
-      phone: data.phone || '',
-      position: data.position || '',
-      notes: data.notes || '',
-    }
+  removedContactIds.value = []
+
+  if (data?.length) {
+    contacts.value = data.map(row => ({
+      key: String(row.id),
+      id: row.id,
+      name: row.name || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      position: row.position || '',
+      notes: row.notes || '',
+    }))
+
+    const withCompany = data.find(row => row.company_id || row.company)
+    const company = withCompany
+      ? (Array.isArray(withCompany.company) ? withCompany.company[0] : withCompany.company)
+      : null
+
+    companyId.value = company?.id || withCompany?.company_id || null
+    companyForm.value = company
+      ? {
+          name: company.name || '',
+          website: company.website || '',
+          address: company.address || '',
+          cep: company.cep || '',
+          city: company.city || '',
+          country: company.country || '',
+          notes: company.notes || '',
+        }
+      : emptyCompanyForm()
     return
   }
 
-  contactId.value = null
-  contactForm.value = {
+  companyId.value = null
+  contacts.value = [{
+    ...createEmptyContact(),
     name: props.lead?.contact_name || '',
     email: props.lead?.email || '',
     phone: props.lead?.phone || '',
     position: props.lead?.contact_position || '',
-    notes: '',
-  }
+  }]
+  companyForm.value = emptyCompanyForm()
 }
 
-// Company form data
-const companyForm = ref({
-  name: '',
-  website: '',
-  address: '',
-})
+function addContact() {
+  contacts.value = [...contacts.value, createEmptyContact()]
+}
+
+function removeContact(index: number) {
+  const target = contacts.value[index]
+  if (!target)
+    return
+
+  if (target.id)
+    removedContactIds.value = [...removedContactIds.value, target.id]
+
+  if (contacts.value.length <= 1) {
+    contacts.value = [createEmptyContact()]
+    return
+  }
+
+  contacts.value = contacts.value.filter((_, i) => i !== index)
+}
+
+function startNewCompany() {
+  companyId.value = null
+  companyForm.value = emptyCompanyForm()
+}
+
+function handleCompanyAutofill(match: CrmCompanyLookupResult) {
+  applyCompanyAutofill(match, companyForm, {
+    onCompanyId: (id) => { companyId.value = id },
+  })
+}
+
+function handleLeadAutofill(match: CrmLeadLookupResult, scope: 'lead' | 'contact' = 'lead') {
+  const contactTarget = { value: { ...primaryContact.value } }
+  applyCrmLeadAutofill(match, {
+    leadForm,
+    contactForm: contactTarget,
+    companyForm,
+  }, {
+    leadSources: leadSources.value || [],
+    fillLeadFields: scope === 'lead',
+    onCompanyId: (id) => { companyId.value = id },
+  })
+
+  contacts.value = [
+    {
+      ...primaryContact.value,
+      ...contactTarget.value,
+      key: primaryContact.value.key,
+      id: primaryContact.value.id,
+    },
+    ...contacts.value.slice(1),
+  ]
+}
+
+function handleContactAutofill(index: number, match: CrmLeadLookupResult) {
+  const current = contacts.value[index]
+  if (!current)
+    return
+
+  contacts.value[index] = {
+    ...current,
+    name: match.contact_name || match.name || '',
+    email: match.email || '',
+    phone: match.phone || '',
+    position: match.position || '',
+    notes: match.contact_notes || '',
+  }
+
+  if (match.company_id || match.company_name) {
+    companyId.value = match.company_id
+    companyForm.value = {
+      name: match.company_name || '',
+      website: match.company_website || '',
+      address: match.company_address || '',
+      cep: match.company_cep || '',
+      city: match.company_city || '',
+      country: match.company_country || '',
+      notes: match.company_notes || '',
+    }
+  }
+}
 
 // Meeting form data
 const meetingForm = ref({
@@ -202,16 +350,24 @@ const meetingForm = ref({
   agenda: '',
 })
 
-function handleLeadValueInput(event: Event) {
-  const input = event.target as HTMLInputElement
-  leadForm.value.value = formatLeadValueInput(input.value)
+function resolveValuesInputs(lead: any): string[] {
+  const fromArray = normalizeLeadValues(lead?.values)
+  if (fromArray.length)
+    return fromArray.map(formatLeadValueInput)
+  if (lead?.value)
+    return [formatLeadValueInput(lead.value)]
+  return ['']
 }
 
-function handleLeadAutofill(match: CrmLeadLookupResult, scope: 'lead' | 'contact' = 'lead') {
-  applyCrmLeadAutofill(match, { leadForm, contactForm, companyForm }, {
-    leadSources: leadSources.value || [],
-    fillLeadFields: scope === 'lead',
-  })
+function buildLeadValuePayload() {
+  const proposalValues = parseLeadValuesInputs(leadForm.value.valuesInputs)
+  const closed = parseLeadValueInput(leadForm.value.closedValue)
+  return {
+    values: proposalValues,
+    value: closed > 0
+      ? closed
+      : (proposalValues.length ? Math.max(...proposalValues) : (Number(props.lead?.value) || 0)),
+  }
 }
 
 // Watch para pré-preencher todos os formulários quando os dados carregarem
@@ -224,7 +380,8 @@ watch([() => props.lead, leadSources], () => {
       sales_stage_id: props.lead.sales_stage_id || '',
       status: props.lead.status || 'new',
       priority: props.lead.priority || 'medium',
-      value: props.lead.value ? formatLeadValueInput(props.lead.value) : '',
+      valuesInputs: resolveValuesInputs(props.lead),
+      closedValue: props.lead.value ? formatLeadValueInput(props.lead.value) : '',
       notes: props.lead.notes || '',
       assigned_to: props.lead.assigned_to || props.lead.assignedTo || null,
     }
@@ -232,13 +389,7 @@ watch([() => props.lead, leadSources], () => {
     whatsappConversationId.value = props.lead.whatsapp_conversation_id ?? null
     whatsappConversationStatus.value = props.lead.whatsapp_conversation_status ?? null
 
-    loadLeadContact(props.lead.id)
-
-    companyForm.value = {
-      name: '',
-      website: '',
-      address: '',
-    }
+    loadLeadContacts(props.lead.id)
 
     meetingForm.value = {
       date: '',
@@ -319,6 +470,7 @@ async function updateLead() {
     }
 
     // 1. Atualizar Lead
+    const valuePayload = buildLeadValuePayload()
     const leadUpdateData = {
       id: props.lead.id,
       name: leadForm.value.name,
@@ -327,7 +479,8 @@ async function updateLead() {
       sales_stage_id: leadForm.value.sales_stage_id || null,
       status: leadForm.value.status,
       priority: leadForm.value.priority,
-      value: parseLeadValueInput(leadForm.value.value),
+      value: valuePayload.value,
+      values: valuePayload.values,
       notes: leadForm.value.notes || null,
       assigned_to: leadForm.value.assigned_to,
       tenant_id: tenantId.value,
@@ -341,21 +494,77 @@ async function updateLead() {
     // A API retorna { statusCode: 200, body: data }
     const updatedLead = leadResponse.body || leadResponse
 
-    // 2. Criar/Atualizar Contact vinculado ao lead (se preenchido)
-    if (contactForm.value.name || contactForm.value.email) {
-      const contactData = {
-        name: contactForm.value.name,
-        email: contactForm.value.email,
-        phone: contactForm.value.phone || '',
-        position: contactForm.value.position,
-        notes: contactForm.value.notes,
+    // 2. Criar/Atualizar Company (se preenchido) — before contacts so we can link company_id
+    if (companyForm.value.name) {
+      const companyData = {
+        name: companyForm.value.name,
+        website: companyForm.value.website || null,
+        address: companyForm.value.address || null,
+        cep: companyForm.value.cep || null,
+        city: companyForm.value.city || null,
+        country: companyForm.value.country || null,
+        notes: companyForm.value.notes || null,
         tenant_id: tenantId.value,
-        lead_id: props.lead.id,
       }
 
       try {
-        if (contactId.value) {
-          await $fetch(`/api/crm/contacts/${contactId.value}`, {
+        if (companyId.value) {
+          await $fetch(`/api/crm/company/${companyId.value}`, {
+            method: 'PUT',
+            body: companyData,
+          })
+        }
+        else {
+          const companyResponse = await $fetch<{ data: { id: string } }>('/api/crm/company', {
+            method: 'POST',
+            body: companyData,
+          })
+          companyId.value = companyResponse.data?.id ?? null
+        }
+      }
+      catch (companyErr) {
+        console.warn('Falha ao criar/atualizar empresa:', companyErr)
+      }
+    }
+
+    // 3. Remover contatos excluídos
+    for (const removedId of removedContactIds.value) {
+      try {
+        await $fetch(`/api/crm/contacts/${removedId}`, {
+          method: 'DELETE',
+          query: { tenant_id: tenantId.value },
+        })
+      }
+      catch (deleteErr) {
+        console.warn('Falha ao remover contato:', deleteErr)
+      }
+    }
+    removedContactIds.value = []
+
+    // 4. Criar/Atualizar contatos vinculados ao lead
+    for (const contact of contacts.value) {
+      const hasAnyField = contact.name.trim() || contact.email.trim() || contact.phone.trim() || contact.position.trim() || contact.notes.trim()
+      if (!hasAnyField)
+        continue
+
+      if (!contact.name.trim() || !contact.email.trim()) {
+        throw new Error('Cada contato preenchido precisa de nome e e-mail')
+      }
+
+      const contactData = {
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone || '',
+        position: contact.position,
+        notes: contact.notes,
+        tenant_id: tenantId.value,
+        lead_id: props.lead.id,
+        company_id: companyId.value,
+      }
+
+      try {
+        if (contact.id) {
+          await $fetch(`/api/crm/contacts/${contact.id}`, {
             method: 'PUT',
             body: contactData,
           })
@@ -365,7 +574,8 @@ async function updateLead() {
             method: 'POST',
             body: contactData,
           })
-          contactId.value = contactResponse.data?.id ?? null
+          contact.id = contactResponse.data?.id ?? null
+          contact.key = contact.id || contact.key
         }
       }
       catch (contactErr) {
@@ -373,27 +583,7 @@ async function updateLead() {
       }
     }
 
-    // 3. Criar/Atualizar Company (se preenchido)
-    if (companyForm.value.name) {
-      const companyData = {
-        name: companyForm.value.name,
-        website: companyForm.value.website,
-        address: companyForm.value.address,
-        tenant_id: tenantId.value,
-      }
-
-      try {
-        await $fetch('/api/crm/company', {
-          method: 'POST',
-          body: companyData,
-        })
-      }
-      catch (companyErr) {
-        console.warn('Falha ao criar/atualizar empresa:', companyErr)
-      }
-    }
-
-    // 4. Criar/Atualizar Meeting (se preenchido)
+    // 5. Criar/Atualizar Meeting (se preenchido)
     if (meetingForm.value.date && meetingForm.value.time) {
       const meetingData = {
         date: meetingForm.value.date,
@@ -463,7 +653,7 @@ function cancel() {
               : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
           ]"
         >
-          {{ ({ lead: 'Lead', contact: 'Contato', company: 'Empresa', meeting: 'Reunião' } as Record<string, string>)[tab] }}
+          {{ ({ lead: 'Lead', contact: 'Contatos', company: 'Empresa', meeting: 'Reunião' } as Record<string, string>)[tab] }}
         </button>
       </div>
 
@@ -548,15 +738,12 @@ function cancel() {
               />
             </div>
 
-            <div class="space-y-2">
-              <Label for="lead-value">Valor estimado</Label>
-              <Input
-                id="lead-value"
-                v-model="leadForm.value"
-                placeholder="R$ 0,00"
-                type="text"
-                inputmode="numeric"
-                @input="handleLeadValueInput"
+            <div class="md:col-span-2">
+              <LeadValuesFields
+                v-model="leadForm.valuesInputs"
+                v-model:closed-value="leadForm.closedValue"
+                show-closed-value
+                id-prefix="edit-lead-value"
               />
             </div>
           </div>
@@ -569,58 +756,155 @@ function cancel() {
 
         <!-- Contact Tab -->
         <div v-if="activeTab === 'contact'" class="space-y-6">
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="space-y-2">
-              <Label for="contact-name">Nome do contato</Label>
-              <LeadNameAutofillInput
-                v-model="contactForm.name"
-                input-id="contact-name"
-                placeholder="Nome do contato"
-                search-field="contact"
-                :exclude-lead-id="props.lead?.id"
-                @autofill="handleLeadAutofill"
-              />
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-medium">
+                Contatos do lead
+              </h3>
+              <p class="text-xs text-muted-foreground">
+                Adicione um ou mais contatos vinculados a este lead.
+              </p>
             </div>
-            
-            <div class="space-y-2">
-              <Label for="contact-email">E-mail</Label>
-              <Input id="contact-email" v-model="contactForm.email" placeholder="email@exemplo.com" type="email" />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="contact-phone">Telefone</Label>
-              <Input id="contact-phone" v-model="contactForm.phone" placeholder="(00) 00000-0000" />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="contact-position">Cargo</Label>
-              <Input id="contact-position" v-model="contactForm.position" placeholder="Cargo do contato" />
-            </div>
+            <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="addContact">
+              <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
+              Adicionar contato
+            </Button>
           </div>
 
-          <div class="space-y-2">
-            <Label for="contact-notes">Observações</Label>
-            <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Observações sobre o contato" rows="3" />
+          <div
+            v-for="(contact, index) in contacts"
+            :key="contact.key"
+            class="space-y-4 rounded-lg border border-border p-4"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm font-medium">
+                Contato {{ index + 1 }}
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="h-8 text-muted-foreground hover:text-destructive"
+                @click="removeContact(index)"
+              >
+                <Icon name="lucide:trash-2" class="mr-1 h-4 w-4" />
+                Remover
+              </Button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="space-y-2">
+                <Label :for="`contact-name-${index}`">Nome do contato</Label>
+                <LeadNameAutofillInput
+                  v-model="contact.name"
+                  :input-id="`contact-name-${index}`"
+                  placeholder="Nome do contato"
+                  search-field="contact"
+                  :exclude-lead-id="props.lead?.id"
+                  @autofill="(match) => handleContactAutofill(index, match)"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label :for="`contact-email-${index}`">E-mail</Label>
+                <Input
+                  :id="`contact-email-${index}`"
+                  v-model="contact.email"
+                  placeholder="email@exemplo.com"
+                  type="email"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label :for="`contact-phone-${index}`">Telefone</Label>
+                <Input
+                  :id="`contact-phone-${index}`"
+                  v-model="contact.phone"
+                  v-maska="{ mask: [...BR_PHONE_MASKS] }"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label :for="`contact-position-${index}`">Cargo</Label>
+                <Input
+                  :id="`contact-position-${index}`"
+                  v-model="contact.position"
+                  placeholder="Cargo do contato"
+                />
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <Label :for="`contact-notes-${index}`">Observações</Label>
+              <Textarea
+                :id="`contact-notes-${index}`"
+                v-model="contact.notes"
+                placeholder="Observações sobre o contato"
+                rows="3"
+              />
+            </div>
           </div>
         </div>
 
         <!-- Company Tab -->
         <div v-if="activeTab === 'company'" class="space-y-6">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h3 class="text-sm font-medium">
+                Empresa
+              </h3>
+              <p class="text-xs text-muted-foreground">
+                Busque uma empresa cadastrada pelo nome ou crie uma nova.
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="startNewCompany">
+              <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
+              Nova empresa
+            </Button>
+          </div>
+
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="space-y-2">
+            <div class="space-y-2 md:col-span-2">
               <Label for="company-name">Nome da empresa</Label>
-              <Input id="company-name" v-model="companyForm.name" placeholder="Nome da empresa" />
+              <CompanyNameAutofillInput
+                v-model="companyForm.name"
+                input-id="company-name"
+                placeholder="Digite para buscar empresas do tenant"
+                :exclude-id="null"
+                @autofill="handleCompanyAutofill"
+              />
             </div>
 
             <div class="space-y-2">
               <Label for="company-website">Site</Label>
-              <Input id="company-website" v-model="companyForm.website" placeholder="www.exemplo.com" />
+              <Input id="company-website" v-model="companyForm.website" placeholder="https://exemplo.com" />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="company-cep">CEP</Label>
+              <Input id="company-cep" v-model="companyForm.cep" placeholder="00000-000" />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="company-city">Cidade</Label>
+              <Input id="company-city" v-model="companyForm.city" placeholder="Cidade" />
+            </div>
+
+            <div class="space-y-2">
+              <Label for="company-country">País</Label>
+              <Input id="company-country" v-model="companyForm.country" placeholder="País" />
             </div>
           </div>
 
           <div class="space-y-2">
             <Label for="company-address">Endereço</Label>
-            <Input id="company-address" v-model="companyForm.address" placeholder="Endereço da empresa" />
+            <Textarea id="company-address" v-model="companyForm.address" placeholder="Endereço completo" rows="2" />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="company-notes">Observações</Label>
+            <Textarea id="company-notes" v-model="companyForm.notes" placeholder="Observações sobre a empresa" rows="3" />
           </div>
         </div>
 
@@ -666,26 +950,26 @@ function cancel() {
       <!-- Action Buttons -->
       <div
         class="flex flex-wrap items-center gap-2 pt-4"
-        :class="canOpenWhatsappConversation(leadWhatsappState, contactForm.phone) || canSyncWhatsapp(leadWhatsappState, contactForm.phone) ? 'justify-between' : 'justify-end'"
+        :class="canOpenWhatsappConversation(leadWhatsappState, primaryContact.phone) || canSyncWhatsapp(leadWhatsappState, primaryContact.phone) ? 'justify-between' : 'justify-end'"
       >
         <div class="flex gap-2">
           <Button
-            v-if="canOpenWhatsappConversation(leadWhatsappState, contactForm.phone)"
+            v-if="canOpenWhatsappConversation(leadWhatsappState, primaryContact.phone)"
             variant="outline"
             size="sm"
             class="gap-2"
-            @click="openWhatsappForLead(leadWhatsappState, contactForm.phone)"
+            @click="openWhatsappForLead(leadWhatsappState, primaryContact.phone)"
           >
             <Icon name="lucide:message-circle" class="h-4 w-4" />
             Abrir conversa
           </Button>
           <Button
-            v-else-if="canSyncWhatsapp(leadWhatsappState, contactForm.phone)"
+            v-else-if="canSyncWhatsapp(leadWhatsappState, primaryContact.phone)"
             variant="outline"
             size="sm"
             class="gap-2"
             :disabled="isSyncingWhatsapp"
-            @click="syncWhatsappForLead(leadWhatsappState, contactForm.phone)"
+            @click="syncWhatsappForLead(leadWhatsappState, primaryContact.phone)"
           >
             <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': isSyncingWhatsapp }" />
             Sincronizar no WhatsApp

@@ -4,7 +4,7 @@ export const CLIENT_PORTAL_MARKETING_LINKS = [
   '/marketing/calendar',
   '/marketing/posts',
   '/marketing/reports',
-  '/marketing/integrations',
+  '/settings/integrations',
 ] as const
 
 /** Agency-only production sub-routes that stay hidden from the client portal. */

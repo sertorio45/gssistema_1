@@ -4,6 +4,16 @@ import { createError, getQuery } from 'h3'
 
 import type { CrmLeadLookupResult } from '~/types/crm'
 
+function normalizeValues(raw: unknown, fallback?: unknown): number[] | null {
+  if (Array.isArray(raw)) {
+    const list = raw.map(item => Number(item)).filter(n => Number.isFinite(n) && n >= 0)
+    return list.length ? list : null
+  }
+  if (fallback != null && Number.isFinite(Number(fallback)))
+    return [Number(fallback)]
+  return null
+}
+
 function mapContactRow(
   contact: Record<string, unknown>,
   lead?: Record<string, unknown> | null,
@@ -24,10 +34,16 @@ function mapContactRow(
     source: resolvedLead?.source ? String(resolvedLead.source) : null,
     priority: resolvedLead?.priority ? String(resolvedLead.priority) : null,
     value: resolvedLead?.value != null ? Number(resolvedLead.value) : null,
+    values: normalizeValues(resolvedLead?.values, resolvedLead?.value),
     lead_notes: resolvedLead?.notes ? String(resolvedLead.notes) : null,
+    company_id: company?.id ? String(company.id) : (contact.company_id ? String(contact.company_id) : null),
     company_name: company?.name ? String(company.name) : null,
     company_website: company?.website ? String(company.website) : null,
     company_address: company?.address ? String(company.address) : null,
+    company_cep: company?.cep ? String(company.cep) : null,
+    company_city: company?.city ? String(company.city) : null,
+    company_country: company?.country ? String(company.country) : null,
+    company_notes: company?.notes ? String(company.notes) : null,
   }
 }
 
@@ -73,8 +89,8 @@ export default defineEventHandler(async (event) => {
     client
       .from('crm_lead')
       .select(`
-        id, name, source, priority, value, notes,
-        crm_contact(id, name, email, phone, position, notes, company:crm_company(name, website, address))
+        id, name, source, priority, value, values, notes,
+        crm_contact(id, name, email, phone, position, notes, company_id, company:crm_company(id, name, website, address, cep, city, country, notes))
       `)
       .eq('tenant_id', tenant_id)
       .ilike('name', searchPattern)
@@ -83,9 +99,9 @@ export default defineEventHandler(async (event) => {
     client
       .from('crm_contact')
       .select(`
-        id, name, email, phone, position, notes, lead_id,
-        company:crm_company(name, website, address),
-        lead:crm_lead(id, name, source, priority, value, notes)
+        id, name, email, phone, position, notes, lead_id, company_id,
+        company:crm_company(id, name, website, address, cep, city, country, notes),
+        lead:crm_lead(id, name, source, priority, value, values, notes)
       `)
       .eq('tenant_id', tenant_id)
       .ilike('name', searchPattern)

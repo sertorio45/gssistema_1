@@ -3,16 +3,6 @@ import { Icon } from '#components'
 
 import { onMounted, ref } from 'vue'
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -23,6 +13,7 @@ import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import { useToast } from '~/components/ui/toast'
 import CreateUserDialog from '~/components/users/CreateUserDialog.vue'
 import EditUserDialog from '~/components/users/EditUserDialog.vue'
+import { confirmDelete, deleteWithConfirm } from '~/composables/useConfirmDelete'
 
 const createUserDialog = ref<InstanceType<typeof CreateUserDialog> | null>(null)
 const editUserDialog = ref<InstanceType<typeof EditUserDialog> | null>(null)
@@ -44,10 +35,7 @@ interface User {
 const { toast } = useToast()
 const users = ref<User[]>([])
 const isLoading = ref(true)
-const isDeleteAlertOpen = ref(false)
-const selectedUser = ref<User | null>(null)
 const selectedItems = ref([])
-const showMultiDeleteDialog = ref(false)
 
 async function loadData() {
   isLoading.value = true
@@ -69,61 +57,49 @@ async function loadData() {
   }
 }
 
-function handleDeleteClick(user: User) {
-  selectedUser.value = user
-  isDeleteAlertOpen.value = true
-}
-
-async function deleteUser() {
-  if (!selectedUser.value)
-    return
-
-  try {
-    const { data } = await useFetch(`/api/admin/users/${selectedUser.value.id}`, {
-      method: 'DELETE',
-    })
-
-    if (!data.value?.success)
-      throw new Error('Erro ao excluir usuário')
-
-    toast({
-      title: 'Sucesso',
-      description: 'Usuário excluído com sucesso',
-    })
-
-    isDeleteAlertOpen.value = false
-    selectedUser.value = null
+async function handleDeleteClick(user: User) {
+  const ok = await deleteWithConfirm(
+    async () => {
+      const response = await $fetch<{ success: boolean }>(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
+      })
+      if (!response?.success)
+        throw new Error('Erro ao excluir usuário')
+    },
+    {
+      title: 'Excluir usuário?',
+      description: `Tem certeza que deseja excluir "${user.email}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Usuário excluído com sucesso.',
+    },
+  )
+  if (ok)
     await loadData()
-  }
-  catch (error: any) {
-    console.error('Erro ao excluir usuário:', error)
-    toast({
-      title: 'Erro',
-      description: error?.message || 'Não foi possível excluir o usuário',
-      variant: 'destructive',
-    })
-  }
 }
 
 function updateSelectedItems(items: any) {
   selectedItems.value = items
 }
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
+async function showMultiDeleteConfirmation() {
   const itemIds = selectedItems.value.map((index: number) => users.value[index].id)
+  if (!itemIds.length)
+    return
+
+  const confirmed = await confirmDelete({
+    title: 'Excluir vários usuários',
+    description: `Tem certeza que deseja excluir ${itemIds.length} usuário(s)? Esta ação não pode ser desfeita.`,
+  })
+  if (!confirmed)
+    return
+
   let allSuccess = true
 
   for (const id of itemIds) {
     try {
-      const { data } = await useFetch(`/api/admin/users/${id}`, {
+      const response = await $fetch<{ success: boolean }>(`/api/admin/users/${id}`, {
         method: 'DELETE',
       })
-
-      if (!data.value?.success)
+      if (!response?.success)
         allSuccess = false
     }
     catch (error) {
@@ -146,7 +122,6 @@ async function handleMultiDeleteConfirm() {
     })
   }
 
-  showMultiDeleteDialog.value = false
   selectedItems.value = []
   await loadData()
 }
@@ -202,51 +177,5 @@ onMounted(() => {
 
     <CreateUserDialog ref="createUserDialog" @user-created="loadData" />
     <EditUserDialog ref="editUserDialog" @user-updated="loadData" />
-
-    <AlertDialog :open="isDeleteAlertOpen" @update:open="isDeleteAlertOpen = $event">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Esta ação não pode ser desfeita. O usuário
-            <span class="font-medium">{{ selectedUser?.email }}</span>
-            será excluído permanentemente do sistema.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel @click="isDeleteAlertOpen = false">
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            @click="deleteUser"
-          >
-            Excluir
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
-    <AlertDialog :open="showMultiDeleteDialog" @update:open="showMultiDeleteDialog = $event">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Excluir vários usuários</AlertDialogTitle>
-          <AlertDialogDescription>
-            Tem certeza que deseja excluir {{ selectedItems.length }} usuário(s)? Esta ação não pode ser desfeita.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel @click="showMultiDeleteDialog = false">
-            Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
-            class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            @click="handleMultiDeleteConfirm"
-          >
-            Excluir
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   </div>
 </template>

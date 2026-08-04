@@ -11,6 +11,7 @@ import Draggable from 'vuedraggable'
 import { columns } from '~/components/crm/leads/columns'
 import LeadEditForm from '~/components/crm/leads/LeadEditForm.vue'
 import LeadStepperForm from '~/components/crm/leads/LeadStepperForm.vue'
+import MetaCapiSyncDialog from '~/components/crm/meta/MetaCapiSyncDialog.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import Badge from '~/components/ui/badge/Badge.vue'
 import Button from '~/components/ui/button/Button.vue'
@@ -43,6 +44,11 @@ import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
 import Tooltip from '~/components/ui/tooltip/Tooltip.vue'
 import { useCrmLeadWhatsapp } from '~/composables/crm/useCrmLeadWhatsapp'
+import {
+  estimateLeadPipelineValue,
+  formatLeadValueRange,
+} from '~/composables/crm/useCrmLeadValue'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantTeam } from '~/composables/crm/useTenantTeam'
 import { useTenantPage } from '~/composables/useTenantPage'
 
@@ -85,10 +91,7 @@ const viewMode = ref<'kanban' | 'list'>('kanban')
 const isAddLeadDialogOpen = ref(false)
 const isEditLeadDialogOpen = ref(false)
 const isSheetOpen = ref(false)
-const showDeleteDialog = ref(false)
-const leadToDelete = ref<Lead | null>(null)
 const selectedItems = ref<LeadExt[]>([])
-const showMultiDeleteDialog = ref(false)
 const isAddFunnelDialogOpen = ref(false)
 const newFunnel = ref({ name: '', description: '' })
 const isOrganizeStagesDialogOpen = ref(false)
@@ -99,7 +102,7 @@ const defaultLeadFunnelId = ref<string | null>(null)
 const defaultLeadStageId = ref<string | null>(null)
 const dateRangeFormatter = new DateFormatter('pt-BR', { dateStyle: 'medium' })
 const leadDateRange = ref<any>({})
-const syncingMetaCapi = ref(false)
+const metaSyncDialogOpen = ref(false)
 const metaCapiPendingCount = ref(0)
 const metaCapiEnabled = ref(false)
 
@@ -116,9 +119,14 @@ const stageStats = computed(() => {
   const stats: Record<string, { count: number, value: number }> = {}
   stages.value.forEach((stage) => {
     const stageLeads = leadsByStage.value[stage.id] || []
+    const isWonStage = stage.name?.toLowerCase().includes('ganh') || stage.name?.toLowerCase().includes('won')
     stats[stage.id] = {
       count: stageLeads.length,
-      value: stageLeads.reduce((sum, lead) => sum + (lead.value || 0), 0),
+      value: stageLeads.reduce((sum, lead) => {
+        if (isWonStage || lead.status === 'won')
+          return sum + (Number(lead.value) || 0)
+        return sum + estimateLeadPipelineValue(lead.values, lead.value, lead.status)
+      }, 0),
     }
   })
   return stats
@@ -159,7 +167,7 @@ const negotiationValue = computed(() => {
       // Fallback quando não existir estágio de negociação configurado.
       return lead.status === 'negotiation'
     })
-    .reduce((sum, l) => sum + (Number(l.value) || 0), 0)
+    .reduce((sum, l) => sum + estimateLeadPipelineValue(l.values, l.value, l.status), 0)
 })
 const totalLeadsCount = computed(() => leads.value.length)
 const conversionRate = computed(() => {
@@ -175,7 +183,11 @@ const conversionRate = computed(() => {
   return Math.round((won / total) * 10000) / 100
 })
 const funnelTotalValue = computed(() =>
-  leads.value.reduce((sum, lead) => sum + (Number(lead.value) || 0), 0),
+  leads.value.reduce((sum, lead) => {
+    if (lead.status === 'won')
+      return sum + (Number(lead.value) || 0)
+    return sum + estimateLeadPipelineValue(lead.values, lead.value, lead.status)
+  }, 0),
 )
 const ganhosNoMes = computed(() => {
   const now = new Date()
@@ -250,6 +262,10 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+function formatLeadCardValue(lead: Lead) {
+  return formatLeadValueRange(lead.values, lead.value)
+}
+
 function getPriorityColor(priority: string) {
   switch (priority) {
     case 'high':
@@ -322,34 +338,14 @@ async function syncWonLeadsToMeta() {
     return
   }
 
-  syncingMetaCapi.value = true
-  try {
-    const res = await $fetch<{
-      data: { enqueued: number, sent: number, candidates: number }
-    }>('/api/crm/meta-capi/sync-pending', {
-      method: 'POST',
-      body: { tenant_id: tenantId.value, limit: 50 },
-    })
+  metaSyncDialogOpen.value = true
+}
 
-    const { enqueued, sent, candidates } = res.data
-    if (candidates === 0) {
-      toast.info('Nenhum ganho pendente para enviar à Meta')
-    }
-    else {
-      toast.success(`Meta: ${enqueued} enfileirados, ${sent} enviados`)
-    }
-
-    await Promise.all([
-      refreshMetaCapiPendingCount(),
-      fetchLeads(),
-    ])
-  }
-  catch (error: any) {
-    toast.error(error?.data?.statusMessage || error?.message || 'Falha ao enviar ganhos à Meta')
-  }
-  finally {
-    syncingMetaCapi.value = false
-  }
+async function onMetaSyncDone() {
+  await Promise.all([
+    refreshMetaCapiPendingCount(),
+    fetchLeads(),
+  ])
 }
 
 function getSourceLabel(source?: string, sourceId?: string | null) {
@@ -613,84 +609,71 @@ function handleDropOnLead(event: DragEvent, newStageId: string, targetLeadId: st
   }
 }
 
-async function handleDeleteConfirm() {
-  if (!leadToDelete.value)
-    return
-  showDeleteDialog.value = false
-  const leadId = leadToDelete.value.id
+function resolveTenantUuid() {
   const tenant = tenantId.value
-  const tenantUuid = typeof tenant === 'object' && tenant !== null && 'id' in tenant
+  return typeof tenant === 'object' && tenant !== null && 'id' in tenant
     ? (tenant as { id: string }).id
     : tenant
-  try {
-    await $fetch('/api/crm/lead', {
+}
+
+async function handleDelete(lead: Lead) {
+  const tenantUuid = resolveTenantUuid()
+
+  const deleted = await deleteWithConfirm(
+    () => $fetch('/api/crm/lead', {
       method: 'DELETE',
       body: {
-        id: leadId,
+        id: lead.id,
         tenant_id: tenantUuid,
       },
-    })
-    leads.value = leads.value.filter(lead => lead.id !== leadId)
-    selectedItems.value = selectedItems.value.filter(item => item.id !== leadId)
-    toast.success('Lead excluído com sucesso!')
-  }
-  catch (e: any) {
-    const msg = e?.data?.message || e?.message || 'Erro ao excluir lead. Tente novamente.'
-    toast.error(msg)
-  }
-  finally {
-    leadToDelete.value = null
+    }),
+    {
+      title: 'Excluir lead?',
+      description: `Tem certeza que deseja excluir "${lead.name}"? Esta ação não pode ser desfeita.`,
+      successMessage: 'Lead excluído com sucesso!',
+      errorMessage: 'Erro ao excluir lead. Tente novamente.',
+    },
+  )
+
+  if (deleted) {
+    leads.value = leads.value.filter(item => item.id !== lead.id)
+    selectedItems.value = selectedItems.value.filter(item => item.id !== lead.id)
   }
 }
 
-function showMultiDeleteConfirmation() {
-  showMultiDeleteDialog.value = true
-}
-
-async function handleMultiDeleteConfirm() {
-  showMultiDeleteDialog.value = false
+async function handleMultiDelete() {
   if (!selectedItems.value.length)
     return
 
-  const tenant = tenantId.value
-  const tenantUuid = typeof tenant === 'object' && tenant !== null && 'id' in tenant
-    ? (tenant as { id: string }).id
-    : tenant
-  const leadIdsToDelete = selectedItems.value.map(lead => lead.id)
+  const tenantUuid = resolveTenantUuid()
+  const toDelete = [...selectedItems.value]
+  const count = toDelete.length
 
-  const results = await Promise.allSettled(
-    leadIdsToDelete.map(id =>
+  const deleted = await deleteWithConfirm(
+    () => Promise.all(toDelete.map(lead =>
       $fetch('/api/crm/lead', {
         method: 'DELETE',
         body: {
-          id,
+          id: lead.id,
           tenant_id: tenantUuid,
         },
       }),
-    ),
+    )),
+    {
+      title: 'Excluir vários leads?',
+      description: `Tem certeza que deseja excluir ${count} leads? Esta ação não pode ser desfeita.`,
+      successMessage: count === 1
+        ? '1 lead excluído com sucesso!'
+        : `${count} leads excluídos com sucesso!`,
+      errorMessage: 'Não foi possível excluir os leads.',
+    },
   )
 
-  const successIds = leadIdsToDelete.filter((_, index) => results[index].status === 'fulfilled')
-  const failedCount = results.length - successIds.length
-
-  if (successIds.length) {
-    leads.value = leads.value.filter(lead => !successIds.includes(lead.id))
-    toast.success(
-      successIds.length === 1
-        ? '1 lead excluído com sucesso!'
-        : `${successIds.length} leads excluídos com sucesso!`,
-    )
+  if (deleted) {
+    const deletedIds = toDelete.map(lead => lead.id)
+    leads.value = leads.value.filter(lead => !deletedIds.includes(lead.id))
+    selectedItems.value = []
   }
-
-  if (failedCount > 0) {
-    toast.error(
-      failedCount === 1
-        ? '1 lead não pôde ser excluído.'
-        : `${failedCount} leads não puderam ser excluídos.`,
-    )
-  }
-
-  selectedItems.value = []
 }
 
 function updateSelectedItems(indices: number[]) {
@@ -746,10 +729,6 @@ function handleLeadUpdated(_updatedLead: any) {
 function handleEdit(lead: Lead) {
   selectedLead.value = lead
   isEditLeadDialogOpen.value = true
-}
-function handleDelete(lead: Lead) {
-  leadToDelete.value = lead
-  showDeleteDialog.value = true
 }
 
 function handleSearch(e: Event) {
@@ -929,18 +908,16 @@ async function saveStagesOrder() {
       <div class="flex gap-2">
         <Button
           variant="outline"
-          :disabled="syncingMetaCapi"
           :title="metaCapiPendingCount > 0
-            ? `${metaCapiPendingCount} ganho(s) ainda não enviados à Meta`
-            : 'Envia leads em Ganho ainda não sincronizados com a Meta'"
+            ? `${metaCapiPendingCount} ganho(s) elegíveis para envio à Meta`
+            : 'Selecione leads em Ganho para enviar à Meta'"
           @click="syncWonLeadsToMeta"
         >
           <Icon
             name="lucide:share-2"
             class="mr-2 h-4 w-4"
-            :class="{ 'animate-pulse': syncingMetaCapi }"
           />
-          {{ syncingMetaCapi ? 'Enviando...' : 'Enviar ganhos à Meta' }}
+          Enviar ganhos à Meta
           <Badge
             v-if="metaCapiPendingCount > 0"
             variant="secondary"
@@ -1286,7 +1263,7 @@ async function saveStagesOrder() {
 
                   <div class="flex items-center justify-between gap-2">
                     <p class="text-sm font-semibold text-primary">
-                      {{ formatCurrency(lead.value) }}
+                      {{ formatLeadCardValue(lead) }}
                     </p>
                     <Badge
                       variant="outline"
@@ -1386,31 +1363,8 @@ async function saveStagesOrder() {
       <MultiActionBar
         v-if="selectedItems.length > 0"
         :count="selectedItems.length"
-        :on-delete="showMultiDeleteConfirmation"
+        :on-delete="handleMultiDelete"
       />
-
-      <!-- Multi Delete Dialog -->
-      <div
-        v-if="showMultiDeleteDialog"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      >
-        <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-          <h2 class="mb-2 text-lg font-bold">
-            Excluir vários leads
-          </h2>
-          <p class="mb-4">
-            Tem certeza que deseja excluir {{ selectedItems.length }} leads? Esta ação não pode ser desfeita.
-          </p>
-          <div class="flex justify-end gap-2">
-            <Button variant="outline" @click="showMultiDeleteDialog = false">
-              Cancelar
-            </Button>
-            <Button variant="destructive" @click="handleMultiDeleteConfirm">
-              Excluir todos
-            </Button>
-          </div>
-        </div>
-      </div>
     </template>
     </template>
 
@@ -1581,7 +1535,7 @@ async function saveStagesOrder() {
             <div>
               <Label class="text-sm font-medium">Valor</Label>
               <p class="text-sm text-muted-foreground">
-                {{ formatCurrency(selectedLead.value) }}
+                {{ formatLeadCardValue(selectedLead) }}
               </p>
             </div>
             <div>
@@ -1691,26 +1645,6 @@ async function saveStagesOrder() {
       </DialogScrollContent>
     </Dialog>
 
-    <!-- Delete Dialog -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="max-w-md w-full rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h2 class="mb-2 text-lg font-bold">
-          Excluir lead
-        </h2>
-        <p class="mb-4">
-          Tem certeza que deseja excluir o lead "{{ leadToDelete?.name }}"? Esta ação não pode ser desfeita.
-        </p>
-        <div class="flex justify-end gap-2">
-          <Button variant="outline" @click="showDeleteDialog = false">
-            Cancelar
-          </Button>
-          <Button variant="destructive" @click="handleDeleteConfirm">
-            Excluir
-          </Button>
-        </div>
-      </div>
-    </div>
-
     <!-- Dialog para criar funil -->
     <Dialog v-model:open="isAddFunnelDialogOpen">
       <DialogContent class="max-w-md">
@@ -1758,6 +1692,8 @@ async function saveStagesOrder() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <MetaCapiSyncDialog v-model:open="metaSyncDialogOpen" @synced="onMetaSyncDone" />
   </div>
 </template>
 
