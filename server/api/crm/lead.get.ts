@@ -11,6 +11,28 @@ import {
   resolveTenantApiAuth,
 } from '~/server/utils/tenant-access'
 
+/** Lean columns for kanban/list — avoids shipping unused CRM fields on board load. */
+const LEAD_BOARD_COLUMNS = [
+  'id',
+  'tenant_id',
+  'name',
+  'company',
+  'value',
+  'values',
+  'status',
+  'priority',
+  'source',
+  'source_id',
+  'funnel_id',
+  'sales_stage_id',
+  'assigned_to',
+  'notes',
+  'closed_at',
+  'created_at',
+  'updated_at',
+  'crm_contact(email, phone, name, position)',
+].join(', ')
+
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
@@ -32,19 +54,16 @@ export default defineEventHandler(async (event) => {
 
   let query = client
     .from('crm_lead')
-    .select('*, crm_contact(email, phone, name, position)')
+    .select(LEAD_BOARD_COLUMNS)
     .eq('tenant_id', effectiveTenantId)
-  if (funnel_id) {
+  if (funnel_id)
     query = query.eq('funnel_id', funnel_id)
-  }
-  if (start_date) {
+  if (start_date)
     query = query.gte('created_at', `${start_date}T00:00:00.000Z`)
-  }
-  if (end_date) {
+  if (end_date)
     query = query.lte('created_at', `${end_date}T23:59:59.999Z`)
-  }
 
-  const { data, error } = await query
+  const { data, error } = await query.order('created_at', { ascending: false })
   if (error)
     return { status: 400, message: error.message }
 
@@ -53,27 +72,28 @@ export default defineEventHandler(async (event) => {
 
   const conversationByLeadId = new Map<string, { id: string, status: string }>()
 
-  if (leadIds.length > 0) {
-    const { data: conversations } = await client
-      .from('whatsapp_conversation')
-      .select('id, lead_id, status, last_message_at')
-      .eq('tenant_id', effectiveTenantId)
-      .in('lead_id', leadIds)
-      .in('status', ACTIVE_WHATSAPP_CONVERSATION_STATUSES)
-      .order('last_message_at', { ascending: false, nullsFirst: false })
+  const [conversationsResult, metaStatusByLeadId] = await Promise.all([
+    leadIds.length > 0
+      ? client
+          .from('whatsapp_conversation')
+          .select('id, lead_id, status, last_message_at')
+          .eq('tenant_id', effectiveTenantId)
+          .in('lead_id', leadIds)
+          .in('status', ACTIVE_WHATSAPP_CONVERSATION_STATUSES)
+          .order('last_message_at', { ascending: false, nullsFirst: false })
+      : Promise.resolve({ data: [] as Array<{ id: string, lead_id: string | null, status: string }> }),
+    attachMetaCapiStatusToLeads(client, effectiveTenantId, leadIds),
+  ])
 
-    for (const conversation of conversations || []) {
-      if (!conversation.lead_id || conversationByLeadId.has(conversation.lead_id))
-        continue
+  for (const conversation of conversationsResult.data || []) {
+    if (!conversation.lead_id || conversationByLeadId.has(conversation.lead_id))
+      continue
 
-      conversationByLeadId.set(conversation.lead_id, {
-        id: conversation.id as string,
-        status: String(conversation.status),
-      })
-    }
+    conversationByLeadId.set(conversation.lead_id, {
+      id: conversation.id as string,
+      status: String(conversation.status),
+    })
   }
-
-  const metaStatusByLeadId = await attachMetaCapiStatusToLeads(client, effectiveTenantId, leadIds)
 
   return leads.map((lead: Record<string, unknown>) => {
     const contacts = lead.crm_contact as Array<{ email?: string, phone?: string, name?: string, position?: string }> | null

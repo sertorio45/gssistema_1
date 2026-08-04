@@ -4,9 +4,10 @@ import { DateFormatter, getLocalTimeZone, today } from '@internationalized/date'
 import { useFetch } from '#app'
 
 import { Icon } from '#components'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, defineAsyncComponent } from 'vue'
 import { toast } from 'vue-sonner'
-import Draggable from 'vuedraggable'
+
+const Draggable = defineAsyncComponent(() => import('vuedraggable'))
 
 import { columns } from '~/components/crm/leads/columns'
 import LeadEditForm from '~/components/crm/leads/LeadEditForm.vue'
@@ -98,6 +99,7 @@ const isOrganizeStagesDialogOpen = ref(false)
 const stagesOrder = ref<SalesStage[]>([])
 const initialLoading = ref(true)
 const isSyncingTenant = ref(false)
+const lastLoadedTenantId = ref<string | null>(null)
 const defaultLeadFunnelId = ref<string | null>(null)
 const defaultLeadStageId = ref<string | null>(null)
 const dateRangeFormatter = new DateFormatter('pt-BR', { dateStyle: 'medium' })
@@ -795,14 +797,29 @@ async function loadInitialData() {
     return
   }
 
-  initialLoading.value = true
+  const tenantChanged = lastLoadedTenantId.value !== tenantId.value
+  // Keep previous board visible when refreshing the same tenant (no full-page flash).
+  const hasPaintedBoard = !tenantChanged && (stages.value.length > 0 || leads.value.length > 0 || funnels.value.length > 0)
+  initialLoading.value = !hasPaintedBoard
   isSyncingTenant.value = true
+
+  if (tenantChanged) {
+    funnels.value = []
+    stages.value = []
+    leads.value = []
+    selectedFunnel.value = undefined
+  }
+
   try {
     await fetchFunnels()
-    await fetchStages()
-    await fetchLeadSources()
-    await fetchLeads()
-    await refreshMetaCapiPendingCount()
+    // Stages need funnel_id; sources/meta/leads can run together after funnel is known.
+    await Promise.all([
+      fetchStages(),
+      fetchLeadSources(),
+      fetchLeads(),
+      refreshMetaCapiPendingCount(),
+    ])
+    lastLoadedTenantId.value = tenantId.value
   }
   finally {
     initialLoading.value = false

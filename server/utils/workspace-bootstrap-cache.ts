@@ -3,7 +3,7 @@
  * Cuts repeated remote round-trips during client boot (sidebar + pages).
  */
 
-const TTL_MS = 8_000
+const TTL_MS = 45_000
 const MAX_ENTRIES = 200
 
 interface CacheEntry {

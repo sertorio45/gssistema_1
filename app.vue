@@ -10,8 +10,6 @@ const color = computed(() => (colorMode.value === 'dark' ? '#09090b' : '#ffffff'
 
 const { theme, radius } = useCustomize()
 
-const route = useRoute()
-
 useHead({
   meta: [
     { key: 'theme-color', name: 'theme-color', content: color },
@@ -49,7 +47,11 @@ const dir = computed(() => (textDirection.value === 'rtl' ? 'rtl' : 'ltr'))
   <ConfigProvider :use-id="useIdFunction" :dir="dir">
     <div vaul-drawer-wrapper class="relative">
       <NuxtLayout>
-        <NuxtPage :key="route.fullPath" />
+        <!--
+          Do not key NuxtPage by fullPath — remounting every query/hash change
+          kills payload cache, useAsyncData state, and forces tenant bootstrap again.
+        -->
+        <NuxtPage />
       </NuxtLayout>
 
     </div>

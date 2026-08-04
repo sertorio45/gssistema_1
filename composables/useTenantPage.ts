@@ -3,13 +3,16 @@ import { onMounted, ref, watch } from 'vue'
 import { isStaffRole, isTenantScopedRole } from '~/constants/roles'
 import { useAuth } from '~/composables/useAuth'
 import { useTenant } from '~/composables/useTenant'
+import { useWorkspace } from '~/composables/useWorkspace'
 
 /**
  * Bootstrap de tenant para páginas de módulo (CRM, Articles, WhatsApp, etc.).
  * Staff: restaura/seleciona tenant. Scoped (cliente/atendente): fixa via JWT.
+ * Reuses an already-resolved workspace context to avoid a second round-trip.
  */
 export function useTenantPage() {
   const { currentRole, updateUserRole } = useAuth()
+  const workspace = useWorkspace()
   const {
     tenantId,
     listTenants,
@@ -27,6 +30,10 @@ export function useTenantPage() {
       return
 
     if (!tenantId.value) {
+      if (workspace.tenants.value.length > 0) {
+        await setCurrentTenantById(workspace.tenants.value[0].id)
+        return
+      }
       await listTenants()
       if (tenants.value.length > 0)
         await setCurrentTenantById(tenants.value[0].id)
@@ -43,16 +50,24 @@ export function useTenantPage() {
 
   async function bootstrap() {
     isBootstrapping.value = true
-    isReady.value = false
     try {
-      await updateUserRole()
-      await bootstrapTenantContext()
+      // Fast path: sidebar/layout already hydrated the workspace.
+      if (workspace.context.value?.tenant?.id) {
+        isReady.value = true
+        return
+      }
+
+      await Promise.all([
+        updateUserRole(),
+        bootstrapTenantContext(),
+      ])
       await ensureStaffTenant()
       await ensureScopedTenant()
       isReady.value = Boolean(tenantId.value)
     }
     finally {
       isBootstrapping.value = false
+      isReady.value = Boolean(tenantId.value)
     }
   }
 

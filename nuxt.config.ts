@@ -59,14 +59,36 @@ export default defineNuxtConfig({
     '/marketing/production/new': { redirect: { to: '/marketing/posts/new', statusCode: 301 } },
     '/marketing/production/tasks': { redirect: { to: '/marketing/posts/tasks', statusCode: 301 } },
     '/marketing/production/**': { redirect: { to: '/marketing/posts/**', statusCode: 301 } },
-    '/marketing': { ssr: true },
-    '/marketing/**': { ssr: true },
-    '/whatsapp': { ssr: true },
-    '/whatsapp/**': { ssr: true },
+    // Authenticated app: keep SSR (project rule) but never share/cache across users.
+    '/crm/**': {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+    '/settings/**': {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+    '/organization/**': {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+    '/admin/**': {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+    '/marketing': { ssr: true, headers: { 'Cache-Control': 'private, no-store' } },
+    '/marketing/**': { ssr: true, headers: { 'Cache-Control': 'private, no-store' } },
+    '/whatsapp': { ssr: true, headers: { 'Cache-Control': 'private, no-store' } },
+    '/whatsapp/**': { ssr: true, headers: { 'Cache-Control': 'private, no-store' } },
     // Inbox usa realtime e componentes client-only; evita erro de vnode no SSR.
     '/whatsapp/conversations': { ssr: false },
     '/whatsapp/conversations/**': { ssr: false },
     '/whatsapp/flows/**': { ssr: false },
+    // Auth pages can be prerendered shells.
+    '/login': { prerender: true },
+    '/forgot-password': { prerender: true },
+    '/confirm': { headers: { 'Cache-Control': 'private, no-store' } },
+  },
+
+  experimental: {
+    // Prefer view transitions / payload reuse on client navigations when available.
+    payloadExtraction: false,
   },
 
   imports: {
