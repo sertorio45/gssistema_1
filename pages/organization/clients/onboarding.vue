@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner'
 
 import { useWorkspace } from '~/composables/useWorkspace'
 import { AGENCY_ONBOARDING_STEPS } from '~/constants/workspace'
+import { slugify } from '~/utils/slugify'
 
 definePageMeta({
   middleware: ['auth', 'organization'],
@@ -68,20 +69,37 @@ const { data: members } = await useAsyncData<OrganizationMember[]>(
   { default: () => [], watch: [organizationId] },
 )
 
-function slugify(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 80)
-}
+const slugManuallyEdited = ref(false)
 
 watch(() => form.value.displayName, (name) => {
-  if (form.value.tenantMode === 'create' && !form.value.tenantSlug) {
-    form.value.tenantName = name
+  if (form.value.tenantMode !== 'create')
+    return
+  form.value.tenantName = name
+  if (!slugManuallyEdited.value)
     form.value.tenantSlug = slugify(name)
+})
+
+watch(() => form.value.tenantName, (name) => {
+  if (form.value.tenantMode !== 'create' || slugManuallyEdited.value)
+    return
+  form.value.tenantSlug = slugify(name)
+})
+
+watch(() => form.value.tenantSlug, (slug, previous) => {
+  // Mark as manual only when the user types a value that diverges from auto-slugify.
+  if (form.value.tenantMode !== 'create')
+    return
+  const expected = slugify(form.value.tenantName || form.value.displayName)
+  if (previous !== undefined && slug !== expected)
+    slugManuallyEdited.value = true
+})
+
+watch(() => form.value.tenantMode, (mode) => {
+  if (mode === 'create') {
+    slugManuallyEdited.value = false
+    const source = form.value.tenantName || form.value.displayName
+    if (source)
+      form.value.tenantSlug = slugify(source)
   }
 })
 

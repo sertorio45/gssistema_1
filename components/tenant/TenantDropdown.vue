@@ -333,3 +333,13 @@ async function selectTenant(tenant: WorkspaceContextTenant) {
     </DropdownMenu>
   </div>
 </template>
+
+
+
+
+
+
+
+
+
+

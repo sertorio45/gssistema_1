@@ -5,5 +5,3 @@
     <SettingsAppearanceForm />
   </SettingsLayout>
 </template>
-
-<style scoped></style>

@@ -124,12 +124,12 @@ function onSatLightClick(e: MouseEvent) {
     <button
       class="h-10 w-10 flex items-center justify-center border border-gray-300 rounded transition-all focus:outline-none focus:ring-2 focus:ring-primary"
       :style="{ background: local }"
-      :aria-label="`Selected color: ${local}`"
+      :aria-label="`Cor selecionada: ${local}`"
       :disabled="props.disabled"
       type="button"
       @click.prevent="showPopover = !showPopover"
     >
-      <span class="sr-only">Open color picker</span>
+      <span class="sr-only">Abrir seletor de cor</span>
     </button>
     <div
       v-if="showPopover"

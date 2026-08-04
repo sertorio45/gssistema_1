@@ -98,9 +98,9 @@ const periodLabel = computed(() => {
   return format(anchor.value, 'MMMM yyyy', { locale: ptBR })
 })
 
-const { data: response, pending, refresh } = await useAsyncData(
-  () => `marketing-calendar-${social.tenantId.value}-${format(interval.value.start, 'yyyy-MM-dd')}-${format(interval.value.end, 'yyyy-MM-dd')}-${JSON.stringify(filters.value)}`,
-  () => social.listPosts({
+const { data: response, pending, refresh } = useMarketingFetch({
+  key: () => `marketing-calendar-${social.tenantId.value}-${format(interval.value.start, 'yyyy-MM-dd')}-${format(interval.value.end, 'yyyy-MM-dd')}-${JSON.stringify(filters.value)}`,
+  handler: () => social.listPosts({
     start: interval.value.start.toISOString(),
     end: interval.value.end.toISOString(),
     page_size: 100,
@@ -109,21 +109,20 @@ const { data: response, pending, refresh } = await useAsyncData(
     editorial_status: filters.value.editorialStatus !== 'all' ? filters.value.editorialStatus : undefined,
     publication_status: filters.value.publicationStatus !== 'all' ? filters.value.publicationStatus : undefined,
   }),
-  { watch: [social.tenantId, interval, filters], default: () => ({ data: [], pagination: {} }) },
-)
+  default: () => ({ data: [] as any[], pagination: {} as Record<string, unknown> }),
+  watch: [social.tenantId, interval, filters],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
-const { data: campaignsResponse } = await useAsyncData(
-  () => `calendar-campaigns-${social.tenantId.value}-${isClientExperience.value ? 'client' : 'agency'}`,
-  async () => {
-    if (isClientExperience.value)
-      return { data: [] as any[] }
-    return $fetch<{ data: any[] }>('/api/marketing/social/campaigns', {
-      query: { tenant_id: social.tenantId.value || undefined, status: 'all' },
-    }).catch(() => ({ data: [] as any[] }))
-  },
-  { watch: [social.tenantId, isClientExperience], default: () => ({ data: [] }) },
-)
-
+const { data: campaignsResponse } = useMarketingFetch({
+  key: () => `calendar-campaigns-${social.tenantId.value}-${isClientExperience.value ? 'client' : 'agency'}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/campaigns', {
+    query: { tenant_id: social.tenantId.value || undefined, status: 'all' },
+  }).catch(() => ({ data: [] as any[] })),
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId, isClientExperience],
+  enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
+})
 const posts = computed(() => (response.value?.data || []) as any[])
 const days = computed(() => eachDayOfInterval(interval.value))
 const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -355,7 +354,7 @@ const publicationLabels: Record<string, string> = {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="calendar" />
+    <MarketingPageSkeleton v-if="pending" variant="calendar" content-only />
 
     <template v-else>
     <div v-if="!isClientExperience && conflicts.length" class="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">

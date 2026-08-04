@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import type { SocialContentBoardItem } from '@/utils/marketing-social-preview'
 import type { SocialPostStatus, SocialProductionStatus } from '~/types/marketing-social'
-import DeletePostDialog from '@/components/marketing/social/DeletePostDialog.vue'
-import ProductionKanbanBoard from '@/components/marketing/social/ProductionKanbanBoard.vue'
-import SocialContentBoard from '@/components/marketing/social/SocialContentBoard.vue'
-import SocialViewToggle from '@/components/marketing/social/SocialViewToggle.vue'
+import DeletePostDialog from '~/components/marketing/social/DeletePostDialog.vue'
+import ProductionKanbanBoard from '~/components/marketing/social/ProductionKanbanBoard.vue'
+import SocialContentBoard from '~/components/marketing/social/SocialContentBoard.vue'
+import SocialViewToggle from '~/components/marketing/social/SocialViewToggle.vue'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/toast'
 import { uniquePostPreviewAssets } from '@/utils/marketing-social-preview'
 import { useWorkspace } from '~/composables/useWorkspace'
@@ -15,16 +23,17 @@ definePageMeta({
   title: 'Publicações',
 })
 
+// Avoid $setup[Component] resolution issues under async SSR: keep a raw module binding.
+const DeletePostDialogPanel = markRaw(DeletePostDialog)
+
 const route = useRoute()
 const social = useMarketingSocial()
 const { toast } = useToast()
 const { isClientExperience } = useMarketingAudience()
-const {
-  can,
-  organization,
-  managedTenants,
-  isAgencyWorkspace,
-} = useWorkspace()
+const workspace = useWorkspace()
+const organization = computed(() => workspace.organization.value)
+const managedTenants = computed(() => workspace.managedTenants.value)
+const isAgencyWorkspace = computed(() => workspace.isAgencyWorkspace.value)
 
 const pageTitle = computed(() => (isClientExperience.value ? 'Publicações' : 'Produção'))
 const pageDescription = computed(() =>
@@ -51,11 +60,13 @@ const blockReason = ref('')
 const pendingMove = ref<{ postId: string, tenantId: string, toStatus: SocialProductionStatus } | null>(null)
 const moving = ref(false)
 
+const canCreate = computed(() => workspace.can('marketing.social.create'))
 const canDelete = computed(() =>
-  can('marketing.social.delete.local') || can('marketing.social.delete.remote'),
+  workspace.can('marketing.social.delete.local') || workspace.can('marketing.social.delete.remote'),
 )
-const canMove = computed(() => can('marketing.social.production.move') || can('marketing.social.manage'))
-
+const canMove = computed(() =>
+  workspace.can('marketing.social.production.move') || workspace.can('marketing.social.manage'),
+)
 const boardQueryKey = computed(() => [
   'production-board',
   social.tenantId.value,
@@ -66,36 +77,41 @@ const boardQueryKey = computed(() => [
   clientFilter.value,
 ].join(':'))
 
-const { data: kanbanResponse, pending: kanbanPending, refresh: refreshKanban } = await useAsyncData(
-  () => boardQueryKey.value,
-  async () => {
-    return $fetch<{ data: any[], columns: SocialProductionStatus[] }>(
-      '/api/marketing/social/production/board',
-      {
-        query: {
-          tenant_id: social.tenantId.value || undefined,
-          ...(isAgencyWorkspace.value && organization.value?.id
-            ? {
-                organizationId: organization.value.id,
-                ...(clientFilter.value !== 'all' ? { tenantIdFilter: clientFilter.value } : {}),
-              }
-            : {}),
-          search: search.value || undefined,
-          mine: mineOnly.value || undefined,
-          overdue: overdueOnly.value || undefined,
-        },
+const { data: kanbanResponse, pending: kanbanPending, refresh: refreshKanban } = useMarketingFetch({
+  key: boardQueryKey,
+  handler: () => $fetch<{ data: any[], columns: SocialProductionStatus[] }>(
+    '/api/marketing/social/production/board',
+    {
+      query: {
+        tenant_id: social.tenantId.value || undefined,
+        ...(isAgencyWorkspace.value && organization.value?.id
+          ? {
+              organizationId: organization.value.id,
+              ...(clientFilter.value !== 'all' ? { tenantIdFilter: clientFilter.value } : {}),
+            }
+          : {}),
+        search: search.value || undefined,
+        mine: mineOnly.value || undefined,
+        overdue: overdueOnly.value || undefined,
       },
-    )
-  },
-  { watch: [boardQueryKey], default: () => ({ data: [], columns: [] }) },
+    },
+  ),
+  default: () => ({ data: [] as any[], columns: [] as SocialProductionStatus[] }),
+  watch: [layout],
+  enabled: () => layout.value === 'kanban' && Boolean(social.tenantId.value),
+})
+
+const postsQueryKey = computed(() =>
+  `marketing-social-posts-${social.tenantId.value}-${status.value}-${search.value}`,
 )
 
-const { data: response, pending, refresh } = await useAsyncData(
-  () => `marketing-social-posts-${social.tenantId.value}-${status.value}-${search.value}`,
-  () => social.listPosts({ status: status.value, search: search.value || undefined }),
-  { watch: [social.tenantId, status], default: () => ({ data: [], pagination: {} }) },
-)
-
+const { data: response, pending, refresh } = useMarketingFetch({
+  key: postsQueryKey,
+  handler: () => social.listPosts({ status: status.value, search: search.value || undefined }),
+  default: () => ({ data: [] as any[], pagination: {} as Record<string, unknown> }),
+  watch: [layout],
+  enabled: () => layout.value === 'board' && Boolean(social.tenantId.value),
+})
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
   if (searchTimer)
@@ -208,7 +224,7 @@ async function confirmBlock() {
           Filas de tarefas
         </Button>
         <Button
-          v-if="can('marketing.social.create')"
+          v-if="canCreate"
           @click="navigateTo('/marketing/posts/new')"
         >
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
@@ -329,34 +345,37 @@ async function confirmBlock() {
       </SocialContentBoard>
     </template>
 
-    <DeletePostDialog
-      v-model:open="deleteDialogOpen"
-      :post="postToDelete"
-      @deleted="() => { refresh(); refreshKanban() }"
-    />
+    <ClientOnly>
+      <component
+        :is="DeletePostDialogPanel"
+        v-model:open="deleteDialogOpen"
+        :post="postToDelete"
+        @deleted="() => { refresh(); refreshKanban() }"
+      />
 
-    <Dialog v-model:open="blockDialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Motivo do bloqueio</DialogTitle>
-          <DialogDescription>
-            Explique por que este conteúdo ficou bloqueado no Kanban.
-          </DialogDescription>
-        </DialogHeader>
-        <Textarea
-          v-model="blockReason"
-          rows="4"
-          placeholder="Ex.: aguardando material do cliente"
-        />
-        <DialogFooter>
-          <Button variant="outline" @click="blockDialogOpen = false">
-            Cancelar
-          </Button>
-          <Button :disabled="blockReason.trim().length < 3 || moving" @click="confirmBlock">
-            Bloquear
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <Dialog v-model:open="blockDialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Motivo do bloqueio</DialogTitle>
+            <DialogDescription>
+              Explique por que este conteúdo ficou bloqueado no Kanban.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            v-model="blockReason"
+            rows="4"
+            placeholder="Ex.: aguardando material do cliente"
+          />
+          <DialogFooter>
+            <Button variant="outline" @click="blockDialogOpen = false">
+              Cancelar
+            </Button>
+            <Button :disabled="blockReason.trim().length < 3 || moving" @click="confirmBlock">
+              Bloquear
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ClientOnly>
   </div>
 </template>

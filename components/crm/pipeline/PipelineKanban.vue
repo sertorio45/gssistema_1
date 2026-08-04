@@ -58,8 +58,8 @@ function getPriorityLabel(priority: string) {
 
 function getSourceLabel(source?: string) {
   const labels: Record<string, string> = {
-    website: 'Website',
-    referral: 'Indicacao',
+    website: 'Site',
+    referral: 'Indicação',
     social: 'Redes sociais',
     email: 'E-mail',
     phone: 'Telefone',
@@ -133,7 +133,7 @@ function getSourceLabel(source?: string) {
                       {{ lead.name }}
                     </h4>
                     <p class="text-xs text-muted-foreground">
-                      {{ lead.company || 'No company' }}
+                      {{ lead.company || 'Sem empresa' }}
                     </p>
                   </div>
                   <Badge
@@ -158,7 +158,7 @@ function getSourceLabel(source?: string) {
                 <div class="flex items-center justify-between text-xs">
                   <div class="flex items-center gap-1 text-muted-foreground">
                     <Icon name="lucide:user" class="h-3 w-3" />
-                    {{ lead.assignedTo || 'Unassigned' }}
+                    {{ lead.assignedTo || 'Não atribuído' }}
                   </div>
                   <div class="flex items-center gap-1 text-muted-foreground">
                     <Icon name="lucide:tag" class="h-3 w-3" />

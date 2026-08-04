@@ -670,10 +670,8 @@ export type Database = {
           country: string | null
           created_at: string
           id: string
-          industry: string | null
           name: string
           notes: string | null
-          size: Database["public"]["Enums"]["crm_company_size"] | null
           tenant_id: string
           updated_at: string
           website: string | null
@@ -685,10 +683,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           id?: string
-          industry?: string | null
           name: string
           notes?: string | null
-          size?: Database["public"]["Enums"]["crm_company_size"] | null
           tenant_id: string
           updated_at?: string
           website?: string | null
@@ -700,10 +696,8 @@ export type Database = {
           country?: string | null
           created_at?: string
           id?: string
-          industry?: string | null
           name?: string
           notes?: string | null
-          size?: Database["public"]["Enums"]["crm_company_size"] | null
           tenant_id?: string
           updated_at?: string
           website?: string | null
@@ -730,7 +724,6 @@ export type Database = {
           notes: string | null
           phone: string
           position: string | null
-          tags: string[] | null
           tenant_id: string
           updated_at: string
         }
@@ -745,7 +738,6 @@ export type Database = {
           notes?: string | null
           phone: string
           position?: string | null
-          tags?: string[] | null
           tenant_id: string
           updated_at?: string
         }
@@ -760,7 +752,6 @@ export type Database = {
           notes?: string | null
           phone?: string
           position?: string | null
-          tags?: string[] | null
           tenant_id?: string
           updated_at?: string
         }
@@ -838,9 +829,13 @@ export type Database = {
           closed_at: string | null
           company: string | null
           created_at: string
+          fbc: string | null
+          fbclid: string | null
+          fbp: string | null
           funnel_id: string | null
           id: string
           last_contact: string | null
+          meta_lead_id: string | null
           name: string
           next_follow_up: string | null
           notes: string | null
@@ -859,9 +854,13 @@ export type Database = {
           closed_at?: string | null
           company?: string | null
           created_at?: string
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
           funnel_id?: string | null
           id?: string
           last_contact?: string | null
+          meta_lead_id?: string | null
           name: string
           next_follow_up?: string | null
           notes?: string | null
@@ -880,9 +879,13 @@ export type Database = {
           closed_at?: string | null
           company?: string | null
           created_at?: string
+          fbc?: string | null
+          fbclid?: string | null
+          fbp?: string | null
           funnel_id?: string | null
           id?: string
           last_contact?: string | null
+          meta_lead_id?: string | null
           name?: string
           next_follow_up?: string | null
           notes?: string | null
@@ -920,6 +923,78 @@ export type Database = {
           },
           {
             foreignKeyName: "crm_lead_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenant"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_meta_conversion_events: {
+        Row: {
+          action_source: string
+          attempts: number
+          created_at: string
+          event_id: string
+          event_name: string
+          event_time: string
+          id: string
+          last_error: string | null
+          lead_id: string
+          meta_response: Json | null
+          next_attempt_at: string
+          payload_snapshot: Json | null
+          sent_at: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_source?: string
+          attempts?: number
+          created_at?: string
+          event_id?: string
+          event_name: string
+          event_time?: string
+          id?: string
+          last_error?: string | null
+          lead_id: string
+          meta_response?: Json | null
+          next_attempt_at?: string
+          payload_snapshot?: Json | null
+          sent_at?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_source?: string
+          attempts?: number
+          created_at?: string
+          event_id?: string
+          event_name?: string
+          event_time?: string
+          id?: string
+          last_error?: string | null
+          lead_id?: string
+          meta_response?: Json | null
+          next_attempt_at?: string
+          payload_snapshot?: Json | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_meta_conversion_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_lead"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_meta_conversion_events_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenant"
@@ -5198,7 +5273,6 @@ export type Database = {
         | "changes_requested"
         | "cancelled"
         | "rejected"
-      crm_company_size: "startup" | "small" | "medium" | "large" | "enterprise"
       crm_lead_priority: "low" | "medium" | "high"
       crm_lead_source:
         | "website"
@@ -5493,7 +5567,6 @@ export const Constants = {
         "cancelled",
         "rejected",
       ],
-      crm_company_size: ["startup", "small", "medium", "large", "enterprise"],
       crm_lead_priority: ["low", "medium", "high"],
       crm_lead_source: [
         "website",

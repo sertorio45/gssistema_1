@@ -67,6 +67,9 @@ interface LeadExt extends Lead {
   created_at?: string
   whatsapp_conversation_id?: string | null
   whatsapp_conversation_status?: string | null
+  meta_capi_status?: 'pending' | 'processing' | 'sent' | 'failed' | 'skipped' | null
+  meta_capi_event?: string | null
+  meta_capi_error?: string | null
 }
 
 const { tenantId, whenTenantReady } = useTenantPage()
@@ -96,6 +99,9 @@ const defaultLeadFunnelId = ref<string | null>(null)
 const defaultLeadStageId = ref<string | null>(null)
 const dateRangeFormatter = new DateFormatter('pt-BR', { dateStyle: 'medium' })
 const leadDateRange = ref<any>({})
+const syncingMetaCapi = ref(false)
+const metaCapiPendingCount = ref(0)
+const metaCapiEnabled = ref(false)
 
 const leadsByStage = computed(() => {
   const grouped: Record<string, LeadExt[]> = {}
@@ -266,6 +272,86 @@ function getPriorityLabel(priority: string) {
   return labels[priority] || priority
 }
 
+function getMetaCapiLabel(status?: string | null) {
+  const labels: Record<string, string> = {
+    sent: 'Meta: enviado',
+    pending: 'Meta: pendente',
+    processing: 'Meta: enviando',
+    failed: 'Meta: erro',
+    skipped: 'Meta: ignorado',
+  }
+  return status ? (labels[status] || `Meta: ${status}`) : null
+}
+
+function getMetaCapiBadgeClass(status?: string | null) {
+  if (status === 'sent')
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700'
+  if (status === 'failed')
+    return 'border-red-200 bg-red-50 text-red-700'
+  if (status === 'skipped')
+    return 'border-border bg-muted text-muted-foreground'
+  if (status === 'pending' || status === 'processing')
+    return 'border-amber-200 bg-amber-50 text-amber-800'
+  return ''
+}
+
+async function refreshMetaCapiPendingCount() {
+  if (!tenantId.value)
+    return
+  try {
+    const res = await $fetch<{
+      data: { enabled?: boolean, pending_won_count?: number, meta_connected?: boolean }
+    }>('/api/crm/meta-capi/settings', {
+      query: { tenant_id: tenantId.value },
+    })
+    metaCapiEnabled.value = Boolean(res.data?.enabled)
+    metaCapiPendingCount.value = Number(res.data?.pending_won_count || 0)
+  }
+  catch {
+    metaCapiPendingCount.value = 0
+  }
+}
+
+async function syncWonLeadsToMeta() {
+  if (!tenantId.value)
+    return
+
+  if (!metaCapiEnabled.value) {
+    toast.error('Ative as Conversões Meta em Configurações → Integrações')
+    await navigateTo('/settings/integrations/meta-capi')
+    return
+  }
+
+  syncingMetaCapi.value = true
+  try {
+    const res = await $fetch<{
+      data: { enqueued: number, sent: number, candidates: number }
+    }>('/api/crm/meta-capi/sync-pending', {
+      method: 'POST',
+      body: { tenant_id: tenantId.value, limit: 50 },
+    })
+
+    const { enqueued, sent, candidates } = res.data
+    if (candidates === 0) {
+      toast.info('Nenhum ganho pendente para enviar à Meta')
+    }
+    else {
+      toast.success(`Meta: ${enqueued} enfileirados, ${sent} enviados`)
+    }
+
+    await Promise.all([
+      refreshMetaCapiPendingCount(),
+      fetchLeads(),
+    ])
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || error?.message || 'Falha ao enviar ganhos à Meta')
+  }
+  finally {
+    syncingMetaCapi.value = false
+  }
+}
+
 function getSourceLabel(source?: string, sourceId?: string | null) {
   if (sourceId) {
     const bySourceId = leadSources.value.find(item => item.id === sourceId)
@@ -304,7 +390,7 @@ function getSourceLabel(source?: string, sourceId?: string | null) {
     return sourceFromTable.name
 
   const fallback: Record<string, string> = {
-    website: 'Website',
+    website: 'Site',
     referral: 'Indicação',
     social: 'Redes sociais',
     email: 'E-mail',
@@ -737,6 +823,7 @@ async function loadInitialData() {
     await fetchStages()
     await fetchLeadSources()
     await fetchLeads()
+    await refreshMetaCapiPendingCount()
   }
   finally {
     initialLoading.value = false
@@ -840,9 +927,27 @@ async function saveStagesOrder() {
         </p>
       </div>
       <div class="flex gap-2">
-        <Button variant="outline">
-          <Icon name="lucide:download" class="mr-2 h-4 w-4" />
-          Exportar
+        <Button
+          variant="outline"
+          :disabled="syncingMetaCapi"
+          :title="metaCapiPendingCount > 0
+            ? `${metaCapiPendingCount} ganho(s) ainda não enviados à Meta`
+            : 'Envia leads em Ganho ainda não sincronizados com a Meta'"
+          @click="syncWonLeadsToMeta"
+        >
+          <Icon
+            name="lucide:share-2"
+            class="mr-2 h-4 w-4"
+            :class="{ 'animate-pulse': syncingMetaCapi }"
+          />
+          {{ syncingMetaCapi ? 'Enviando...' : 'Enviar ganhos à Meta' }}
+          <Badge
+            v-if="metaCapiPendingCount > 0"
+            variant="secondary"
+            class="ml-2"
+          >
+            {{ metaCapiPendingCount }}
+          </Badge>
         </Button>
         <Button @click="openNewLeadDialog">
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
@@ -1207,6 +1312,16 @@ async function saveStagesOrder() {
                     </div>
                   </div>
 
+                  <Badge
+                    v-if="lead.meta_capi_status"
+                    variant="outline"
+                    class="h-5 max-w-full truncate py-0 text-[10px]"
+                    :class="getMetaCapiBadgeClass(lead.meta_capi_status)"
+                    :title="lead.meta_capi_error || getMetaCapiLabel(lead.meta_capi_status) || ''"
+                  >
+                    {{ getMetaCapiLabel(lead.meta_capi_status) }}
+                  </Badge>
+
                   <Button
                     v-if="canOpenWhatsappConversation(lead)"
                     variant="outline"
@@ -1247,7 +1362,12 @@ async function saveStagesOrder() {
       <DataTable
           :data="leads"
           :columns="columns"
-          :meta="{ onEdit: handleEdit, onDelete: handleDelete, getMemberName }"
+          :meta="{
+            onEdit: handleEdit,
+            onDelete: handleDelete,
+            getMemberName,
+            getStage: (id?: string | null) => stages.find(stage => stage.id === id) || null,
+          }"
           @delete="handleDelete"
           @selection-change="updateSelectedItems"
         >
@@ -1363,7 +1483,7 @@ async function saveStagesOrder() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="website">
-                  Website
+                  Site
                 </SelectItem>
                 <SelectItem value="referral">
                   Indicação
@@ -1372,7 +1492,7 @@ async function saveStagesOrder() {
                   Redes Sociais
                 </SelectItem>
                 <SelectItem value="email">
-                  Email
+                  E-mail
                 </SelectItem>
                 <SelectItem value="phone">
                   Telefone

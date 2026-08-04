@@ -13,21 +13,25 @@ const canRead = computed(() => can('marketing.social.automations.read'))
 const canManage = computed(() => can('marketing.social.automations.manage'))
 const toggling = ref<string | null>(null)
 
-const { data: rulesResponse, pending, refresh } = await useAsyncData(
-  () => `automations-rules-${social.tenantId.value}`,
-  () => $fetch<{ data: any[] }>('/api/marketing/social/automations', {
+const { data: rulesResponse, pending, refresh } = useMarketingFetch({
+  key: () => `automations-rules-${social.tenantId.value}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/automations', {
     query: { tenant_id: social.tenantId.value || undefined },
   }),
-  { watch: [social.tenantId], default: () => ({ data: [] }) },
-)
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
-const { data: runsResponse, refresh: refreshRuns } = await useAsyncData(
-  () => `automations-runs-${social.tenantId.value}`,
-  () => $fetch<{ data: any[] }>('/api/marketing/social/automations/runs', {
+const { data: runsResponse, refresh: refreshRuns } = useMarketingFetch({
+  key: () => `automations-runs-${social.tenantId.value}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/automations/runs', {
     query: { tenant_id: social.tenantId.value || undefined, limit: 30 },
   }),
-  { watch: [social.tenantId], default: () => ({ data: [] }) },
-)
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 async function toggleRule(rule: any, enabled: boolean) {
   if (!canManage.value)

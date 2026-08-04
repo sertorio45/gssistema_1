@@ -17,15 +17,12 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// Composables
 const { tenantId } = useTenant()
 
-// State
 const isSubmitting = ref(false)
 const companiesData = ref<Array<{ id: string, name: string }>>([])
 const isLoadingCompanies = ref(false)
 
-// Form data
 const formData = reactive({
   name: props.initialData?.name || '',
   email: props.initialData?.email || '',
@@ -33,32 +30,28 @@ const formData = reactive({
   position: props.initialData?.position || '',
   company_id: props.initialData?.company_id ?? (null as string | null),
   notes: props.initialData?.notes || '',
-  tags: props.initialData?.tags || [],
 })
 
-// Fetch companies for select
 async function fetchCompanies() {
-  if (!tenantId.value) {
+  if (!tenantId.value)
     return
-  }
+
   isLoadingCompanies.value = true
   try {
     const response = await $fetch('/api/crm/company', {
       query: { tenant_id: tenantId.value, limit: 100 },
     })
     companiesData.value = response.data || []
-    // Se estiver editando e a company_id não está na lista, buscar pelo id
     if (formData.company_id && !companiesData.value.find(c => c.id === formData.company_id)) {
       try {
         const company = await $fetch(`/api/crm/company/${formData.company_id}`, {
           query: { tenant_id: tenantId.value },
         })
-        if (company?.data && !companiesData.value.find(c => c.id === company.data.id)) {
+        if (company?.data && !companiesData.value.find(c => c.id === company.data.id))
           companiesData.value.push(company.data)
-        }
       }
-      catch (e) {
-        // ignora se não encontrar
+      catch {
+        // ignore missing company
       }
     }
   }
@@ -70,12 +63,10 @@ async function fetchCompanies() {
   }
 }
 
-// Load companies on mount
 onMounted(() => {
   fetchCompanies()
 })
 
-// Handle form submission
 async function handleSubmit() {
   if (!formData.name.trim()) {
     toast.error('Nome do contato é obrigatório')
@@ -87,13 +78,11 @@ async function handleSubmit() {
     return
   }
 
-  // Validação de email
   if (!/^\S[^\s@]*@\S[^\s.]*\.\S+$/.test(formData.email)) {
     toast.error('Informe um e-mail válido')
     return
   }
 
-  // Validação de telefone
   const phoneDigits = formData.phone.replace(/\D/g, '')
   if (formData.phone && phoneDigits.length < 10) {
     toast.error('Informe um telefone válido (mínimo 10 dígitos)')
@@ -114,7 +103,6 @@ async function handleSubmit() {
     }
 
     if (props.initialData?.id) {
-      // Update existing contact
       await $fetch(`/api/crm/contacts/${props.initialData.id}`, {
         method: 'PUT',
         body: payload,
@@ -122,7 +110,6 @@ async function handleSubmit() {
       toast.success('Contato atualizado com sucesso')
     }
     else {
-      // Create new contact
       await $fetch('/api/crm/contacts', {
         method: 'POST',
         body: payload,
@@ -139,36 +126,19 @@ async function handleSubmit() {
     isSubmitting.value = false
   }
 }
-
-// Add tag
-const newTag = ref('')
-
-function addTag() {
-  const tag = newTag.value.trim()
-  if (tag && !formData.tags.includes(tag)) {
-    formData.tags.push(tag)
-    newTag.value = ''
-  }
-}
-
-function removeTag(index: number) {
-  formData.tags.splice(index, 1)
-}
 </script>
 
 <template>
   <form id="contact-form" class="space-y-6" @submit.prevent="handleSubmit">
-    <!-- Contact Name -->
     <div class="space-y-2">
       <Label for="name">Nome do contato <span class="text-destructive">*</span></Label>
       <Input id="name" v-model="formData.name" placeholder="Nome do contato" required />
     </div>
 
-    <!-- Email and Phone -->
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div class="space-y-2">
-        <Label for="email">Email <span class="text-destructive">*</span></Label>
-        <Input id="email" v-model="formData.email" placeholder="contact@example.com" type="email" required />
+        <Label for="email">E-mail <span class="text-destructive">*</span></Label>
+        <Input id="email" v-model="formData.email" placeholder="contato@exemplo.com" type="email" required />
       </div>
 
       <div class="space-y-2">
@@ -183,7 +153,6 @@ function removeTag(index: number) {
       </div>
     </div>
 
-    <!-- Position and Company -->
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <div class="space-y-2">
         <Label for="position">Cargo</Label>
@@ -209,7 +178,6 @@ function removeTag(index: number) {
       </div>
     </div>
 
-    <!-- Notes -->
     <div class="space-y-2">
       <Label for="notes">Observações</Label>
       <Textarea
@@ -218,28 +186,6 @@ function removeTag(index: number) {
         placeholder="Observações sobre o contato"
         :rows="3"
       />
-    </div>
-
-    <!-- Tags -->
-    <div class="space-y-2">
-      <Label>Tags</Label>
-      <div class="space-y-2">
-        <div class="flex gap-2">
-          <Input v-model="newTag" placeholder="Adicionar tag" @keyup.enter="addTag" />
-          <Button type="button" variant="outline" size="sm" @click="addTag">
-            Adicionar
-          </Button>
-        </div>
-
-        <div v-if="formData.tags.length > 0" class="flex flex-wrap gap-2">
-          <Badge v-for="(tag, index) in formData.tags" :key="index" variant="outline" class="text-xs">
-            {{ tag }}
-            <button type="button" class="ml-1 text-muted-foreground hover:text-destructive" @click="removeTag(index)">
-              ×
-            </button>
-          </Badge>
-        </div>
-      </div>
     </div>
   </form>
 </template>

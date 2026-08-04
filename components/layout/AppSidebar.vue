@@ -9,7 +9,7 @@ import { useMarketingAudience } from '~/composables/marketing/useMarketingAudien
 import { useModule } from '~/composables/useModule'
 import { useWorkspace } from '~/composables/useWorkspace'
 import { isClientPortalMarketingLink } from '~/constants/marketing-audience'
-import { navMenu, navMenuAdmin, navMenuOrganization, navMenuTenant } from '~/constants/menus'
+import { navMenu, navMenuAdmin, navMenuGlobal, navMenuOrganization, navMenuTenant } from '~/constants/menus'
 import { isTenantScopedRole } from '~/constants/roles'
 import { holdsCapability } from '~/constants/workspace'
 import { canEnterWorkspaceRoute, matchesNavAudience } from '~/utils/workspace-guard'
@@ -18,16 +18,6 @@ function resolveNavItemComponent(item: NavLink | NavGroup | NavSectionTitle): an
   if ('children' in item)
     return resolveComponent('LayoutSidebarNavGroup')
   return resolveComponent('LayoutSidebarNavLink')
-}
-
-const user: {
-  name: string
-  email: string
-  avatar: string
-} = {
-  name: 'Dian Pratama',
-  email: 'dianpratama2@gmail.com',
-  avatar: '/avatars/avatartion.png',
 }
 
 const { sidebar } = useAppSettings()
@@ -224,6 +214,22 @@ const showSecondaryNav = computed(() =>
   || showTenantTeamSection.value,
 )
 
+const globalSettingsLinks = computed((): NavLink[] => {
+  return (navMenuGlobal[0]?.items || [])
+    .filter((item): item is NavLink => 'link' in item)
+    .filter(item =>
+      hasCapability(item)
+      && matchesAudience(item)
+      && (!item.roles || hasRole(item.roles)),
+    )
+    .map(item => ({
+      ...item,
+      title: resolveItemTitle(item),
+    }))
+})
+
+const showGlobalSettings = computed(() => globalSettingsLinks.value.length > 0)
+
 onMounted(() => {
   void Promise.all([
     updateUserRole(),
@@ -237,7 +243,6 @@ onMounted(() => {
   <Sidebar :collapsible="sidebar.collapsible" :side="sidebar.side" :variant="sidebar.variant">
     <SidebarHeader>
       <LayoutSidebarNavLogo />
-      <Search />
     </SidebarHeader>
     <SidebarContent>
       <SidebarGroup class="mb-1">
@@ -294,6 +299,21 @@ onMounted(() => {
           </template>
         </SidebarGroup>
 
+        <!-- Cross-module settings (always visible) -->
+        <SidebarGroup v-if="showGlobalSettings" class="border-t pt-3">
+          <SidebarGroupLabel>Configurações</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem v-for="(link, idx) in globalSettingsLinks" :key="`global-${idx}`">
+              <SidebarMenuButton as-child :tooltip="link.title">
+                <NuxtLink :to="link.link">
+                  <Icon :name="link.icon || 'i-lucide-circle'" mode="svg" />
+                  <span>{{ link.title }}</span>
+                </NuxtLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
         <!-- Secondary: org + platform (no marketing duplicates) -->
         <SidebarGroup v-if="showSecondaryNav" class="mt-auto border-t pt-3">
           <SidebarGroupLabel>{{ scopeHeading }}</SidebarGroupLabel>
@@ -324,7 +344,7 @@ onMounted(() => {
       </template>
     </SidebarContent>
     <SidebarFooter>
-      <LayoutSidebarNavFooter :user="user" />
+      <LayoutSidebarNavFooter />
     </SidebarFooter>
     <SidebarRail />
   </Sidebar>

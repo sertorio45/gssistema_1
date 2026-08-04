@@ -148,8 +148,6 @@ const contactForm = ref({
 })
 const companyForm = ref({
   name: '',
-  segment: '',
-  size: '',
   website: '',
   address: '',
 })
@@ -333,7 +331,6 @@ async function submitLead() {
         .from('crm_company')
         .insert([{
           name: companyForm.value.name.trim(),
-          industry: companyForm.value.segment || null,
           website: companyForm.value.website || null,
           address: companyForm.value.address || null,
           tenant_id: tenantId.value,
@@ -377,8 +374,6 @@ async function submitLead() {
     }
     companyForm.value = {
       name: '',
-      segment: '',
-      size: '',
       website: '',
       address: '',
     }
@@ -618,8 +613,8 @@ async function submitLead() {
                 />
               </div>
               <div class="space-y-2">
-                <Label for="contact-email">Email <span class="text-destructive">*</span></Label>
-                <Input id="contact-email" v-model="contactForm.email" placeholder="email@example.com" type="email" required />
+                <Label for="contact-email">E-mail <span class="text-destructive">*</span></Label>
+                <Input id="contact-email" v-model="contactForm.email" placeholder="email@exemplo.com" type="email" required />
               </div>
               <div class="space-y-2">
                 <Label for="contact-phone">Telefone</Label>
@@ -643,58 +638,8 @@ async function submitLead() {
                 <Input id="company-name" v-model="companyForm.name" placeholder="Nome da empresa" />
               </div>
               <div class="space-y-2">
-                <Label for="company-segment">Segmento</Label>
-                <Select v-model="companyForm.segment">
-                  <SelectTrigger id="company-segment">
-                    <SelectValue placeholder="Selecione o segmento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="technology">
-                      Tecnologia
-                    </SelectItem>
-                    <SelectItem value="finance">
-                      Finanças
-                    </SelectItem>
-                    <SelectItem value="healthcare">
-                      Saúde
-                    </SelectItem>
-                    <SelectItem value="education">
-                      Educação
-                    </SelectItem>
-                    <SelectItem value="retail">
-                      Varejo
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-2">
-                <Label for="company-size">Porte da empresa</Label>
-                <Select v-model="companyForm.size">
-                  <SelectTrigger id="company-size">
-                    <SelectValue placeholder="Selecione o porte" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1-10">
-                      1-10 colaboradores
-                    </SelectItem>
-                    <SelectItem value="11-50">
-                      11-50 colaboradores
-                    </SelectItem>
-                    <SelectItem value="51-200">
-                      51-200 colaboradores
-                    </SelectItem>
-                    <SelectItem value="201-500">
-                      201-500 colaboradores
-                    </SelectItem>
-                    <SelectItem value="501+">
-                      501+ colaboradores
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-2">
                 <Label for="company-website">Site</Label>
-                <Input id="company-website" v-model="companyForm.website" placeholder="www.example.com" />
+                <Input id="company-website" v-model="companyForm.website" placeholder="www.exemplo.com" />
               </div>
               <div class="md:col-span-2 space-y-2">
                 <Label for="company-address">Endereço</Label>

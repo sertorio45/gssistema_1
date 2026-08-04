@@ -21,29 +21,8 @@ export interface CrmLeadAutofillContactForm {
 
 export interface CrmLeadAutofillCompanyForm {
   name: string
-  segment: string
-  size: string
   website: string
   address: string
-}
-
-const COMPANY_SEGMENT_VALUES = new Set([
-  'technology',
-  'finance',
-  'healthcare',
-  'education',
-  'retail',
-  'manufacturing',
-  'services',
-  'other',
-])
-
-const COMPANY_SIZE_MAP: Record<string, string> = {
-  startup: '1-10',
-  small: '11-50',
-  medium: '51-200',
-  large: '201-500',
-  enterprise: '501+',
 }
 
 function resolveSourceId(
@@ -82,24 +61,6 @@ function resolveSourceId(
   })
 
   return mapped?.id || ''
-}
-
-function resolveCompanySegment(industry: string | null | undefined): string {
-  if (!industry)
-    return ''
-
-  const normalized = industry.toLowerCase()
-  if (COMPANY_SEGMENT_VALUES.has(normalized))
-    return normalized
-
-  return ''
-}
-
-function resolveCompanySize(size: string | null | undefined): string {
-  if (!size)
-    return ''
-
-  return COMPANY_SIZE_MAP[size] || ''
 }
 
 export function applyCrmLeadAutofill(
@@ -144,8 +105,6 @@ export function applyCrmLeadAutofill(
 
   forms.companyForm.value = {
     name: match.company_name || '',
-    segment: resolveCompanySegment(match.company_industry),
-    size: resolveCompanySize(match.company_size),
     website: match.company_website || '',
     address: match.company_address || '',
   }

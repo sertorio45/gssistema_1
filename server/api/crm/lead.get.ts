@@ -2,6 +2,7 @@ import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
 
 import { defineEventHandler, getQuery } from 'h3'
 
+import { attachMetaCapiStatusToLeads } from '~/server/utils/crm/meta-capi'
 import { ACTIVE_WHATSAPP_CONVERSATION_STATUSES } from '~/server/utils/whatsapp/conversation-utils'
 import { attachActiveWhatsAppConversation } from '~/server/utils/whatsapp/lead-whatsapp'
 import {
@@ -72,16 +73,23 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const metaStatusByLeadId = await attachMetaCapiStatusToLeads(client, effectiveTenantId, leadIds)
+
   return leads.map((lead: Record<string, unknown>) => {
     const contacts = lead.crm_contact as Array<{ email?: string, phone?: string, name?: string, position?: string }> | null
     const primaryContact = Array.isArray(contacts) ? contacts[0] : null
     const { crm_contact: _contacts, ...leadFields } = lead
+    const leadId = lead.id as string
+    const metaStatus = metaStatusByLeadId.get(leadId) || null
     return attachActiveWhatsAppConversation({
       ...leadFields,
       email: primaryContact?.email ?? null,
       phone: primaryContact?.phone ?? null,
       contact_name: primaryContact?.name ?? null,
       contact_position: primaryContact?.position ?? null,
+      meta_capi_status: metaStatus?.status ?? null,
+      meta_capi_event: metaStatus?.event_name ?? null,
+      meta_capi_error: metaStatus?.last_error ?? null,
     }, conversationByLeadId)
   })
 })

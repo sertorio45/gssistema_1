@@ -36,7 +36,7 @@ export const columns: ColumnDef<Contact>[] = [
   },
   {
     accessorKey: 'email',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Email' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'E-mail' }),
     cell: ({ row }) => h('span', { class: 'text-muted-foreground' }, row.getValue('email')),
     enableSorting: true,
     enableHiding: true,
@@ -60,30 +60,6 @@ export const columns: ColumnDef<Contact>[] = [
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Telefone' }),
     cell: ({ row }) => row.getValue('phone') || '-',
     enableSorting: true,
-    enableHiding: true,
-  },
-  {
-    accessorKey: 'tags',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Tags' }),
-    cell: ({ row }) => {
-      const tags = row.getValue('tags') as string[]
-      if (!tags || tags.length === 0)
-        return '-'
-
-      return h('div', { class: 'flex flex-wrap gap-1' }, [
-        ...tags.slice(0, 2).map(tag =>
-          h(
-            'span',
-            {
-              class: 'inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium',
-            },
-            tag,
-          ),
-        ),
-        ...(tags.length > 2 ? [h('span', { class: 'text-xs text-muted-foreground' }, `+${tags.length - 2}`)] : []),
-      ])
-    },
-    enableSorting: false,
     enableHiding: true,
   },
   {

@@ -4,7 +4,7 @@ import type { Tenant } from '@/components/users/tenant-columns'
 import { Icon } from '#components'
 import { useSupabaseClient } from '#imports'
 
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,12 +24,13 @@ import DataTable from '@/components/users/DataTable.vue'
 import { columns } from '@/components/users/tenant-columns'
 
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
+import TenantModulePicker from '~/components/admin/TenantModulePicker.vue'
 import { useToast } from '~/components/ui/toast'
 import {
   ASSIGNABLE_MODULE_SLUGS,
-  MODULE_LABELS_PT,
   TENANT_MODULE_BUNDLE_ALL,
 } from '~/constants/modules'
+import { slugify } from '~/utils/slugify'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -99,12 +100,19 @@ async function handleModulesClick(tenant: Tenant) {
     const response = await $fetch<{
       hasAllBundle: boolean
       activeModuleNames: string[]
+      resolvedModules: string[]
     }>(`/api/admin/tenants/${tenant.id}/modules`)
 
     useAllModulesBundle.value = response.hasAllBundle
     selectedModuleSlugs.value = response.hasAllBundle
       ? [...ASSIGNABLE_MODULE_SLUGS]
-      : response.activeModuleNames.filter(name => ASSIGNABLE_MODULE_SLUGS.includes(name as typeof ASSIGNABLE_MODULE_SLUGS[number]))
+      : (response.resolvedModules?.length
+          ? response.resolvedModules.filter(name =>
+            ASSIGNABLE_MODULE_SLUGS.includes(name as typeof ASSIGNABLE_MODULE_SLUGS[number]),
+          )
+          : response.activeModuleNames.filter(name =>
+            ASSIGNABLE_MODULE_SLUGS.includes(name as typeof ASSIGNABLE_MODULE_SLUGS[number]),
+          ))
   }
   catch (error: any) {
     console.error('Error loading tenant modules:', error)
@@ -121,31 +129,30 @@ async function handleModulesClick(tenant: Tenant) {
   }
 }
 
-function toggleModuleSlug(slug: string) {
-  if (useAllModulesBundle.value)
-    return
-
-  const set = new Set(selectedModuleSlugs.value)
-  if (set.has(slug))
-    set.delete(slug)
-  else
-    set.add(slug)
-  selectedModuleSlugs.value = [...set]
-}
-
-function handleAllModulesToggle(enabled: boolean) {
-  useAllModulesBundle.value = enabled
+watch(useAllModulesBundle, (enabled) => {
   if (enabled)
     selectedModuleSlugs.value = [...ASSIGNABLE_MODULE_SLUGS]
+})
+
+function handleModulesDialogOpenChange(open: boolean) {
+  // Prevent closing while a save is in flight (AlertDialogAction used to race-reset the form).
+  if (!open && isSavingModules.value) {
+    showModulesDialog.value = true
+    return
+  }
+  showModulesDialog.value = open
+  if (!open)
+    resetModulesForm()
 }
 
 async function saveTenantModules() {
-  if (!modulesTenant.value)
+  const tenant = modulesTenant.value
+  if (!tenant)
     return
 
   const modules = useAllModulesBundle.value
     ? [TENANT_MODULE_BUNDLE_ALL]
-    : selectedModuleSlugs.value
+    : [...selectedModuleSlugs.value]
 
   if (!modules.length) {
     toast({
@@ -158,7 +165,11 @@ async function saveTenantModules() {
 
   isSavingModules.value = true
   try {
-    await $fetch(`/api/admin/tenants/${modulesTenant.value.id}/modules`, {
+    const response = await $fetch<{
+      hasAllBundle: boolean
+      activeModuleNames: string[]
+      resolvedModules: string[]
+    }>(`/api/admin/tenants/${tenant.id}/modules`, {
       method: 'PUT',
       body: { modules },
     })
@@ -167,6 +178,14 @@ async function saveTenantModules() {
       title: 'Sucesso',
       description: 'Módulos atualizados com sucesso',
     })
+
+    // Keep local state in sync with what the API persisted.
+    useAllModulesBundle.value = response.hasAllBundle
+    selectedModuleSlugs.value = response.hasAllBundle
+      ? [...ASSIGNABLE_MODULE_SLUGS]
+      : response.activeModuleNames.filter(name =>
+        ASSIGNABLE_MODULE_SLUGS.includes(name as typeof ASSIGNABLE_MODULE_SLUGS[number]),
+      )
 
     showModulesDialog.value = false
     resetModulesForm()
@@ -217,13 +236,8 @@ async function deleteTenant() {
   }
 }
 
-// Generate slug from name
 function generateSlug(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  return slugify(name)
 }
 
 // Create tenant
@@ -565,79 +579,50 @@ onMounted(() => {
     </AlertDialog>
 
     <!-- Tenant modules dialog -->
-    <AlertDialog :open="showModulesDialog" @update:open="(open) => { showModulesDialog = open; if (!open) resetModulesForm() }">
-      <AlertDialogContent class="sm:max-w-lg">
+    <AlertDialog :open="showModulesDialog" @update:open="handleModulesDialogOpenChange">
+      <AlertDialogContent class="sm:max-w-xl">
         <AlertDialogHeader>
           <AlertDialogTitle class="text-xl">
             Módulos da empresa
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Defina quais módulos o cliente pode acessar no workspace.
-            <span v-if="modulesTenant" class="font-medium text-foreground">
+            Clique nos cards para ativar ou desativar. O estado ativo fica destacado com borda e check.
+            <span v-if="modulesTenant" class="mt-1 block font-medium text-foreground">
               {{ modulesTenant.name }}
             </span>
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div v-if="isLoadingModules" class="py-6 space-y-3">
-          <Skeleton class="h-10 w-full" />
-          <Skeleton class="h-10 w-full" />
-          <Skeleton class="h-10 w-full" />
+          <Skeleton class="h-16 w-full" />
+          <Skeleton class="h-24 w-full" />
+          <Skeleton class="h-24 w-full" />
         </div>
 
-        <div v-else class="py-4 space-y-6">
-          <div class="flex flex-row items-center justify-between border rounded-lg p-3 shadow-sm">
-            <div class="space-y-0.5">
-              <label class="text-sm font-medium leading-none" for="tenant-all-modules">
-                {{ MODULE_LABELS_PT.all }}
-              </label>
-              <p class="text-sm text-muted-foreground">
-                Libera CRM, Artigos, Marketing e WhatsApp para este cliente.
-              </p>
-            </div>
-            <Switch
-              id="tenant-all-modules"
-              :checked="useAllModulesBundle"
-              @update:checked="handleAllModulesToggle"
-            />
-          </div>
-
-          <div class="space-y-3">
-            <p class="text-sm font-medium leading-none">
-              Módulos individuais
-            </p>
-            <div class="flex flex-wrap gap-2">
-              <Button
-                v-for="moduleSlug in ASSIGNABLE_MODULE_SLUGS"
-                :key="moduleSlug"
-                size="sm"
-                :variant="selectedModuleSlugs.includes(moduleSlug) ? 'default' : 'outline'"
-                :disabled="useAllModulesBundle"
-                @click="toggleModuleSlug(moduleSlug)"
-              >
-                {{ MODULE_LABELS_PT[moduleSlug] }}
-              </Button>
-            </div>
-            <p class="text-sm text-muted-foreground">
-              Com o pacote completo ativo, a seleção individual fica bloqueada.
-            </p>
-          </div>
+        <div v-else class="py-2">
+          <TenantModulePicker
+            v-model="selectedModuleSlugs"
+            v-model:all-bundle="useAllModulesBundle"
+            :disabled="isSavingModules"
+          />
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel
-            @click="showModulesDialog = false; resetModulesForm()"
+          <Button
+            variant="outline"
+            :disabled="isSavingModules"
+            @click="handleModulesDialogOpenChange(false)"
           >
             Cancelar
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
             class="bg-primary text-primary-foreground hover:bg-primary/90"
             :disabled="isLoadingModules || isSavingModules || (!useAllModulesBundle && !selectedModuleSlugs.length)"
             @click="saveTenantModules"
           >
             <Icon name="lucide:save" class="mr-2 h-4 w-4" />
-            Salvar módulos
-          </AlertDialogAction>
+            {{ isSavingModules ? 'Salvando...' : 'Salvar módulos' }}
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -5,7 +5,7 @@ import { useSupabaseClient } from '#imports'
 import { columns } from '~/components/crm/contacts/columns'
 import ContactForm from '~/components/crm/contacts/ContactForm.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
-import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
+import { Card, CardContent } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
@@ -59,17 +59,6 @@ const {
     watch: [tenantId],
   },
 )
-
-// Computed values to prevent hydration mismatches
-const totalContacts = computed(() => contactsData.value?.length || 0)
-const totalCompanies = computed(() => new Set(contactsData.value?.map(c => c.company_id).filter(Boolean) || []).size)
-const recentContacts = computed(
-  () =>
-    contactsData.value?.filter(
-      c => c.last_contact && new Date(c.last_contact) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    ).length || 0,
-)
-const taggedContacts = computed(() => contactsData.value?.filter(c => c.tags && c.tags.length > 0).length || 0)
 
 function updateSelectedItems(items: number[]) {
   selectedItems.value = items
@@ -141,69 +130,6 @@ function handleContactSaved() {
           Novo Contato
         </Button>
       </div>
-    </div>
-
-    <!-- Stats Cards -->
-    <div class="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Total de Contatos
-          </CardTitle>
-          <Icon name="lucide:users" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            <span v-if="pending">-</span>
-            <span v-else>{{ totalContacts }}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Empresas
-          </CardTitle>
-          <Icon name="lucide:building" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            <span v-if="pending">-</span>
-            <span v-else>{{ totalCompanies }}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Contatos Recentes
-          </CardTitle>
-          <Icon name="lucide:clock" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            <span v-if="pending">-</span>
-            <span v-else>{{ recentContacts }}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Contatos com Tags
-          </CardTitle>
-          <Icon name="lucide:tag" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            <span v-if="pending">-</span>
-            <span v-else>{{ taggedContacts }}</span>
-          </div>
-        </CardContent>
-      </Card>
     </div>
 
     <!-- DataTable with Skeleton -->

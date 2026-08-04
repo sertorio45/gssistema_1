@@ -22,6 +22,13 @@ export interface Lead {
   tenant_id: string
   /** Set when lead is moved to stage won or lost */
   closed_at?: string
+  meta_lead_id?: string | null
+  fbc?: string | null
+  fbp?: string | null
+  fbclid?: string | null
+  meta_capi_status?: 'pending' | 'processing' | 'sent' | 'failed' | 'skipped' | null
+  meta_capi_event?: string | null
+  meta_capi_error?: string | null
 }
 
 export interface ProductCategory {
@@ -62,7 +69,6 @@ export interface Contact {
   created_at: string
   updated_at: string
   tenant_id: string
-  tags: string[]
   last_contact?: string
 }
 
@@ -70,8 +76,6 @@ export interface Company {
   id: string
   name: string
   website?: string
-  industry?: string
-  size?: 'startup' | 'small' | 'medium' | 'large' | 'enterprise'
   address?: string
   cep?: string
   city?: string
@@ -133,8 +137,6 @@ export interface CrmLeadLookupResult {
   value: number | null
   lead_notes: string | null
   company_name: string | null
-  company_industry: string | null
-  company_size: string | null
   company_website: string | null
   company_address: string | null
 }
@@ -159,6 +161,22 @@ export interface SalesStage {
   is_default: boolean
 }
 
+export interface DashboardStageStat {
+  id: string
+  name: string
+  color: string
+  count: number
+  value: number
+}
+
+export interface DashboardRecentActivity {
+  id: string
+  type: 'created' | 'won' | 'updated'
+  title: string
+  description: string
+  occurredAt: string
+}
+
 export interface DashboardKPI {
   totalLeads: number
   newLeadsThisMonth: number
@@ -166,10 +184,10 @@ export interface DashboardKPI {
   totalRevenue: number
   revenueThisMonth: number
   averageDealSize: number
-  activeMeetings: number
-  responseRate: number
-  leadsPerStage: Record<string, number>
+  negotiationValue: number
+  leadsPerStage: DashboardStageStat[]
   revenueByMonth: Array<{ month: string, revenue: number }>
   topSources: Array<{ source: string, count: number }>
-  topPerformers: Array<{ name: string, deals: number, revenue: number }>
+  topPerformers: Array<{ userId: string, deals: number, revenue: number }>
+  recentActivity: DashboardRecentActivity[]
 }

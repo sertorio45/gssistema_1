@@ -29,52 +29,41 @@ export const columns: ColumnDef<Company>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome da empresa' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome' }),
     cell: ({ row }) => h('span', { class: 'font-medium' }, row.getValue('name')),
     enableSorting: true,
     enableHiding: true,
   },
   {
-    accessorKey: 'industry',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Setor' }),
-    cell: ({ row }) => row.getValue('industry') || '-',
-    enableSorting: true,
-    enableHiding: true,
-  },
-  {
-    accessorKey: 'size',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Porte' }),
+    accessorKey: 'website',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Site' }),
     cell: ({ row }) => {
-      const size = row.getValue('size') as string | undefined
-      return size ? size.charAt(0).toUpperCase() + size.slice(1) : '-'
+      const website = row.getValue('website') as string | undefined
+      if (!website)
+        return h('span', { class: 'text-muted-foreground' }, '-')
+      return h('span', { class: 'truncate text-muted-foreground' }, website.replace(/^https?:\/\//, ''))
     },
     enableSorting: true,
     enableHiding: true,
   },
   {
-    accessorKey: 'contactsCount',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Contatos' }),
-    cell: ({ row }) => row.getValue('contactsCount'),
+    accessorKey: 'city',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Cidade' }),
+    cell: ({ row }) => row.getValue('city') || '-',
     enableSorting: true,
     enableHiding: true,
   },
   {
-    accessorKey: 'leadsCount',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Leads' }),
-    cell: ({ row }) => row.getValue('leadsCount'),
-    enableSorting: true,
-    enableHiding: true,
-  },
-  {
-    accessorKey: 'totalValue',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Valor total' }),
+    accessorKey: 'created_at',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Criada em' }),
     cell: ({ row }) => {
-      const value = row.getValue('totalValue') as number
-      return new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        minimumFractionDigits: 0,
-      }).format(value)
+      const rawDate = row.getValue('created_at')
+      if (!rawDate)
+        return h('span', { class: 'text-sm text-muted-foreground' }, '-')
+      const date = new Date(String(rawDate))
+      if (Number.isNaN(date.getTime()))
+        return h('span', { class: 'text-sm text-muted-foreground' }, '-')
+      return h('span', { class: 'text-sm' }, date.toLocaleDateString('pt-BR'))
     },
     enableSorting: true,
     enableHiding: true,

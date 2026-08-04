@@ -2,6 +2,11 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { createError, defineEventHandler, readBody } from 'h3'
 
+import {
+  enqueueMetaConversion,
+  scheduleMetaCapiProcessing,
+} from '~/server/utils/crm/meta-capi'
+
 export default defineEventHandler(async (event) => {
   try {
     const client = await serverSupabaseServiceRole(event)
@@ -36,6 +41,10 @@ export default defineEventHandler(async (event) => {
       tenant_id: tenantId,
       funnel_id: body.funnel_id ?? null,
       sales_stage_id: body.sales_stage_id ?? null,
+      meta_lead_id: body.meta_lead_id ?? null,
+      fbc: body.fbc ?? null,
+      fbp: body.fbp ?? null,
+      fbclid: body.fbclid ?? null,
     }
     if (!leadToInsert.name) {
       throw createError({ statusCode: 400, message: 'Nome é obrigatório' })
@@ -44,9 +53,18 @@ export default defineEventHandler(async (event) => {
     if (error) {
       throw createError({ statusCode: 500, message: error.message || 'Falha ao criar lead' })
     }
+
+    await enqueueMetaConversion(client, {
+      tenantId,
+      leadId: data.id as string,
+      eventName: 'Lead',
+      eventTime: data.created_at as string,
+    }).catch(() => {})
+    scheduleMetaCapiProcessing(event, client, tenantId)
+
     return { statusCode: 201, body: data }
   }
-  catch (error) {
+  catch (error: any) {
     throw createError({ statusCode: error.statusCode || 500, message: error.message || 'Erro interno do servidor' })
   }
 })

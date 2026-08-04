@@ -25,7 +25,7 @@ export const pipelineColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome do pipeline' }),
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Nome do funil' }),
     cell: ({ row }) => h('span', { class: 'font-medium text-muted-foreground' }, row.getValue('name')),
   },
   {

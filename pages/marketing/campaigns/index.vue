@@ -24,17 +24,19 @@ const form = ref({
 
 const canManage = computed(() => can('marketing.social.campaigns.manage'))
 
-const { data, pending, refresh } = await useAsyncData(
-  () => `campaigns-${social.tenantId.value}-${status.value}-${search.value}`,
-  () => $fetch<{ data: any[] }>('/api/marketing/social/campaigns', {
+const { data, pending, refresh } = useMarketingFetch({
+  key: () => `campaigns-${social.tenantId.value}-${status.value}-${search.value}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/campaigns', {
     query: {
       tenant_id: social.tenantId.value || undefined,
       status: status.value,
       search: search.value || undefined,
     },
   }),
-  { watch: [social.tenantId, status], default: () => ({ data: [] }) },
-)
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId, status],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {

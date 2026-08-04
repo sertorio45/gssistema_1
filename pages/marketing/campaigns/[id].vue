@@ -15,13 +15,15 @@ const canBriefing = computed(() => can('marketing.social.briefing.create'))
 const linkUrl = ref('')
 const creatingLink = ref(false)
 
-const { data, pending, refresh } = await useAsyncData(
-  () => `campaign-${campaignId.value}-${social.tenantId.value}`,
-  () => $fetch<{ data: any }>(`/api/marketing/social/campaigns/${campaignId.value}`, {
+const { data, pending, refresh } = useMarketingFetch({
+  key: () => `campaign-${campaignId.value}-${social.tenantId.value}`,
+  handler: () => $fetch<{ data: any }>(`/api/marketing/social/campaigns/${campaignId.value}`, {
     query: { tenant_id: social.tenantId.value || undefined },
   }),
-  { watch: [campaignId, social.tenantId] },
-)
+  default: () => ({ data: null as any }),
+  watch: [campaignId, social.tenantId],
+  enabled: () => Boolean(social.tenantId.value) && Boolean(campaignId.value),
+})
 
 const campaign = computed(() => data.value?.data || null)
 

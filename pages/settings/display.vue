@@ -2,8 +2,9 @@
 
 <template>
   <SettingsLayout>
-    <SettingsDisplayForm />
+    <SettingsComingSoon
+      title="Exibição"
+      description="Controle o que aparece na barra lateral e nas listagens do sistema."
+    />
   </SettingsLayout>
 </template>
-
-<style scoped></style>

@@ -14,18 +14,16 @@ const canRead = computed(() => can('marketing.social.ops_metrics.read'))
 const to = ref(new Date().toISOString().slice(0, 10))
 const from = ref(new Date(Date.now() - 30 * 24 * 3600_000).toISOString().slice(0, 10))
 
-const { data, pending, refresh } = await useAsyncData(
-  () => `ops-metrics-${social.tenantId.value}-${from.value}-${to.value}`,
-  async () => {
-    if (!canRead.value)
-      return null
-    return social.getOpsMetrics({
-      from: `${from.value}T00:00:00.000Z`,
-      to: `${to.value}T23:59:59.999Z`,
-    })
-  },
-  { watch: [social.tenantId, from, to, canRead], default: () => null },
-)
+const { data, pending, refresh } = useMarketingFetch({
+  key: () => `ops-metrics-${social.tenantId.value}-${from.value}-${to.value}`,
+  handler: () => social.getOpsMetrics({
+    from: `${from.value}T00:00:00.000Z`,
+    to: `${to.value}T23:59:59.999Z`,
+  }),
+  default: () => null as any,
+  watch: [social.tenantId, from, to, canRead],
+  enabled: () => Boolean(social.tenantId.value) && canRead.value,
+})
 
 const metrics = computed(() => data.value)
 

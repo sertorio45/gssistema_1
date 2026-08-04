@@ -16,15 +16,9 @@ export const navMenu: NavMenu[] = [
           { title: 'Reuniões', icon: 'i-lucide-calendar', link: '/crm/meetings' },
           { title: 'Produtos & Serviços', icon: 'i-lucide-package', link: '/crm/products' },
           {
-            title: 'Configurações',
-            icon: 'i-lucide-bar-chart-3',
+            title: 'Configurações do CRM',
+            icon: 'i-lucide-settings-2',
             link: '/crm/config',
-          },
-          {
-            title: 'Usuários',
-            icon: 'i-lucide-users',
-            link: '/settings/team',
-            roles: ['admin', 'funcionario', 'cliente'],
           },
         ],
       },
@@ -591,6 +585,30 @@ export const navMenuTenant: NavMenu[] = [
         icon: 'i-lucide-users',
         link: '/settings/team',
         roles: ['cliente'],
+      },
+    ],
+  },
+]
+
+/**
+ * Cross-module settings — always visible below the active module menu.
+ * Integrations and team live here so CRM-only tenants do not need Marketing.
+ */
+export const navMenuGlobal: NavMenu[] = [
+  {
+    heading: 'Configurações',
+    items: [
+      {
+        title: 'Integrações',
+        icon: 'i-lucide-plug',
+        link: '/settings/integrations',
+        roles: ['admin', 'funcionario', 'cliente'],
+      },
+      {
+        title: 'Usuários',
+        icon: 'i-lucide-users',
+        link: '/settings/team',
+        roles: ['admin', 'funcionario', 'cliente'],
       },
     ],
   },

@@ -176,7 +176,6 @@ const contactCreateFields = [
 const companyCreateFields = [
   { key: 'name', label: 'Nome', placeholder: 'Nome da empresa' },
   { key: 'website', label: 'Site', placeholder: 'URL do site', type: 'url' },
-  { key: 'industry', label: 'Indústria', placeholder: 'Indústria' },
 ]
 </script>
 

@@ -2,8 +2,9 @@
 
 <template>
   <SettingsLayout>
-    <SettingsAccountForm />
+    <SettingsComingSoon
+      title="Conta"
+      description="Preferências de idioma, fuso horário e dados adicionais da conta."
+    />
   </SettingsLayout>
 </template>
-
-<style scoped></style>

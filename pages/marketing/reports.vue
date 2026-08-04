@@ -49,19 +49,19 @@ function overviewQuery() {
   return query
 }
 
-const { data, pending, refresh } = await useAsyncData(
-  () =>
+const { data, pending, refresh } = useMarketingFetch({
+  key: () =>
     `marketing-reports-${tenantId.value}-${source.value}-${googleTemplate.value}-${datePreset.value}-${dateStart.value}-${dateEnd.value}-${metaActiveOnly.value}`,
-  async () => {
+  handler: async () => {
     const response = await $fetch<{ data: any }>('/api/marketing/overview', {
       query: overviewQuery(),
     })
     return response.data
   },
-  {
-    watch: [tenantId, source, googleTemplate, datePreset, dateStart, dateEnd, metaActiveOnly],
-  },
-)
+  default: () => null as any,
+  watch: [tenantId, source, googleTemplate, datePreset, dateStart, dateEnd, metaActiveOnly],
+  enabled: () => Boolean(tenantId.value),
+})
 
 const googleChartData = computed(() => {
   return (data.value?.google?.campaigns || []).slice(0, 10).map((campaign: any, index: number) => ({
@@ -97,7 +97,7 @@ async function refreshMarketing() {
       </p>
     </div>
 
-    <MarketingPageSkeleton v-if="pending" variant="reports" />
+    <MarketingPageSkeleton v-if="pending" variant="reports" content-only />
 
     <div v-else class="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
       <MarketingReportTemplateSidebar

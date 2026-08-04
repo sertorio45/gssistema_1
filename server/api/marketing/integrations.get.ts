@@ -45,9 +45,12 @@ export default defineEventHandler(async (event) => {
         client_id_enc: undefined,
         client_secret_enc: undefined,
         page_access_token_enc: undefined,
+        capi_access_token_enc: undefined,
       },
       has_key: Boolean(token),
       has_page_token: Boolean(pageToken),
+      has_capi_token: Boolean(decryptSecret(config.capi_access_token_enc)),
+      capi_enabled: Boolean(config.capi_enabled),
       missing_publish_scopes: missingPublishScopes,
       can_publish: row.provider === 'meta'
         ? Boolean(pageToken) && missingPublishScopes.length === 0

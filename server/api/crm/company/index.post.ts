@@ -26,8 +26,6 @@ export default defineEventHandler(async (event) => {
         {
           name: body.name,
           website: body.website || null,
-          industry: body.industry || null,
-          size: body.size || null,
           address: body.address || null,
           cep: body.cep || null,
           city: body.city || null,

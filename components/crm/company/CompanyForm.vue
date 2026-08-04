@@ -17,19 +17,14 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-// Composables
 const { tenantId } = useTenant()
 const { fetchCEP, formatCEP, isLoading: cepLoading } = useCEP()
 
-// State
 const isSubmitting = ref(false)
 
-// Form data
 const formData = reactive({
   name: props.initialData?.name || '',
   website: props.initialData?.website || '',
-  industry: props.initialData?.industry || '',
-  size: props.initialData?.size || '',
   address: props.initialData?.address || '',
   cep: props.initialData?.cep || '',
   city: props.initialData?.city || '',
@@ -37,16 +32,6 @@ const formData = reactive({
   notes: props.initialData?.notes || '',
 })
 
-// Size options
-const sizeOptions = [
-  { value: 'startup', label: 'Startup' },
-  { value: 'small', label: 'Pequena' },
-  { value: 'medium', label: 'Média' },
-  { value: 'large', label: 'Grande' },
-  { value: 'enterprise', label: 'Empresarial' },
-]
-
-// Handle form submission
 async function handleSubmit() {
   if (!formData.name.trim()) {
     toast.error('Nome da empresa é obrigatório')
@@ -67,7 +52,6 @@ async function handleSubmit() {
     }
 
     if (props.initialData?.id) {
-      // Update existing company
       await $fetch(`/api/crm/company/${props.initialData.id}`, {
         method: 'PUT',
         body: payload,
@@ -75,7 +59,6 @@ async function handleSubmit() {
       toast.success('Empresa atualizada com sucesso')
     }
     else {
-      // Create new company
       await $fetch('/api/crm/company', {
         method: 'POST',
         body: payload,
@@ -93,11 +76,9 @@ async function handleSubmit() {
   }
 }
 
-// Handle CEP lookup using the composable
 async function handleCEPLookup(cep: string) {
-  if (!cep || cep.length < 8) {
+  if (!cep || cep.length < 8)
     return
-  }
 
   const cepData = await fetchCEP(cep)
   if (cepData) {
@@ -111,48 +92,24 @@ async function handleCEPLookup(cep: string) {
 </script>
 
 <template>
-  <form id="company-form" class="space-y-6" @submit.prevent="handleSubmit">
-    <!-- Company Name -->
-    <div class="space-y-2">
-      <Label for="name">Nome da empresa <span class="text-destructive">*</span></Label>
-      <Input id="name" v-model="formData.name" placeholder="Nome da empresa" required />
-    </div>
-
-    <!-- Website and Industry -->
+  <form id="company-form" class="space-y-5" @submit.prevent="handleSubmit">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div class="space-y-2">
+      <div class="space-y-2 md:col-span-2">
+        <Label for="name">Nome da empresa <span class="text-destructive">*</span></Label>
+        <Input id="name" v-model="formData.name" placeholder="Nome da empresa" required />
+      </div>
+
+      <div class="space-y-2 md:col-span-2">
         <Label for="website">Site</Label>
         <Input id="website" v-model="formData.website" placeholder="https://exemplo.com" type="url" />
       </div>
-
-      <div class="space-y-2">
-        <Label for="industry">Indústria</Label>
-        <Input id="industry" v-model="formData.industry" placeholder="ex.: Tecnologia, Saúde" />
-      </div>
     </div>
 
-    <!-- Size -->
-    <div class="space-y-2">
-      <Label for="size">Porte da empresa</Label>
-      <Select v-model="formData.size">
-        <SelectTrigger>
-          <SelectValue placeholder="Selecione o porte" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="option in sizeOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-
-    <!-- Address Section -->
     <div class="space-y-4">
-      <h3 class="text-lg font-medium">
+      <h3 class="text-sm font-medium text-muted-foreground">
         Endereço
       </h3>
 
-      <!-- CEP, City, Country -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div class="space-y-2">
           <Label for="cep">CEP</Label>
@@ -162,7 +119,7 @@ async function handleCEPLookup(cep: string) {
               v-model="formData.cep"
               placeholder="00000-000"
               :disabled="cepLoading"
-              @blur="handleCEPLookup($event.target.value)"
+              @blur="handleCEPLookup(($event.target as HTMLInputElement).value)"
             />
             <Loader2
               v-if="cepLoading"
@@ -182,14 +139,12 @@ async function handleCEPLookup(cep: string) {
         </div>
       </div>
 
-      <!-- Address -->
       <div class="space-y-2">
         <Label for="address">Endereço</Label>
         <Textarea id="address" v-model="formData.address" placeholder="Endereço completo" :rows="2" />
       </div>
     </div>
 
-    <!-- Notes -->
     <div class="space-y-2">
       <Label for="notes">Observações</Label>
       <Textarea id="notes" v-model="formData.notes" placeholder="Observações sobre a empresa" :rows="3" />

@@ -5,16 +5,18 @@ definePageMeta({
 })
 
 const { tenantId } = useTenant()
-const { data: notifications, pending, refresh } = await useAsyncData(
-  () => `marketing-notifications-${tenantId.value}`,
-  async () => {
+const { data: notifications, pending, refresh } = useMarketingFetch({
+  key: () => `marketing-notifications-${tenantId.value}`,
+  handler: async () => {
     const response = await $fetch<{ data: any[] }>('/api/marketing/social/notifications', {
       query: { tenant_id: tenantId.value || undefined },
     })
     return response.data
   },
-  { watch: [tenantId], default: () => [] },
-)
+  default: () => [] as any[],
+  watch: [tenantId],
+  enabled: () => Boolean(tenantId.value),
+})
 
 async function openNotification(notification: any) {
   if (!notification.read_at) {

@@ -14,13 +14,15 @@ const lastUrl = ref('')
 
 const canCreate = computed(() => can('marketing.social.briefing.create'))
 
-const { data, pending, refresh } = await useAsyncData(
-  () => `briefings-${social.tenantId.value}`,
-  () => $fetch<{ data: any[] }>('/api/marketing/social/briefings', {
+const { data, pending, refresh } = useMarketingFetch({
+  key: () => `briefings-${social.tenantId.value}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/briefings', {
     query: { tenant_id: social.tenantId.value || undefined },
   }),
-  { watch: [social.tenantId], default: () => ({ data: [] }) },
-)
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 const statusLabels: Record<string, string> = {
   draft: 'Rascunho',

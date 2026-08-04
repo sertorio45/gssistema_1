@@ -26,8 +26,6 @@ function mapContactRow(
     value: resolvedLead?.value != null ? Number(resolvedLead.value) : null,
     lead_notes: resolvedLead?.notes ? String(resolvedLead.notes) : null,
     company_name: company?.name ? String(company.name) : null,
-    company_industry: company?.industry ? String(company.industry) : null,
-    company_size: company?.size ? String(company.size) : null,
     company_website: company?.website ? String(company.website) : null,
     company_address: company?.address ? String(company.address) : null,
   }
@@ -76,7 +74,7 @@ export default defineEventHandler(async (event) => {
       .from('crm_lead')
       .select(`
         id, name, source, priority, value, notes,
-        crm_contact(id, name, email, phone, position, notes, company:crm_company(name, industry, size, website, address))
+        crm_contact(id, name, email, phone, position, notes, company:crm_company(name, website, address))
       `)
       .eq('tenant_id', tenant_id)
       .ilike('name', searchPattern)
@@ -86,7 +84,7 @@ export default defineEventHandler(async (event) => {
       .from('crm_contact')
       .select(`
         id, name, email, phone, position, notes, lead_id,
-        company:crm_company(name, industry, size, website, address),
+        company:crm_company(name, website, address),
         lead:crm_lead(id, name, source, priority, value, notes)
       `)
       .eq('tenant_id', tenant_id)

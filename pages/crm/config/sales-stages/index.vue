@@ -203,8 +203,8 @@ async function fetchSalesStages() {
     if (error) {
       console.error('Error fetching sales stages:', error)
       toast({
-        title: 'Error',
-        description: 'Failed to load sales stages',
+        title: 'Erro',
+        description: 'Falha ao carregar estágios de vendas',
         variant: 'destructive',
       })
       salesStages.value = []

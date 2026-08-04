@@ -7,20 +7,25 @@ definePageMeta({
 })
 
 const { tenantId } = useTenant()
-const { can } = useWorkspace()
+const workspace = useWorkspace()
 const { isClientExperience } = useMarketingAudience()
 
-const { data: overview, pending } = await useAsyncData<Record<string, number>>(
-  () => `marketing-social-overview-${tenantId.value}`,
-  async () => {
+const canCreate = computed(() => workspace.can('marketing.social.create'))
+const canReports = computed(() => workspace.can('marketing.social.reports'))
+const canIntegrations = computed(() => workspace.can('marketing.social.integrations'))
+
+const { data: overview, pending } = useMarketingFetch({
+  key: () => `marketing-social-overview-${tenantId.value}`,
+  handler: async () => {
     const response = await $fetch<{ data: Record<string, number> }>('/api/marketing/social/overview', {
       query: { tenant_id: tenantId.value || undefined },
     })
     return response.data
   },
-  { watch: [tenantId], default: () => ({}) },
-)
-
+  default: () => ({} as Record<string, number>),
+  watch: [tenantId],
+  enabled: () => Boolean(tenantId.value),
+})
 const cards = computed(() => {
   if (isClientExperience.value) {
     return [
@@ -61,7 +66,7 @@ const cards = computed(() => {
         Nova publicação
       </Button>
       <Button
-        v-else-if="can('marketing.social.create')"
+        v-else-if="canCreate"
         @click="navigateTo('/marketing/posts/new')"
       >
         <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
@@ -109,7 +114,7 @@ const cards = computed(() => {
         <CardContent class="grid gap-3 sm:grid-cols-2">
           <template v-if="isClientExperience">
             <Button
-              v-if="can('marketing.social.create')"
+              v-if="canCreate"
               variant="outline"
               class="h-auto justify-start p-4"
               @click="navigateTo('/marketing/posts')"
@@ -128,7 +133,7 @@ const cards = computed(() => {
               </span>
             </Button>
             <Button
-              v-if="can('marketing.social.reports')"
+              v-if="canReports"
               variant="outline"
               class="h-auto justify-start p-4"
               @click="navigateTo('/marketing/reports')"
@@ -140,7 +145,7 @@ const cards = computed(() => {
               </span>
             </Button>
             <Button
-              v-if="can('marketing.social.integrations')"
+              v-if="canIntegrations"
               variant="outline"
               class="h-auto justify-start p-4"
               @click="navigateTo('/marketing/integrations')"
@@ -193,7 +198,7 @@ const cards = computed(() => {
         </CardContent>
       </Card>
 
-      <Card v-if="can('marketing.social.reports') && !isClientExperience">
+      <Card v-if="canReports && !isClientExperience">
         <CardHeader>
           <CardTitle>Relatórios</CardTitle>
           <CardDescription>

@@ -120,14 +120,13 @@ const listQuery = computed(() => {
   return q
 })
 
-const { data: listResponse, pending, refresh } = await useAsyncData(
-  () => `approvals-board-${JSON.stringify(listQuery.value)}-${social.tenantId.value}-${organization.value?.id || ''}`,
-  () => social.listApprovals(listQuery.value),
-  {
-    watch: [listQuery, () => social.tenantId.value, () => organization.value?.id],
-    default: () => ({ data: [], meta: {} }),
-  },
-)
+const { data: listResponse, pending, refresh } = useMarketingFetch({
+  key: () => `approvals-board-${JSON.stringify(listQuery.value)}-${social.tenantId.value}-${organization.value?.id || ''}`,
+  handler: () => social.listApprovals(listQuery.value),
+  default: () => ({ data: [] as any[], meta: {} as Record<string, unknown> }),
+  watch: [listQuery, () => social.tenantId.value, () => organization.value?.id],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 const items = computed(() => listResponse.value?.data || [])
 const monthGroups = computed(() => listResponse.value?.meta?.groups || [])
@@ -417,7 +416,7 @@ const clientBuckets = [
     </div>
 
     <!-- Loading -->
-    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="6" />
+    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="6" content-only />
 
     <!-- Empty -->
     <div

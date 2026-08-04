@@ -44,7 +44,7 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   itemLabel: 'name',
   itemValue: 'id',
-  placeholder: 'Select item...',
+  placeholder: 'Selecione um item...',
 })
 
 const emit = defineEmits<Emits>()
@@ -110,7 +110,7 @@ async function createItem() {
       body: payload,
     })
 
-    toast.success(`${props.label} created successfully`)
+    toast.success(`${props.label} criado com sucesso`)
     showAddDialog.value = false
 
     // Call the callback if provided
@@ -127,7 +127,7 @@ async function createItem() {
     }
   }
   catch (error: any) {
-    toast.error(error?.data?.message || `Failed to create ${props.label}`)
+    toast.error(error?.data?.message || `Falha ao criar ${props.label}`)
   }
   finally {
     isCreating.value = false

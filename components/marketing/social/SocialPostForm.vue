@@ -41,17 +41,21 @@ const steps = [
   { step: 4, title: 'Revisão', description: 'Conferir e salvar' },
 ]
 
-const { data: accounts, refresh: refreshAccounts } = await useAsyncData(
-  () => `marketing-social-form-accounts-${social.tenantId.value}`,
-  () => social.listAccounts(),
-  { watch: [social.tenantId], default: () => [] as SocialAccount[] },
-)
-const { data: assets, refresh: refreshAssets } = await useAsyncData(
-  () => `marketing-social-form-assets-${social.tenantId.value}`,
-  () => social.listAssets(),
-  { watch: [social.tenantId], default: () => [] as MediaAsset[] },
-)
-onMounted(() => refreshAccounts())
+const { data: accounts, pending: accountsPending, refresh: refreshAccounts } = useMarketingFetch({
+  key: () => `marketing-social-form-accounts-${social.tenantId.value}`,
+  handler: () => social.listAccounts(),
+  default: () => [] as SocialAccount[],
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
+const { data: assets, pending: assetsPending, refresh: refreshAssets } = useMarketingFetch({
+  key: () => `marketing-social-form-assets-${social.tenantId.value}`,
+  handler: () => social.listAssets(),
+  default: () => [] as MediaAsset[],
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
+const formDataPending = computed(() => accountsPending.value || assetsPending.value)
 
 const publicationAssets = computed(() =>
   (assets.value || []).filter(asset => asset.purpose === 'publication' || (asset as any).purpose === 'publication'),
@@ -273,7 +277,12 @@ function submit() {
 </script>
 
 <template>
-  <form class="space-y-6" @submit.prevent="submit">
+  <div v-if="formDataPending" class="space-y-4" aria-busy="true">
+    <Skeleton class="h-10 w-full" />
+    <Skeleton class="h-40 w-full" />
+    <Skeleton class="h-10 w-2/3" />
+  </div>
+  <form v-else class="space-y-6" @submit.prevent="submit">
     <Stepper :model-value="currentStep" class="w-full items-start gap-0">
       <StepperItem
         v-for="item in steps"

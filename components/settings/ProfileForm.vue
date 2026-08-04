@@ -1,162 +1,200 @@
 <script setup lang="ts">
 import { toTypedSchema } from '@vee-validate/zod'
-import { FieldArray, useForm } from 'vee-validate'
-import { h, ref } from 'vue'
+import { useForm } from 'vee-validate'
 import * as z from 'zod'
 
-import { cn } from '@/lib/utils'
-
 import { toast } from '~/components/ui/toast'
+import { useUserProfile } from '~/composables/useUserProfile'
 
-const verifiedEmails = ref(['m@example.com', 'm@google.com', 'm@support.com'])
+const {
+  user,
+  email,
+  displayName,
+  phone,
+  avatarUrl,
+  saving,
+  uploading,
+  uploadAvatar,
+  removeAvatar,
+  updateProfile,
+} = useUserProfile()
+
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const profileFormSchema = toTypedSchema(
   z.object({
-    username: z
-      .string()
-      .min(2, {
-        message: 'Username must be at least 2 characters.',
-      })
-      .max(30, {
-        message: 'Username must not be longer than 30 characters.',
-      }),
-    email: z
-      .string({
-        required_error: 'Please select an email to display.',
-      })
-      .email(),
-    bio: z
-      .string()
-      .max(160, { message: 'Bio must not be longer than 160 characters.' })
-      .min(4, { message: 'Bio must be at least 2 characters.' }),
-    urls: z
-      .array(
-        z.object({
-          value: z.string().url({ message: 'Please enter a valid URL.' }),
-        }),
-      )
-      .optional(),
+    name: z
+      .string({ required_error: 'Informe seu nome.' })
+      .min(2, { message: 'O nome deve ter pelo menos 2 caracteres.' })
+      .max(80, { message: 'O nome deve ter no máximo 80 caracteres.' }),
+    phone: z.string().max(20, { message: 'Telefone inválido.' }).optional(),
   }),
 )
 
 const { handleSubmit, resetForm } = useForm({
   validationSchema: profileFormSchema,
   initialValues: {
-    bio: 'I own a computer.',
-    urls: [{ value: 'https://shadcn.com' }, { value: 'http://twitter.com/shadcn' }],
+    name: displayName.value,
+    phone: phone.value,
   },
 })
 
-const onSubmit = handleSubmit((values) => {
-  toast({
-    title: 'You submitted the following values:',
-    description: h(
-      'pre',
-      { class: 'mt-2 w-[340px] rounded-md bg-slate-950 p-4' },
-      h('code', { class: 'text-white' }, JSON.stringify(values, null, 2)),
-    ),
-  })
+// Auth user loads asynchronously — sync the form when data arrives
+watch(user, (value) => {
+  if (value)
+    resetForm({ values: { name: displayName.value, phone: phone.value } })
+}, { immediate: true })
+
+const onSubmit = handleSubmit(async (values) => {
+  const result = await updateProfile({ name: values.name, phone: values.phone })
+
+  if (result.success) {
+    toast({ title: 'Perfil atualizado', description: 'Suas informações foram salvas com sucesso.' })
+  }
+  else {
+    toast({ title: 'Erro ao salvar', description: result.error, variant: 'destructive' })
+  }
 })
+
+function openFilePicker() {
+  fileInput.value?.click()
+}
+
+async function handleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+
+  if (!file)
+    return
+
+  const result = await uploadAvatar(file)
+
+  if (result.success) {
+    toast({ title: 'Foto atualizada', description: 'Sua foto de perfil foi alterada.' })
+  }
+  else {
+    toast({ title: 'Erro ao enviar foto', description: result.error, variant: 'destructive' })
+  }
+}
+
+async function handleRemoveAvatar() {
+  const result = await removeAvatar()
+
+  if (result.success) {
+    toast({ title: 'Foto removida', description: 'Sua foto de perfil foi removida.' })
+  }
+  else {
+    toast({ title: 'Erro ao remover foto', description: result.error, variant: 'destructive' })
+  }
+}
 </script>
 
 <template>
   <div>
     <h3 class="text-lg font-medium">
-      Profile
+      Perfil
     </h3>
     <p class="text-sm text-muted-foreground">
-      This is how others will see you on the site.
+      Estas são as informações da sua conta no sistema.
     </p>
   </div>
   <Separator />
-  <form class="space-y-8" @submit="onSubmit">
-    <FormField v-slot="{ componentField }" name="username">
-      <FormItem>
-        <FormLabel>Username</FormLabel>
-        <FormControl>
-          <Input type="text" placeholder="shadcn" v-bind="componentField" />
-        </FormControl>
-        <FormDescription>
-          This is your public display name. It can be your real name or a pseudonym. You can only change this once every
-          30 days.
-        </FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
 
-    <FormField v-slot="{ componentField }" name="email">
-      <FormItem>
-        <FormLabel>Email</FormLabel>
+  <!-- Avatar -->
+  <div class="flex items-center gap-5">
+    <button
+      type="button"
+      class="group relative shrink-0 rounded-full outline-none ring-offset-background transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      :disabled="uploading"
+      aria-label="Alterar foto de perfil"
+      @click="openFilePicker"
+    >
+      <UserAvatar
+        :name="displayName"
+        :email="email"
+        :src="avatarUrl || null"
+        size="xl"
+      />
+      <span
+        class="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100"
+        :class="{ 'opacity-100': uploading }"
+      >
+        <Icon v-if="uploading" name="i-lucide-loader-2" class="size-5 animate-spin" />
+        <Icon v-else name="i-lucide-camera" class="size-5" />
+      </span>
+    </button>
 
-        <Select v-bind="componentField">
-          <FormControl>
-            <SelectTrigger>
-              <SelectValue placeholder="Select an email" />
-            </SelectTrigger>
-          </FormControl>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem v-for="email in verifiedEmails" :key="email" :value="email">
-                {{ email }}
-              </SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <FormDescription> You can manage verified email addresses in your email settings. </FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
-
-    <FormField v-slot="{ componentField }" name="bio">
-      <FormItem>
-        <FormLabel>Bio</FormLabel>
-        <FormControl>
-          <Textarea placeholder="Tell us a little bit about yourself" v-bind="componentField" />
-        </FormControl>
-        <FormDescription>
-          You can <span>@mention</span> other users and organizations to link to them.
-        </FormDescription>
-        <FormMessage />
-      </FormItem>
-    </FormField>
-
-    <div>
-      <FieldArray v-slot="{ fields, push, remove }" name="urls">
-        <div v-for="(field, index) in fields" :key="`urls-${field.key}`">
-          <FormField v-slot="{ componentField }" :name="`urls[${index}].value`">
-            <FormItem>
-              <FormLabel :class="cn(index !== 0 && 'sr-only')">
-                URLs
-              </FormLabel>
-              <FormDescription :class="cn(index !== 0 && 'sr-only')">
-                Add links to your website, blog, or social media profiles.
-              </FormDescription>
-              <div class="relative flex items-center">
-                <FormControl>
-                  <Input type="url" v-bind="componentField" />
-                </FormControl>
-                <button type="button" class="absolute end-0 py-2 pe-3 text-muted-foreground" @click="remove(index)">
-                  <Icon name="i-radix-icons-cross-1" class="w-3" />
-                </button>
-              </div>
-              <FormMessage />
-            </FormItem>
-          </FormField>
-        </div>
-
-        <Button type="button" variant="outline" size="sm" class="mt-2 w-20 text-xs" @click="push({ value: '' })">
-          Add URL
+    <div class="space-y-2">
+      <div class="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" :disabled="uploading" @click="openFilePicker">
+          <Icon name="i-lucide-upload" class="mr-1.5 size-3.5" />
+          Alterar foto
         </Button>
-      </FieldArray>
+        <Button
+          v-if="avatarUrl"
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground hover:text-destructive"
+          :disabled="uploading"
+          @click="handleRemoveAvatar"
+        >
+          <Icon name="i-lucide-trash-2" class="mr-1.5 size-3.5" />
+          Remover
+        </Button>
+      </div>
+      <p class="text-xs text-muted-foreground">
+        JPG, PNG, WEBP ou GIF. Tamanho máximo de 5MB.
+      </p>
     </div>
 
-    <div class="flex justify-start gap-2">
-      <Button type="submit">
-        Update profile
-      </Button>
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/jpeg,image/png,image/webp,image/gif"
+      class="hidden"
+      @change="handleFileChange"
+    >
+  </div>
 
-      <Button type="button" variant="outline" @click="resetForm">
-        Reset form
+  <!-- Dados -->
+  <form class="space-y-6" @submit="onSubmit">
+    <FormField v-slot="{ componentField }" name="name">
+      <FormItem>
+        <FormLabel>Nome completo</FormLabel>
+        <FormControl>
+          <Input type="text" placeholder="Seu nome" v-bind="componentField" />
+        </FormControl>
+        <FormDescription>
+          É assim que seu nome aparece no sistema.
+        </FormDescription>
+        <FormMessage />
+      </FormItem>
+    </FormField>
+
+    <FormField v-slot="{ componentField }" name="phone">
+      <FormItem>
+        <FormLabel>Telefone</FormLabel>
+        <FormControl>
+          <Input type="tel" placeholder="(00) 00000-0000" v-bind="componentField" />
+        </FormControl>
+        <FormMessage />
+      </FormItem>
+    </FormField>
+
+    <div class="space-y-2">
+      <Label for="profile-email">E-mail</Label>
+      <Input id="profile-email" type="email" :model-value="email" disabled />
+      <p class="text-sm text-muted-foreground">
+        O e-mail de acesso não pode ser alterado por aqui.
+      </p>
+    </div>
+
+    <div class="flex justify-start">
+      <Button type="submit" :disabled="saving">
+        <Icon v-if="saving" name="i-lucide-loader-2" class="mr-1.5 size-4 animate-spin" />
+        Salvar alterações
       </Button>
     </div>
   </form>

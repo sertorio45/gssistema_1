@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
+import { slugify } from '~/utils/slugify'
 
 definePageMeta({
   middleware: ['auth', 'role'],
@@ -34,12 +35,7 @@ const { data: tenants } = await useAsyncData(
 )
 
 watch(name, (value) => {
-  slug.value = value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
+  slug.value = slugify(value)
 })
 
 async function createAgency() {

@@ -23,18 +23,10 @@ export interface OrganizationRoleRow {
   capabilities?: Array<{ capability: string, allowed: boolean }>
 }
 
-function slugify(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036F]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-}
+import { slugify } from '~/utils/slugify'
 
 export function buildRoleSlug(name: string, fallback = 'cargo'): string {
-  return slugify(name) || fallback
+  return slugify(name, 60) || fallback
 }
 
 /** An actor may only grant capabilities they themselves hold. */

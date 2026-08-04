@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Layers, ListChecks, Package, Settings, Users } from 'lucide-vue-next'
+import { Layers, ListChecks, Package, Settings, Share2, Users } from 'lucide-vue-next'
 
 import Card from '@/components/ui/card/Card.vue'
 import CardContent from '@/components/ui/card/CardContent.vue'
@@ -37,6 +37,12 @@ const configCards = computed(() => [
     icon: Package,
     to: '/crm/config/products',
   },
+  {
+    title: 'Meta Conversões',
+    description: 'Pixel e token CAPI — em Configurações → Integrações.',
+    icon: Share2,
+    to: '/settings/integrations/meta-capi',
+  },
   ...(canManageTeam.value
     ? [{
         title: 'Usuários',
@@ -55,7 +61,7 @@ const configCards = computed(() => [
         Configurações do CRM
       </h1>
       <p class="mt-2 max-w-2xl text-sm text-muted-foreground leading-relaxed">
-        Origens, funis, produtos e usuários em um só lugar.
+        Origens, funis, produtos, conversões Meta e usuários em um só lugar.
       </p>
     </header>
 

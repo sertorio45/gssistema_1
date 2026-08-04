@@ -1,22 +1,28 @@
 <script setup lang="ts">
 /**
  * Standard shadcn Skeleton layouts for Marketing pages.
+ * Use `contentOnly` when the page already renders a real header/filters.
  */
 withDefaults(defineProps<{
   variant?: 'dashboard' | 'list' | 'grid' | 'kanban' | 'calendar' | 'detail' | 'integrations' | 'reports'
   rows?: number
   cards?: number
+  contentOnly?: boolean
 }>(), {
   variant: 'list',
   rows: 5,
   cards: 8,
+  contentOnly: false,
 })
 </script>
 
 <template>
   <div class="space-y-6" aria-busy="true" aria-live="polite">
     <!-- Page header -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div
+      v-if="!contentOnly"
+      class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
+    >
       <div class="space-y-2">
         <Skeleton class="h-8 w-48" />
         <Skeleton class="h-4 w-72 max-w-full" />
@@ -26,7 +32,7 @@ withDefaults(defineProps<{
 
     <!-- Filters / toolbar -->
     <div
-      v-if="variant !== 'detail'"
+      v-if="!contentOnly && variant !== 'detail'"
       class="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:flex-wrap"
     >
       <Skeleton class="h-9 w-full sm:w-40" />

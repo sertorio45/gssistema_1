@@ -9,29 +9,65 @@ import { Checkbox } from '@/components/ui/checkbox'
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 
 const statusOptions = [
-  { value: 'new', label: 'Novo', color: 'bg-blue-100 text-blue-800' },
-  { value: 'contacted', label: 'Contatado', color: 'bg-purple-100 text-purple-800' },
-  { value: 'qualified', label: 'Qualificado', color: 'bg-cyan-100 text-cyan-800' },
-  { value: 'proposal', label: 'Proposta', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'negotiation', label: 'Negociação', color: 'bg-orange-100 text-orange-800' },
-  { value: 'won', label: 'Ganho', color: 'bg-green-100 text-green-800' },
-  { value: 'lost', label: 'Perdido', color: 'bg-gray-100 text-gray-800' },
+  { value: 'new', label: 'Novo', color: 'border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' },
+  { value: 'contacted', label: 'Contatado', color: 'border-transparent bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' },
+  { value: 'qualified', label: 'Qualificado', color: 'border-transparent bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300' },
+  { value: 'proposal', label: 'Proposta', color: 'border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
+  { value: 'negotiation', label: 'Negociação', color: 'border-transparent bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300' },
+  { value: 'won', label: 'Ganho', color: 'border-transparent bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' },
+  { value: 'lost', label: 'Perdido', color: 'border-transparent bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' },
 ]
 
 const priorityOptions = [
-  { value: 'low', label: 'Baixa', color: 'bg-gray-100 text-gray-800' },
-  { value: 'medium', label: 'Média', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'high', label: 'Alta', color: 'bg-red-100 text-red-800' },
+  { value: 'low', label: 'Baixa', color: 'border-transparent bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' },
+  { value: 'medium', label: 'Média', color: 'border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300' },
+  { value: 'high', label: 'Alta', color: 'border-transparent bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
 ]
 
 const sourceOptions = [
-  { value: 'website', label: 'Website' },
+  { value: 'website', label: 'Site' },
   { value: 'referral', label: 'Indicação' },
   { value: 'social', label: 'Redes Sociais' },
   { value: 'email', label: 'E-mail' },
   { value: 'phone', label: 'Telefone' },
   { value: 'other', label: 'Outros' },
 ]
+
+function resolveStatusBadge(row: { getValue: (key: string) => unknown, original: Record<string, unknown> }, table: { options: { meta?: Record<string, unknown> } }) {
+  const getStage = table.options.meta?.getStage as
+    | ((id?: string | null) => { name: string, color?: string } | null | undefined)
+    | undefined
+
+  const stageId = (row.original.sales_stage_id || row.getValue('sales_stage_id')) as string | null | undefined
+  const stage = getStage?.(stageId)
+
+  if (stage?.name) {
+    const stageColor = stage.color
+      ? undefined
+      : 'border-transparent bg-muted text-foreground'
+    return {
+      label: stage.name,
+      class: stageColor,
+      style: stage.color
+        ? {
+            backgroundColor: `${stage.color}22`,
+            color: stage.color,
+            borderColor: `${stage.color}55`,
+          }
+        : undefined,
+    }
+  }
+
+  const status = statusOptions.find(s => s.value === row.getValue('status'))
+  if (!status)
+    return null
+
+  return {
+    label: status.label,
+    class: status.color,
+    style: undefined,
+  }
+}
 
 export const columns: ColumnDef<any>[] = [
   {
@@ -71,18 +107,19 @@ export const columns: ColumnDef<any>[] = [
   {
     accessorKey: 'status',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Status' }),
-    cell: ({ row }) => {
-      const status = statusOptions.find(s => s.value === row.getValue('status'))
-      if (!status)
-        return null
+    cell: ({ row, table }) => {
+      const badge = resolveStatusBadge(row, table)
+      if (!badge)
+        return h('span', { class: 'text-sm text-muted-foreground' }, '-')
 
       return h(
         Badge,
         {
-          variant: 'secondary',
-          class: status.color,
+          variant: 'outline',
+          class: ['font-medium', badge.class].filter(Boolean).join(' '),
+          style: badge.style,
         },
-        () => status.label,
+        () => badge.label,
       )
     },
     filterFn: (row, id, value) => {

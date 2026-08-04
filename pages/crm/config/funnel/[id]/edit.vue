@@ -130,7 +130,7 @@ async function handleFormSubmit(_data: any) {
   const currentFunilId = funnelId.value
 
   if (!currentFunilId) {
-    toast({ title: 'Error', description: 'Funil ID not found', variant: 'destructive' })
+    toast({ title: 'Erro', description: 'ID do funil não encontrado', variant: 'destructive' })
     return
   }
 
@@ -140,7 +140,7 @@ async function handleFormSubmit(_data: any) {
     && funil.id !== currentFunilId,
   )
   if (alreadyExists) {
-    nameError.value = 'A funil with this name already exists.'
+    nameError.value = 'Já existe um funil com este nome.'
     return
   }
 
@@ -176,10 +176,10 @@ async function handleFormSubmit(_data: any) {
     await refreshFunnels()
     await fetchFunil()
     await fetchStages()
-    toast({ title: 'Success', description: 'Funil updated successfully!', variant: 'default' })
+    toast({ title: 'Sucesso', description: 'Funil atualizado com sucesso!', variant: 'default' })
   }
   catch (err: any) {
-    toast({ title: 'Error', description: `Failed to update funil: ${err?.message || 'Unknown error'}`, variant: 'destructive' })
+    toast({ title: 'Erro', description: `Falha ao atualizar o funil: ${err?.message || 'Erro desconhecido'}`, variant: 'destructive' })
   }
 }
 
@@ -217,9 +217,9 @@ async function handleMultiDeleteConfirm() {
 
 // Stages fixos
 const fixedStages = [
-  { id: 'new', name: 'New', probability: 100 },
-  { id: 'won', name: 'Won', probability: 100 },
-  { id: 'lost', name: 'Lost', probability: 0 },
+  { id: 'new', name: 'Novo', probability: 100 },
+  { id: 'won', name: 'Ganho', probability: 100 },
+  { id: 'lost', name: 'Perdido', probability: 0 },
 ]
 
 type LeadPriority = 'high' | 'medium' | 'low'
@@ -341,14 +341,14 @@ watch(funnelId, async () => {
           Funis
         </h1>
         <p class="text-muted-foreground">
-          Manage all funis for your CRM.
+          Gerencie todos os funis do seu CRM.
         </p>
       </div>
       <div class="flex gap-2">
         <NuxtLink to="/crm/config/funnel">
           <Button variant="outline">
             <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-            Back
+            Voltar
           </Button>
         </NuxtLink>
         <NuxtLink to="/crm/config/funnel/new">
@@ -423,30 +423,30 @@ watch(funnelId, async () => {
       <form class="flex flex-col gap-4" @submit.prevent="handleFormSubmit(formModel)">
         <div class="flex items-center gap-4">
           <div class="w-64 flex flex-col gap-1">
-            <label for="funil-name">Name *</label>
-            <Input id="funil-name" v-model="formModel.name" placeholder="Name" required />
+            <label for="funil-name">Nome *</label>
+            <Input id="funil-name" v-model="formModel.name" placeholder="Nome" required />
           </div>
           <div class="w-96 flex flex-col gap-1">
-            <label for="funil-description">Description</label>
-            <Input id="funil-description" v-model="formModel.description" placeholder="Description (optional)" />
+            <label for="funil-description">Descrição</label>
+            <Input id="funil-description" v-model="formModel.description" placeholder="Descrição (opcional)" />
           </div>
           <Button type="submit" class="ml-auto">
             Salvar Funil
           </Button>
         </div>
         <CardContent class="mt-6 flex gap-4 overflow-x-auto pb-2">
-          <!-- Stages padrão (New) -->
-          <template v-for="stage in defaultStages.filter(s => s.name === 'New')" :key="stage.id">
+          <!-- Stages padrão (Novo) -->
+          <template v-for="stage in defaultStages.filter(s => ['New', 'Novo'].includes(s.name))" :key="stage.id">
             <div class="min-w-[260px] flex flex-1 flex-col gap-3 border rounded-lg bg-card p-6">
               <h3 class="mb-2 text-base font-semibold">
-                {{ stage.name }} (Default)
+                {{ stage.name === 'New' ? 'Novo' : stage.name }} (padrão)
               </h3>
               <div class="flex flex-col gap-2">
-                <label>Name *</label>
-                <Input :value="stage.name" disabled />
+                <label>Nome *</label>
+                <Input :value="stage.name === 'New' ? 'Novo' : stage.name" disabled />
               </div>
               <div class="flex flex-col gap-2">
-                <label>Color</label>
+                <label>Cor</label>
                 <div class="h-8 w-8 border rounded" :style="{ backgroundColor: stage.color }" />
               </div>
             </div>
@@ -456,41 +456,41 @@ watch(funnelId, async () => {
           <template v-for="(stage, idx) in customStages" :key="stage.id || `custom-${idx}`">
             <div class="min-w-[260px] flex flex-1 flex-col gap-3 border rounded-lg bg-card p-6">
               <h3 class="mb-2 text-base font-semibold">
-                Custom Stage
+                Estágio personalizado
               </h3>
               <div class="flex flex-col gap-2">
-                <label>Name *</label>
-                <Input v-model="stage.name" placeholder="Stage name" required />
+                <label>Nome *</label>
+                <Input v-model="stage.name" placeholder="Nome do estágio" required />
               </div>
               <div class="flex flex-col gap-2">
-                <label>Color</label>
+                <label>Cor</label>
                 <div class="flex items-center gap-2">
                   <input v-model="stage.color" type="color" class="h-8 w-8 cursor-pointer border rounded">
                   <span class="text-sm text-muted-foreground">{{ stage.color }}</span>
                 </div>
               </div>
               <div class="flex flex-col gap-2">
-                <label>Description</label>
-                <Input v-model="stage.description" placeholder="Stage description (optional)" />
+                <label>Descrição</label>
+                <Input v-model="stage.description" placeholder="Descrição do estágio (opcional)" />
               </div>
               <Button type="button" variant="destructive" class="mt-2 w-fit self-end" @click="removeStage(idx)">
-                Remove
+                Remover
               </Button>
             </div>
           </template>
 
-          <!-- Stages padrão (Won, Lost) -->
-          <template v-for="stage in defaultStages.filter(s => s.name === 'Won' || s.name === 'Lost')" :key="stage.id">
+          <!-- Stages padrão (Ganho, Perdido) -->
+          <template v-for="stage in defaultStages.filter(s => ['Won', 'Lost', 'Ganho', 'Perdido'].includes(s.name))" :key="stage.id">
             <div class="min-w-[260px] flex flex-1 flex-col gap-3 border rounded-lg bg-card p-6">
               <h3 class="mb-2 text-base font-semibold">
-                {{ stage.name }} (Default)
+                {{ stage.name === 'Won' ? 'Ganho' : stage.name === 'Lost' ? 'Perdido' : stage.name }} (padrão)
               </h3>
               <div class="flex flex-col gap-2">
-                <label>Name *</label>
-                <Input :value="stage.name" disabled />
+                <label>Nome *</label>
+                <Input :value="stage.name === 'Won' ? 'Ganho' : stage.name === 'Lost' ? 'Perdido' : stage.name" disabled />
               </div>
               <div class="flex flex-col gap-2">
-                <label>Color</label>
+                <label>Cor</label>
                 <div class="h-8 w-8 border rounded" :style="{ backgroundColor: stage.color }" />
               </div>
             </div>

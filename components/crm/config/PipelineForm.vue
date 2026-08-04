@@ -63,7 +63,7 @@ const isEdit = computed(() => props.mode === 'edit')
         <Input id="pipeline-description" v-model="local.description" :disabled="props.loading" placeholder="Descrição (opcional)" @input="(e: Event) => handleInput('description', (e.target as HTMLInputElement).value)" />
       </div>
       <Button type="submit" class="ml-auto" :loading="props.loading">
-        {{ isEdit ? 'Salvar Pipeline' : 'Criar Pipeline' }}
+        {{ isEdit ? 'Salvar funil' : 'Criar funil' }}
       </Button>
     </div>
 
@@ -91,7 +91,7 @@ const isEdit = computed(() => props.mode === 'edit')
           @update:checked="(checked: boolean) => handleInput('is_active', checked)"
         />
         <Label for="pipeline-active" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-          Pipeline ativo
+          Funil ativo
         </Label>
       </div>
     </div>

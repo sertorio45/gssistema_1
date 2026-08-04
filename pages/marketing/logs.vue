@@ -42,20 +42,19 @@ const entityLabels: Record<string, string> = {
   marketing_integration: 'Integração',
 }
 
-const { data: response, pending, refresh } = await useAsyncData(
-  () => `marketing-social-logs-${social.tenantId.value}-${page.value}-${action.value}-${entityType.value}-${search.value}`,
-  () => social.listLogs({
+const { data: response, pending, refresh } = useMarketingFetch({
+  key: () => `marketing-social-logs-${social.tenantId.value}-${page.value}-${action.value}-${entityType.value}-${search.value}`,
+  handler: () => social.listLogs({
     page: page.value,
     page_size: 40,
     action: action.value === 'all' ? undefined : action.value,
     entity_type: entityType.value === 'all' ? undefined : entityType.value,
     search: search.value || undefined,
   }),
-  {
-    watch: [social.tenantId, page, action, entityType],
-    default: () => ({ data: [], pagination: { page: 1, pageSize: 40, total: 0, totalPages: 1 } }),
-  },
-)
+  default: () => ({ data: [] as any[], pagination: { page: 1, pageSize: 40, total: 0, totalPages: 1 } }),
+  watch: [social.tenantId, page, action, entityType],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
@@ -150,7 +149,7 @@ function prettyJson(value: unknown) {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="list" :rows="8" />
+    <MarketingPageSkeleton v-if="pending" variant="list" :rows="8" content-only />
 
     <Card v-else-if="response.data.length">
       <div class="overflow-x-auto">

@@ -2,6 +2,11 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 
 import { createError, defineEventHandler, readBody } from 'h3'
 
+import {
+  enqueueMetaConversion,
+  scheduleMetaCapiProcessing,
+} from '~/server/utils/crm/meta-capi'
+
 export default defineEventHandler(async (event) => {
   try {
     const client = await serverSupabaseServiceRole(event)
@@ -20,8 +25,17 @@ export default defineEventHandler(async (event) => {
     if (!tenantId) {
       throw createError({ statusCode: 400, message: 'Não foi possível identificar o tenant_id' })
     }
+
+    const { data: existing } = await client
+      .from('crm_lead')
+      .select('id, status')
+      .eq('id', body.id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+
     const updateData = { ...body }
     delete updateData.id
+    delete updateData.tenant_id
     const { data, error } = await client
       .from('crm_lead')
       .update(updateData)
@@ -32,9 +46,20 @@ export default defineEventHandler(async (event) => {
     if (error) {
       throw createError({ statusCode: 500, message: error.message || 'Falha ao atualizar lead' })
     }
+
+    if (data?.status === 'won' && existing?.status !== 'won') {
+      await enqueueMetaConversion(client, {
+        tenantId,
+        leadId: data.id as string,
+        eventName: 'Purchase',
+        eventTime: data.closed_at as string | null,
+      }).catch(() => {})
+      scheduleMetaCapiProcessing(event, client, tenantId)
+    }
+
     return { statusCode: 200, body: data }
   }
-  catch (error) {
+  catch (error: any) {
     throw createError({ statusCode: error.statusCode || 500, message: error.message || 'Erro interno do servidor' })
   }
 })

@@ -22,22 +22,25 @@ const creatingFolder = ref(false)
 const { can } = useWorkspace()
 const canManageLibrary = computed(() => can('marketing.social.library.manage'))
 
-const { data: assets, pending, refresh } = await useAsyncData(
-  () => `marketing-library-${social.tenantId.value}-${category.value}`,
-  () => social.listAssets({
+const { data: assets, pending, refresh } = useMarketingFetch({
+  key: () => `marketing-library-${social.tenantId.value}-${category.value}`,
+  handler: () => social.listAssets({
     ...(category.value !== 'all' ? { category: category.value } : {}),
   }),
-  { watch: [social.tenantId, category], default: () => [] },
-)
+  default: () => [] as any[],
+  watch: [social.tenantId, category],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
-const { data: folders, refresh: refreshFolders } = await useAsyncData(
-  () => `library-folders-${social.tenantId.value}`,
-  () => $fetch<{ data: any[] }>('/api/marketing/social/library/meta', {
+const { data: folders, refresh: refreshFolders } = useMarketingFetch({
+  key: () => `library-folders-${social.tenantId.value}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/library/meta', {
     query: { tenant_id: social.tenantId.value || undefined, type: 'folders' },
   }),
-  { watch: [social.tenantId], default: () => ({ data: [] }) },
-)
-
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
 const categories = [
   { value: 'all', label: 'Todas categorias' },
   { value: 'logo', label: 'Logos' },
@@ -227,7 +230,7 @@ async function deleteAsset() {
       </CardContent>
     </Card>
 
-    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="10" />
+    <MarketingPageSkeleton v-if="pending" variant="grid" :cards="10" content-only />
 
     <div v-else-if="filteredAssets.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
       <Card

@@ -45,11 +45,13 @@ const slaForm = ref(
   })),
 )
 
-const { data, pending, refresh } = await useAsyncData(
-  () => `packages-${social.tenantId.value}-${status.value}`,
-  () => social.listPackages({ status: status.value }),
-  { watch: [social.tenantId, status], default: () => ({ data: [] }) },
-)
+const { data, pending, refresh } = useMarketingFetch({
+  key: () => `packages-${social.tenantId.value}-${status.value}`,
+  handler: () => social.listPackages({ status: status.value }),
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId, status],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 const statusLabels: Record<string, string> = {
   draft: 'Rascunho',

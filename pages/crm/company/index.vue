@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Company } from '~/types/crm'
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 
 import { toast } from 'vue-sonner'
 
@@ -11,18 +11,14 @@ import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
-import CardHeader from '~/components/ui/card/CardHeader.vue'
-import CardTitle from '~/components/ui/card/CardTitle.vue'
 import Dialog from '~/components/ui/dialog/Dialog.vue'
 import DialogContent from '~/components/ui/dialog/DialogContent.vue'
 import DialogDescription from '~/components/ui/dialog/DialogDescription.vue'
 import DialogHeader from '~/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
-import Input from '~/components/ui/input/Input.vue'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
-import DataTableRowActions from '~/components/ui/table/DataTableRowActions.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import { useTenantPage } from '~/composables/useTenantPage'
 
@@ -40,22 +36,8 @@ const selectedItems = ref<Company[]>([])
 const showMultiDeleteDialog = ref(false)
 const isFormOpen = ref(false)
 const editingCompany = ref<Company | undefined>(undefined)
-const search = ref('')
 const page = ref(1)
 const limit = ref(20)
-const total = ref(0)
-
-const filteredCompanies = computed(() => {
-  if (!search.value)
-    return companiesData.value
-  const term = search.value.toLowerCase()
-  return companiesData.value.filter(
-    company =>
-      (company.name && company.name.toLowerCase().includes(term))
-      || (company.website && company.website.toLowerCase().includes(term))
-      || (company.industry && company.industry.toLowerCase().includes(term)),
-  )
-})
 
 async function fetchCompanies() {
   if (!tenantId.value) {
@@ -65,16 +47,14 @@ async function fetchCompanies() {
 
   isLoading.value = true
   try {
-    const { data, total: totalCount } = await $fetch('/api/crm/company', {
-      query: { tenant_id: tenantId.value, page: page.value, limit: limit.value, search: search.value },
+    const { data } = await $fetch('/api/crm/company', {
+      query: { tenant_id: tenantId.value, page: page.value, limit: limit.value },
     })
     companiesData.value = data || []
-    total.value = totalCount || 0
   }
   catch (error) {
     console.error('Failed to fetch companies:', error)
     companiesData.value = []
-    total.value = 0
   }
   finally {
     isLoading.value = false
@@ -184,70 +164,6 @@ async function handleMultiDeleteConfirm() {
       </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Total de Empresas
-          </CardTitle>
-          <Icon name="lucide:building" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            {{ companiesData.length }}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Com Website
-          </CardTitle>
-          <Icon name="lucide:globe" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            {{ companiesData.filter(company => company.website && company.website.trim()).length }}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Por Indústria
-          </CardTitle>
-          <Icon name="lucide:briefcase" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            {{ new Set(companiesData.filter(c => c.industry).map(c => c.industry)).size }}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle class="text-sm font-medium">
-            Porte
-          </CardTitle>
-          <Icon name="lucide:trending-up" class="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div class="text-2xl font-bold">
-            {{ companiesData.filter(company => company.size === 'enterprise' || company.size === 'large').length }}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-
-    <!-- Search Input -->
-    <div class="mb-4 flex items-center gap-2">
-      <Input v-model="search" placeholder="Buscar por nome, site ou indústria..." class="max-w-xs" />
-    </div>
-
     <!-- DataTable with Skeleton -->
     <div v-if="isLoading" class="space-y-4">
       <Card class="border shadow-sm">
@@ -264,7 +180,7 @@ async function handleMultiDeleteConfirm() {
     <template v-else>
       <!-- DataTable -->
       <DataTable
-        :data="filteredCompanies"
+        :data="companiesData"
         :columns="columns"
         :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
         @delete="handleDelete"

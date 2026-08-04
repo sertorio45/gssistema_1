@@ -4,58 +4,68 @@ import { cn } from '@/lib/utils'
 interface Item {
   title: string
   href: string
+  /** When true, the item is visible but not clickable yet. */
+  comingSoon?: boolean
 }
 
 const route = useRoute()
 
 const sidebarNavItems: Item[] = [
   {
-    title: 'Profile',
+    title: 'Perfil',
     href: '/settings/profile',
   },
   {
-    title: 'Account',
+    title: 'Conta',
     href: '/settings/account',
+    comingSoon: true,
   },
   {
-    title: 'Appearance',
+    title: 'Aparência',
     href: '/settings/appearance',
   },
   {
-    title: 'Notifications',
+    title: 'Notificações',
     href: '/settings/notifications',
+    comingSoon: true,
   },
   {
-    title: 'Display',
+    title: 'Exibição',
     href: '/settings/display',
+    comingSoon: true,
   },
 ]
-
-const isLoadingMenu = ref(false)
-
-onMounted(() => {
-  // Simule carregamento se necessário
-  // isLoadingMenu.value = true
-  // setTimeout(() => { isLoadingMenu.value = false }, 1000)
-})
 </script>
 
 <template>
   <nav class="flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-1">
-    <template v-if="isLoadingMenu">
-      <Skeleton v-for="n in 5" :key="n" class="mb-2 h-8 w-full" />
-    </template>
-    <template v-else>
+    <template v-for="item in sidebarNavItems" :key="item.title">
       <Button
-        v-for="item in sidebarNavItems"
-        :key="item.title"
+        v-if="!item.comingSoon"
         variant="ghost"
-        :class="cn('w-full text-left justify-start items-start', route.path === item.href && 'bg-muted hover:bg-muted')"
+        :class="cn(
+          'w-full justify-start text-left',
+          route.path === item.href && 'bg-muted hover:bg-muted',
+        )"
         as-child
       >
         <NuxtLink :to="item.href">
           {{ item.title }}
         </NuxtLink>
+      </Button>
+      <Button
+        v-else
+        variant="ghost"
+        disabled
+        :class="cn(
+          'w-full justify-between text-left opacity-60',
+          route.path === item.href && 'bg-muted',
+        )"
+      >
+        <span>{{ item.title }}</span>
+        <Badge variant="outline" class="ml-2 shrink-0 text-[10px] font-normal">
+          Em breve
+        </Badge>
       </Button>
     </template>
   </nav>

@@ -23,9 +23,9 @@ const form = ref({
   legalNotes: '',
 })
 
-const { pending, refresh } = await useAsyncData(
-  () => `brand-guide-${social.tenantId.value}`,
-  async () => {
+const { pending, refresh } = useMarketingFetch({
+  key: () => `brand-guide-${social.tenantId.value}`,
+  handler: async () => {
     const response = await $fetch<{ data: any }>('/api/marketing/social/brand-guide', {
       query: { tenant_id: social.tenantId.value || undefined },
     })
@@ -44,8 +44,10 @@ const { pending, refresh } = await useAsyncData(
     }
     return row
   },
-  { watch: [social.tenantId] },
-)
+  default: () => null as any,
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 function splitList(value: string, separator: RegExp | string = /,|\n/) {
   return value

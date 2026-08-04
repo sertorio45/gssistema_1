@@ -36,9 +36,9 @@ const linkedinOrganizations = ref<Array<{ id: string, name: string }>>([])
 const editDialogOpen = ref(false)
 const editProvider = ref<Provider | null>(null)
 
-const { data: integrations, refresh, pending } = await useAsyncData(
-  () => `marketing-integrations-${tenantId.value}`,
-  async () => {
+const { data: integrations, refresh, pending } = useMarketingFetch({
+  key: () => `marketing-integrations-${tenantId.value}`,
+  handler: async () => {
     const response = await $fetch<{ data: any[] }>('/api/marketing/integrations', {
       query: {
         tenant_id: tenantId.value || undefined,
@@ -46,8 +46,10 @@ const { data: integrations, refresh, pending } = await useAsyncData(
     })
     return response.data || []
   },
-  { watch: [tenantId] },
-)
+  default: () => [] as any[],
+  watch: [tenantId],
+  enabled: () => Boolean(tenantId.value),
+})
 
 const connectedProviders = computed(() => new Set((integrations.value || []).map((i: any) => i.provider)))
 
@@ -584,7 +586,7 @@ watch(
       </AlertDescription>
     </Alert>
 
-    <MarketingPageSkeleton v-if="pending" variant="integrations" />
+    <MarketingPageSkeleton v-if="pending" variant="integrations" content-only />
 
     <div v-else class="grid gap-6 lg:grid-cols-3 sm:grid-cols-2">
       <!-- Google Ads -->
@@ -706,6 +708,12 @@ watch(
             />
             <span>{{ metaPublishReady ? 'Pronto para publicar' : 'Conectado — falta configurar publicação' }}</span>
           </div>
+          <p
+            v-if="isConnected('meta') && rowFor('meta')?.capi_enabled"
+            class="mt-2 text-xs text-muted-foreground"
+          >
+            CAPI CRM {{ rowFor('meta')?.has_capi_token ? 'ativo' : 'ativo — falta token' }}
+          </p>
           <Button
             v-if="isConnected('meta') && !metaPublishReady"
             variant="outline"
@@ -760,6 +768,25 @@ watch(
         </CardContent>
       </Card>
     </div>
+
+    <Card class="border rounded-2xl shadow-sm">
+      <CardContent class="flex flex-col gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-base font-semibold">
+            Conversões do CRM (Meta CAPI)
+          </h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            A configuração de Pixel e token para envio de Lead/Purchase fica no CRM,
+            para clientes sem acesso ao Marketing.
+          </p>
+        </div>
+        <Button variant="outline" as-child>
+          <NuxtLink to="/settings/integrations/meta-capi">
+            Abrir Meta Conversões
+          </NuxtLink>
+        </Button>
+      </CardContent>
+    </Card>
 
     <Dialog v-model:open="editDialogOpen">
       <DialogContent class="sm:max-w-lg">

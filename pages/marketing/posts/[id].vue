@@ -37,32 +37,35 @@ const scheduleAt = ref('')
 const newComment = ref('')
 const pastPromptDismissed = ref(false)
 
-const { data: workflows } = await useAsyncData(
-  () => `marketing-social-workflows-${social.tenantId.value}`,
-  () => isClientExperience.value ? Promise.resolve([]) : social.listWorkflows(),
-  { watch: [social.tenantId, isClientExperience], default: () => [] },
-)
+const { data: workflows } = useMarketingFetch({
+  key: () => `marketing-social-workflows-${social.tenantId.value}`,
+  handler: () => social.listWorkflows(),
+  default: () => [] as any[],
+  watch: [social.tenantId, isClientExperience],
+  enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
+})
 
-const { data: members } = await useAsyncData(
-  () => `marketing-social-approvers-${social.tenantId.value}`,
-  async () => {
-    if (isClientExperience.value)
-      return []
+const { data: members } = useMarketingFetch({
+  key: () => `marketing-social-approvers-${social.tenantId.value}`,
+  handler: async () => {
     const response = await $fetch<{ data: Array<{ userId: string, name: string, email: string, role: keyof typeof ROLE_LABELS, isPlatformAdmin: boolean }> }>(
       '/api/marketing/social/approvers',
       { query: { tenant_id: social.tenantId.value || undefined } },
     )
     return response.data
   },
-  { watch: [social.tenantId, isClientExperience], default: () => [] },
-)
+  default: () => [] as Array<{ userId: string, name: string, email: string, role: keyof typeof ROLE_LABELS, isPlatformAdmin: boolean }>,
+  watch: [social.tenantId, isClientExperience],
+  enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
+})
 
-const { data: post, pending, refresh } = await useAsyncData(
-  () => `marketing-social-post-${social.tenantId.value}-${postId.value}`,
-  () => social.getPost(postId.value),
-  { watch: [social.tenantId] },
-)
-
+const { data: post, pending, refresh } = useMarketingFetch({
+  key: () => `marketing-social-post-${social.tenantId.value}-${postId.value}`,
+  handler: () => social.getPost(postId.value),
+  default: () => null as any,
+  watch: [social.tenantId, postId],
+  enabled: () => Boolean(social.tenantId.value) && Boolean(postId.value),
+})
 const formValue = computed<SocialPostInput | undefined>(() => {
   const value = post.value as any
   if (!value)

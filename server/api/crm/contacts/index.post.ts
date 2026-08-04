@@ -38,7 +38,6 @@ export default defineEventHandler(async (event) => {
           company_id: body.company_id || null,
           lead_id: body.lead_id || null,
           notes: body.notes || null,
-          tags: body.tags || [],
           tenant_id: body.tenant_id,
         },
       ])

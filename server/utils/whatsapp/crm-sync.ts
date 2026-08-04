@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createError } from 'h3'
 
+import { enqueueMetaConversion, processMetaConversionQueue } from '~/server/utils/crm/meta-capi'
 import { normalizePhone } from '~/server/utils/whatsapp/contact-utils'
 
 interface SyncCrmOptions {
@@ -273,6 +274,15 @@ export async function syncWhatsAppLeadToFunnel(
     conversationId: params.conversationId,
   })
 
+  await enqueueMetaConversion(client, {
+    tenantId,
+    leadId: lead.id,
+    eventName: 'Lead',
+    eventTime: now,
+  }).catch(() => {})
+
+  void processMetaConversionQueue(client, { tenantId, limit: 5 }).catch(() => {})
+
   return { lead, leadCreated: true }
 }
 
@@ -359,7 +369,6 @@ export async function syncWhatsAppContactToCrm(
       name,
       email: placeholderEmail,
       phone: whatsappContact.phone,
-      tags: whatsappContact.tags || [],
     })
     .select('id, name, email')
     .single()

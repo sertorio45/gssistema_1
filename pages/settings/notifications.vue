@@ -2,8 +2,9 @@
 
 <template>
   <SettingsLayout>
-    <SettingsNotificationsForm />
+    <SettingsComingSoon
+      title="Notificações"
+      description="Configure como e quando você recebe alertas por e-mail e no sistema."
+    />
   </SettingsLayout>
 </template>
-
-<style scoped></style>

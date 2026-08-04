@@ -19,16 +19,18 @@ const social = useMarketingSocial()
 const queue = ref<'mine' | 'designer' | 'copywriter' | 'social_media' | 'reviewer' | 'overdue'>('mine')
 const canManageTasks = computed(() => can('marketing.social.tasks.manage') || can('marketing.social.manage'))
 
-const { data, pending, refresh } = await useAsyncData(
-  () => `production-tasks-${social.tenantId.value}-${queue.value}`,
-  () => $fetch<{ data: any[] }>('/api/marketing/social/production/tasks', {
+const { data, pending, refresh } = useMarketingFetch({
+  key: () => `production-tasks-${social.tenantId.value}-${queue.value}`,
+  handler: () => $fetch<{ data: any[] }>('/api/marketing/social/production/tasks', {
     query: {
       tenant_id: social.tenantId.value || undefined,
       queue: queue.value,
     },
   }),
-  { watch: [social.tenantId, queue], default: () => ({ data: [] }) },
-)
+  default: () => ({ data: [] as any[] }),
+  watch: [social.tenantId, queue],
+  enabled: () => Boolean(social.tenantId.value),
+})
 
 async function markDone(taskId: string) {
   if (!canManageTasks.value)

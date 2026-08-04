@@ -52,9 +52,6 @@ const dir = computed(() => (textDirection.value === 'rtl' ? 'rtl' : 'ltr'))
         <NuxtPage :key="route.fullPath" />
       </NuxtLayout>
 
-      <ClientOnly>
-        <AppSettings />
-      </ClientOnly>
     </div>
 
     <Toaster />

@@ -44,7 +44,6 @@ export default defineEventHandler(async (event) => {
         position: body.position || null,
         company_id: body.company_id || null,
         notes: body.notes || null,
-        tags: body.tags || [],
         updated_at: new Date().toISOString(),
       })
       .eq('id', contactId)

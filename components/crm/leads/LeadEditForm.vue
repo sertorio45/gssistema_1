@@ -97,28 +97,6 @@ const statusOptions = [
   { value: 'lost', label: 'Perdido' },
 ]
 
-// Opções de segmentos de empresa
-const companySegmentOptions = [
-  { value: 'technology', label: 'Tecnologia' },
-  { value: 'finance', label: 'Finanças' },
-  { value: 'healthcare', label: 'Saúde' },
-  { value: 'education', label: 'Educação' },
-  { value: 'retail', label: 'Varejo' },
-  { value: 'manufacturing', label: 'Indústria' },
-  { value: 'services', label: 'Serviços' },
-  { value: 'other', label: 'Outros' },
-]
-
-// Opções de tamanho de empresa
-const companySizeOptions = [
-  { value: '1-10', label: '1-10 colaboradores' },
-  { value: '11-50', label: '11-50 colaboradores' },
-  { value: '51-200', label: '51-200 colaboradores' },
-  { value: '201-500', label: '201-500 colaboradores' },
-  { value: '501+', label: '501+ colaboradores' },
-]
-
-// Opções de tipo de meeting
 const meetingTypeOptions = [
   { value: 'presential', label: 'Presencial' },
   { value: 'virtual', label: 'Virtual' },
@@ -211,8 +189,6 @@ async function loadLeadContact(leadId: string) {
 // Company form data
 const companyForm = ref({
   name: '',
-  segment: '',
-  size: '',
   website: '',
   address: '',
 })
@@ -260,8 +236,6 @@ watch([() => props.lead, leadSources], () => {
 
     companyForm.value = {
       name: '',
-      segment: '',
-      size: '',
       website: '',
       address: '',
     }
@@ -403,7 +377,6 @@ async function updateLead() {
     if (companyForm.value.name) {
       const companyData = {
         name: companyForm.value.name,
-        industry: companyForm.value.segment,
         website: companyForm.value.website,
         address: companyForm.value.address,
         tenant_id: tenantId.value,
@@ -610,8 +583,8 @@ function cancel() {
             </div>
             
             <div class="space-y-2">
-              <Label for="contact-email">Email</Label>
-              <Input id="contact-email" v-model="contactForm.email" placeholder="email@example.com" type="email" />
+              <Label for="contact-email">E-mail</Label>
+              <Input id="contact-email" v-model="contactForm.email" placeholder="email@exemplo.com" type="email" />
             </div>
 
             <div class="space-y-2">
@@ -638,38 +611,10 @@ function cancel() {
               <Label for="company-name">Nome da empresa</Label>
               <Input id="company-name" v-model="companyForm.name" placeholder="Nome da empresa" />
             </div>
-            
-            <div class="space-y-2">
-              <Label for="company-segment">Segmento</Label>
-              <Select v-model="companyForm.segment">
-                <SelectTrigger id="company-segment">
-                  <SelectValue placeholder="Selecione o segmento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="segment in companySegmentOptions" :key="segment.value" :value="segment.value">
-                    {{ segment.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="company-size">Porte da empresa</Label>
-              <Select v-model="companyForm.size">
-                <SelectTrigger id="company-size">
-                  <SelectValue placeholder="Selecione o porte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="size in companySizeOptions" :key="size.value" :value="size.value">
-                    {{ size.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             <div class="space-y-2">
               <Label for="company-website">Site</Label>
-              <Input id="company-website" v-model="companyForm.website" placeholder="www.example.com" />
+              <Input id="company-website" v-model="companyForm.website" placeholder="www.exemplo.com" />
             </div>
           </div>
 
