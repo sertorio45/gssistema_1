@@ -6,8 +6,9 @@ import {
 } from '~/server/utils/oauth-callback'
 
 /**
- * Legacy path kept so existing Meta/Google/LinkedIn Redirect URIs keep working.
- * Prefer `/api/oauth/:provider/callback` for new App settings.
+ * Module-neutral OAuth callback (CRM Meta CAPI + Marketing share this URI).
+ * Must stay outside `/api/marketing/**` so CRM-only tenants are not blocked
+ * by module-access middleware.
  */
 export default defineEventHandler(async (event) => {
   const provider = toOAuthProvider(event.context.params?.provider || '')

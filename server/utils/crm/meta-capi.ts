@@ -67,9 +67,10 @@ export interface MetaCapiSettings {
   meta_connected: boolean
 }
 
-/** CRM Conversions API — fixed identity for Meta Events Manager. */
+/** CRM Conversions API — Meta Conversion Leads payload identity. */
 export const META_CRM_LEAD_EVENT_SOURCE = 'Blimber'
-export const META_CRM_EVENT_SOURCE = 'Blimber'
+/** Official Meta value — must be the literal string `crm` (not the CRM product name). */
+export const META_CRM_EVENT_SOURCE = 'crm'
 export const META_CRM_ACTION_SOURCE: MetaCapiActionSource = 'system_generated'
 
 /** Prefer Events Manager token; fall back to Meta OAuth user token (ads_management). */
@@ -472,7 +473,7 @@ async function processSingleEvent(
     const response = await sendEventToMeta({
       pixelId,
       accessToken,
-      testEventCode: integration.config.capi_test_event_code,
+      // Never attach test_event_code on real CRM sends — that forces Test Events (often labeled Web).
       event: payloadEvent,
     })
 

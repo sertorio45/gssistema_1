@@ -468,7 +468,7 @@ onMounted(() => {
             </CardTitle>
             <CardDescription class="mt-1 max-w-2xl">
               Conecte com a Meta (empresa → anúncios → dataset) no padrão CRM do Events Manager.
-              Envio semi-manual de ganhos (Purchase, BRL, action_source system_generated).
+              Envio semi-manual de ganhos (Purchase, BRL, action_source system_generated, event_source crm).
             </CardDescription>
           </div>
           <Badge
@@ -520,7 +520,8 @@ onMounted(() => {
                 <AlertTitle>App Blimber na Meta</AlertTitle>
                 <AlertDescription class="text-sm">
                   1) Conectar com a Meta · 2) escolher a empresa · 3) conta de anúncios ·
-                  4) dataset (Pixel). Eventos saem como CRM (<code>system_generated</code>, fonte Blimber).
+                  4) dataset CRM. Eventos: action_source=<code>system_generated</code>,
+                  lead_event_source=<code>Blimber</code>, event_source=<code>crm</code>.
                   Em Development, use um usuário tester/admin do app.
                 </AlertDescription>
               </Alert>

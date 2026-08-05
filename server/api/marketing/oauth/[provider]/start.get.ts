@@ -1,19 +1,14 @@
 import { createHash, randomBytes } from 'node:crypto'
 import process from 'node:process'
 
-import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
+import { createError, defineEventHandler, getQuery } from 'h3'
 
+import { resolveOAuthCallbackUrl, toOAuthProvider } from '~/server/utils/oauth-callback'
 import { requireSocialContext } from '~/server/utils/social-context'
-
-function toProvider(value: string) {
-  if (value === 'google_ads' || value === 'google_analytics' || value === 'meta' || value === 'linkedin')
-    return value
-  return null
-}
 
 export default defineEventHandler(async (event) => {
   const providerParam = event.context.params?.provider || ''
-  const provider = toProvider(providerParam)
+  const provider = toOAuthProvider(providerParam)
   if (!provider) {
     throw createError({ statusCode: 400, statusMessage: 'Provider inválido' })
   }
@@ -23,24 +18,7 @@ export default defineEventHandler(async (event) => {
     'marketing.social.integrations',
   )
 
-  const requestUrl = getRequestURL(event)
-  const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`
-  const googleRedirectUri
-    = process.env.GOOGLE_REDIRECT_URI
-      || process.env.GOOGLE_OAUTH_REDIRECT_URI
-      || `${baseUrl}/api/marketing/oauth/${provider}/callback`
-  const metaRedirectUri
-    = process.env.META_REDIRECT_URI
-      || process.env.META_OAUTH_REDIRECT_URI
-      || `${baseUrl}/api/marketing/oauth/meta/callback`
-  const linkedinRedirectUri
-    = process.env.LINKEDIN_REDIRECT_URI
-      || `${baseUrl}/api/marketing/oauth/linkedin/callback`
-  const callbackUrl = provider === 'meta'
-    ? metaRedirectUri
-    : provider === 'linkedin'
-      ? linkedinRedirectUri
-      : googleRedirectUri
+  const callbackUrl = resolveOAuthCallbackUrl(event, provider)
   const state = randomBytes(32).toString('base64url')
   const stateHash = createHash('sha256').update(state).digest('hex')
 

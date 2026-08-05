@@ -2,8 +2,9 @@ import { createHash, randomBytes } from 'node:crypto'
 import process from 'node:process'
 
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { createError, defineEventHandler, getQuery, getRequestURL } from 'h3'
+import { createError, defineEventHandler, getQuery } from 'h3'
 
+import { resolveOAuthCallbackUrl } from '~/server/utils/oauth-callback'
 import {
   assertScopedTenantAccess,
   assertTenantModuleAccess,
@@ -12,7 +13,7 @@ import {
 
 /**
  * Meta OAuth for CAPI / shared Meta integration — no Marketing module required.
- * Reuses oauth_states + marketing_integrations (provider=meta) and the same callback.
+ * Uses the module-neutral `/api/oauth/meta/callback` (same Meta App as Marketing).
  */
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
@@ -29,14 +30,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
   assertScopedTenantAccess(role, userTenantId, tenantId)
 
-  const requestUrl = getRequestURL(event)
-  const baseUrl = `${requestUrl.protocol}//${requestUrl.host}`
-  const callbackUrl
-    = process.env.META_REDIRECT_URI
-      || process.env.META_OAUTH_REDIRECT_URI
-      || `${baseUrl}/api/marketing/oauth/meta/callback`
+  const callbackUrl = resolveOAuthCallbackUrl(event, 'meta')
 
-  const redirectPath = typeof query.redirect_path === 'string' && query.redirect_path.startsWith('/')
+  const redirectPath = typeof query.redirect_path === 'string'
+    && query.redirect_path.startsWith('/')
+    && !query.redirect_path.startsWith('//')
     ? query.redirect_path
     : '/settings/integrations/meta-capi'
 
