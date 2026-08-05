@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@supabase/supabase-js'
 import { createError } from 'h3'
 
+import { resendClientAccessEmail } from '~/server/utils/auth-invite'
 import { resolveMarketingTenantContext } from '~/server/utils/marketing'
 import { isStaffUser, resolveStaffRole } from '~/server/utils/tenant-role'
 
@@ -14,6 +15,9 @@ export interface TenantTeamMember {
   role: TenantTeamRole
   email: string
   name: string
+  /** `pending` until the invitee opens the invite and signs in. */
+  status: 'pending' | 'active'
+  lastSignInAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -92,8 +96,19 @@ async function mapAuthUserToMember(
     created_at: string
     updated_at: string
   },
-  authUser: { email?: string, user_metadata?: Record<string, unknown> } | null,
+  authUser: {
+    email?: string
+    user_metadata?: Record<string, unknown>
+    last_sign_in_at?: string | null
+    invited_at?: string | null
+    email_confirmed_at?: string | null
+  } | null,
 ): Promise<TenantTeamMember> {
+  const lastSignInAt = authUser?.last_sign_in_at ?? null
+  // Accounts created with a password are usable right away; only invites that
+  // were never opened count as pending.
+  const awaitingInvite = Boolean(authUser?.invited_at) || !authUser?.email_confirmed_at
+
   return {
     id: roleRow.id,
     userId: roleRow.user_id,
@@ -101,6 +116,8 @@ async function mapAuthUserToMember(
     role: roleRow.role as TenantTeamRole,
     email: authUser?.email || '',
     name: String(authUser?.user_metadata?.name || authUser?.email || 'Usuário'),
+    status: !lastSignInAt && awaitingInvite ? 'pending' : 'active',
+    lastSignInAt,
     createdAt: roleRow.created_at,
     updatedAt: roleRow.updated_at,
   }
@@ -175,6 +192,66 @@ export async function createTenantTeamMember(
   await syncUserTenantRolesMetadata(userId)
 
   return mapAuthUserToMember(roleRow, createdUser.user)
+}
+
+export interface TenantTeamInviteResult {
+  member: TenantTeamMember
+  /** Auth mailer dispatched the invite e-mail. */
+  emailSent: boolean
+  /** Address already had an account — only the tenant link was created. */
+  existingUser: boolean
+  /** Manual fallback link, in case the e-mail does not arrive. */
+  actionLink: string | null
+}
+
+/**
+ * Adds a member without setting a password: the invitee receives the Auth
+ * invite e-mail and defines their own password at /invite.
+ */
+export async function inviteTenantTeamMember(
+  client: SupabaseClient,
+  params: {
+    tenantId: string
+    email: string
+    name: string
+    role: TenantTeamRole
+    redirectTo: string
+  },
+): Promise<TenantTeamInviteResult> {
+  const admin = getAdminClient()
+
+  // Same helper the agency uses: handles new addresses, stale pending invites
+  // and already-activated accounts, and refuses platform staff e-mails.
+  const access = await resendClientAccessEmail(admin, {
+    email: params.email,
+    name: params.name,
+    tenantId: params.tenantId,
+    redirectTo: params.redirectTo,
+  })
+
+  const { data: roleRow, error: roleError } = await client
+    .from('user_tenant_role')
+    .upsert({
+      user_id: access.user_id,
+      tenant_id: params.tenantId,
+      role: params.role,
+    }, { onConflict: 'user_id,tenant_id' })
+    .select('id, user_id, tenant_id, role, created_at, updated_at')
+    .single()
+
+  if (roleError)
+    throw createError({ statusCode: 400, statusMessage: roleError.message })
+
+  await syncUserTenantRolesMetadata(access.user_id)
+
+  const { data: authData } = await admin.auth.admin.getUserById(access.user_id)
+
+  return {
+    member: await mapAuthUserToMember(roleRow, authData.user),
+    emailSent: access.email_sent,
+    existingUser: access.method === 'recovery',
+    actionLink: access.action_link,
+  }
 }
 
 export async function updateTenantTeamMember(

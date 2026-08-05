@@ -12,22 +12,24 @@ import CardContent from '~/components/ui/card/CardContent.vue'
 import Dialog from '~/components/ui/dialog/Dialog.vue'
 import DialogContent from '~/components/ui/dialog/DialogContent.vue'
 import DialogDescription from '~/components/ui/dialog/DialogDescription.vue'
+import DialogFooter from '~/components/ui/dialog/DialogFooter.vue'
 import DialogHeader from '~/components/ui/dialog/DialogHeader.vue'
 import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
+import Input from '~/components/ui/input/Input.vue'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
 import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
+import { useTenantTeam, useTenantTeamManagement } from '~/composables/crm/useTenantTeam'
+import { useAuth } from '~/composables/useAuth'
+import { deleteWithConfirm } from '~/composables/useConfirmDelete'
+import { useTenantPage } from '~/composables/useTenantPage'
 import {
   isStaffRole,
   TENANT_TEAM_CLIENT_ASSIGNABLE_ROLES,
   TENANT_TEAM_STAFF_ASSIGNABLE_ROLES,
 } from '~/constants/roles'
-import { useAuth } from '~/composables/useAuth'
-import { deleteWithConfirm } from '~/composables/useConfirmDelete'
-import { useTenantTeam, useTenantTeamManagement } from '~/composables/crm/useTenantTeam'
-import { useTenantPage } from '~/composables/useTenantPage'
 
 definePageMeta({
   middleware: ['auth', 'tenant', 'role'],
@@ -51,6 +53,22 @@ const isFormOpen = ref(false)
 const editingMember = ref<TenantTeamMember | null>(null)
 const saving = ref(false)
 
+const inviteOpen = ref(false)
+const inviteEmail = ref('')
+const inviteLink = ref<string | null>(null)
+
+async function copyInviteLink() {
+  if (!inviteLink.value)
+    return
+  try {
+    await navigator.clipboard.writeText(inviteLink.value)
+    toast.success('Link copiado')
+  }
+  catch {
+    toast.error('Não foi possível copiar. Selecione o texto manualmente.')
+  }
+}
+
 const assignableRoles = computed<TenantTeamRole[]>(() => {
   if (isStaffRole(currentRole.value))
     return [...TENANT_TEAM_STAFF_ASSIGNABLE_ROLES] as TenantTeamRole[]
@@ -60,6 +78,39 @@ const assignableRoles = computed<TenantTeamRole[]>(() => {
 whenTenantReady(() => {
   refresh()
 })
+
+/** Re-runs the invite for a member who never accepted it. */
+async function handleResendInvite(member: TenantTeamMember) {
+  if (!assignableRoles.value.includes(member.role)) {
+    toast.error('Você não tem permissão para reenviar o convite deste usuário')
+    return
+  }
+
+  try {
+    const response = await createMember({
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      mode: 'invite',
+    })
+
+    inviteEmail.value = member.email
+    inviteLink.value = response.invite?.action_link ?? null
+
+    if (response.invite?.email_sent)
+      toast.success(`Convite reenviado para ${member.email}`)
+    else
+      toast.warning('O e-mail não pôde ser enviado — use o link manual')
+
+    if (inviteLink.value)
+      inviteOpen.value = true
+
+    await refresh()
+  }
+  catch (error: any) {
+    toast.error(error?.data?.statusMessage || 'Não foi possível reenviar o convite')
+  }
+}
 
 function updateSelectedItems(items: number[]) {
   selectedItems.value = items
@@ -122,6 +173,7 @@ async function handleSubmit(payload: {
   email: string
   password: string
   role: TenantTeamRole
+  mode: 'password' | 'invite'
 }) {
   saving.value = true
   try {
@@ -133,8 +185,27 @@ async function handleSubmit(payload: {
       })
       toast.success('Usuário atualizado com sucesso')
     }
+    else if (payload.mode === 'invite') {
+      const response = await createMember({
+        name: payload.name,
+        email: payload.email,
+        role: payload.role,
+        mode: 'invite',
+      })
+
+      inviteEmail.value = payload.email
+      inviteLink.value = response.invite?.action_link ?? null
+
+      if (response.invite?.email_sent)
+        toast.success(`Convite enviado para ${payload.email}`)
+      else
+        toast.warning('O e-mail não pôde ser enviado — use o link manual')
+
+      if (inviteLink.value)
+        inviteOpen.value = true
+    }
     else {
-      await createMember(payload)
+      await createMember({ ...payload, mode: 'password' })
       toast.success('Usuário criado com sucesso')
     }
     isFormOpen.value = false
@@ -183,7 +254,7 @@ async function handleSubmit(payload: {
       <DataTable
         :data="members"
         :columns="columns"
-        :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
+        :meta="{ onEdit: handleEdit, onDelete: handleDelete, onResendInvite: handleResendInvite }"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
@@ -214,7 +285,7 @@ async function handleSubmit(payload: {
           <DialogDescription class="mt-1 text-sm text-muted-foreground">
             {{ editingMember
               ? 'Edite os dados do usuário da equipe.'
-              : 'Adicione um novo usuário vinculado ao tenant ativo.' }}
+              : 'Adicione um usuário à sua empresa por convite ou com senha definida agora.' }}
           </DialogDescription>
         </DialogHeader>
         <div class="p-4 md:p-6">
@@ -226,6 +297,35 @@ async function handleSubmit(payload: {
             @cancel="isFormOpen = false"
           />
         </div>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="inviteOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Convite enviado</DialogTitle>
+          <DialogDescription>
+            {{ inviteEmail }} receberá um link para criar a própria senha.
+            Se preferir, encaminhe o link abaixo manualmente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div v-if="inviteLink" class="border rounded-lg bg-muted/30 p-3 space-y-2">
+          <p class="text-xs text-muted-foreground">
+            Link de acesso direto (uso único, expira em pouco tempo).
+          </p>
+          <Input :model-value="inviteLink" readonly class="text-xs font-mono" />
+          <Button type="button" size="sm" variant="secondary" class="w-full" @click="copyInviteLink">
+            <Icon name="lucide:copy" class="mr-2 h-3.5 w-3.5" />
+            Copiar link
+          </Button>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" @click="inviteOpen = false">
+            Fechar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   </div>

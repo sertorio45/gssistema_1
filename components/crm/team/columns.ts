@@ -4,6 +4,7 @@ import type { TenantTeamMember } from '~/types/tenant-team'
 import { h } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
 import { TENANT_TEAM_ROLE_LABELS } from '~/types/tenant-team'
@@ -48,6 +49,44 @@ export const columns: ColumnDef<TenantTeamMember>[] = [
     cell: ({ row }) => {
       const role = row.getValue('role') as TenantTeamMember['role']
       return h(Badge, { variant: 'outline' }, () => TENANT_TEAM_ROLE_LABELS[role] || role)
+    },
+    enableSorting: true,
+    enableHiding: true,
+  },
+  {
+    accessorKey: 'status',
+    header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Acesso' }),
+    cell: ({ row, table }) => {
+      const member = row.original
+      const isPending = member.status === 'pending'
+      const onResendInvite = (table.options.meta as any)?.onResendInvite
+
+      return h('div', { class: 'flex flex-col items-start gap-0.5' }, [
+        h(
+          Badge,
+          { variant: isPending ? 'outline' : 'secondary' },
+          () => (isPending ? 'Convite pendente' : 'Ativo'),
+        ),
+        member.lastSignInAt
+          ? h(
+              'span',
+              { class: 'text-xs text-muted-foreground' },
+              `Último acesso: ${new Date(member.lastSignInAt).toLocaleDateString('pt-BR')}`,
+            )
+          : null,
+        isPending && onResendInvite
+          ? h(
+              Button,
+              {
+                variant: 'link',
+                size: 'sm',
+                class: 'h-auto p-0 text-xs',
+                onClick: () => onResendInvite(member),
+              },
+              () => 'Reenviar convite',
+            )
+          : null,
+      ])
     },
     enableSorting: true,
     enableHiding: true,

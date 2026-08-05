@@ -184,6 +184,7 @@ export interface ResendAccessResult {
   link_error: string | null
 }
 
+/** Builds a one-time access link the operator can deliver by hand. */
 async function generateShareableLink(
   client: SupabaseClient,
   input: { type: 'recovery' | 'magiclink', email: string, redirectTo: string },

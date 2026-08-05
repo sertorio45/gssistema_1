@@ -57,11 +57,20 @@ export function useTenantTeamManagement() {
 
   async function createMember(payload: {
     email: string
-    password: string
+    password?: string
     name: string
     role: TenantTeamMember['role']
+    /** `password`: admin defines it now · `invite`: member creates it by e-mail. */
+    mode?: 'password' | 'invite'
   }) {
-    return $fetch<{ data: TenantTeamMember }>('/api/crm/team', {
+    return $fetch<{
+      data: TenantTeamMember
+      invite?: {
+        email_sent: boolean
+        existing_user: boolean
+        action_link: string | null
+      }
+    }>('/api/crm/team', {
       method: 'POST',
       body: {
         tenant_id: tenantId.value,
