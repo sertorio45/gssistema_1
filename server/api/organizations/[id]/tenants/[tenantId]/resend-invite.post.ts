@@ -91,6 +91,7 @@ export default defineEventHandler(async (event) => {
       invite_sent: result.invite_sent,
       method: result.method,
       user_id: result.user_id,
+      action_link: result.action_link ?? null,
     },
   }
 })

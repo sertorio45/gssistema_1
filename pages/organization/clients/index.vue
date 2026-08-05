@@ -44,6 +44,7 @@ const resendSaving = ref(false)
 const resendClient = ref<AgencyClientRow | null>(null)
 const resendEmail = ref('')
 const resendName = ref('')
+const resendActionLink = ref<string | null>(null)
 
 const filtered = computed(() => {
   const query = search.value.trim().toLowerCase()
@@ -106,6 +107,7 @@ function openResend(client: AgencyClientRow) {
   resendClient.value = client
   resendEmail.value = client.client_invite_emails?.[0] || ''
   resendName.value = ''
+  resendActionLink.value = null
   resendOpen.value = true
 }
 
@@ -118,8 +120,16 @@ async function submitResend() {
   }
 
   resendSaving.value = true
+  resendActionLink.value = null
   try {
-    const response = await $fetch<{ data: { email: string, method: string } }>(
+    const response = await $fetch<{
+      data: {
+        email: string
+        method: string
+        invite_sent: boolean
+        action_link: string | null
+      }
+    }>(
       `/api/organizations/${organizationId.value}/tenants/${resendClient.value.tenant_id}/resend-invite`,
       {
         method: 'POST',
@@ -129,11 +139,22 @@ async function submitResend() {
         },
       },
     )
-    toast.success(
-      response.data.method === 'invite'
-        ? `Convite enviado para ${response.data.email}`
-        : `E-mail de acesso reenviado para ${response.data.email}`,
-    )
+
+    if (response.data.invite_sent) {
+      toast.success(`Convite reenviado para ${response.data.email}`)
+      resendOpen.value = false
+      await refresh()
+      return
+    }
+
+    if (response.data.action_link) {
+      resendActionLink.value = response.data.action_link
+      toast.message('Conta já ativada — copie o link de acesso para o cliente')
+      await refresh()
+      return
+    }
+
+    toast.success(`Acesso preparado para ${response.data.email}`)
     resendOpen.value = false
     await refresh()
   }
@@ -142,6 +163,18 @@ async function submitResend() {
   }
   finally {
     resendSaving.value = false
+  }
+}
+
+async function copyActionLink() {
+  if (!resendActionLink.value)
+    return
+  try {
+    await navigator.clipboard.writeText(resendActionLink.value)
+    toast.success('Link copiado')
+  }
+  catch {
+    toast.error('Não foi possível copiar. Selecione o texto manualmente.')
   }
 }
 </script>
@@ -296,9 +329,8 @@ async function submitResend() {
         <DialogHeader>
           <DialogTitle>Reenviar convite</DialogTitle>
           <DialogDescription>
-            Envia o e-mail de acesso para
-            <span class="font-medium text-foreground">{{ resendClient?.name }}</span>
-            sem recriar a empresa. Se o usuário já existir, enviamos o link para criar/redefinir a senha.
+            Para convites pendentes, reenviamos o e-mail oficial do Auth.
+            Se a conta já foi ativada, geramos um link seguro para você enviar ao cliente.
           </DialogDescription>
         </DialogHeader>
 
@@ -310,6 +342,7 @@ async function submitResend() {
               type="email"
               placeholder="cliente@empresa.com"
               list="client-invite-emails"
+              :disabled="Boolean(resendActionLink)"
             />
             <datalist
               v-if="resendClient?.client_invite_emails?.length"
@@ -324,15 +357,33 @@ async function submitResend() {
           </div>
           <div class="space-y-2">
             <Label>Nome (opcional)</Label>
-            <Input v-model="resendName" placeholder="Nome do aprovador" />
+            <Input
+              v-model="resendName"
+              placeholder="Nome do aprovador"
+              :disabled="Boolean(resendActionLink)"
+            />
+          </div>
+
+          <div v-if="resendActionLink" class="space-y-2 rounded-lg border bg-muted/30 p-3">
+            <p class="text-xs text-muted-foreground">
+              Link de acesso (válido por tempo limitado). Envie ao cliente por WhatsApp ou e-mail.
+            </p>
+            <Input :model-value="resendActionLink" readonly class="font-mono text-xs" />
+            <Button type="button" size="sm" variant="secondary" class="w-full" @click="copyActionLink">
+              Copiar link
+            </Button>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" :disabled="resendSaving" @click="resendOpen = false">
-            Cancelar
+            {{ resendActionLink ? 'Fechar' : 'Cancelar' }}
           </Button>
-          <Button :disabled="resendSaving" @click="submitResend">
+          <Button
+            v-if="!resendActionLink"
+            :disabled="resendSaving"
+            @click="submitResend"
+          >
             {{ resendSaving ? 'Enviando…' : 'Reenviar e-mail' }}
           </Button>
         </DialogFooter>

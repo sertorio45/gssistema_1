@@ -123,20 +123,24 @@ export interface ResendInviteResult {
   invite_sent: boolean
   method: 'invite' | 'recovery'
   user_id: string
+  /** Present when Auth cannot auto-mail (activated accounts) — share with the client. */
+  action_link?: string
 }
 
 /**
- * Resends access email without recreating the tenant.
- * - New email → inviteUserByEmail (Invite User template)
- * - Existing user → recovery/reset mail so they can set or reset the password
- *   (same mailer; redirect lands on /confirm → /invite or /reset-password)
+ * Resends access without recreating the tenant.
+ *
+ * Pending invite (never signed in): delete + inviteUserByEmail so Supabase sends a
+ * fresh Invite email (avoids broken server-side PKCE from resetPasswordForEmail).
+ *
+ * Already activated: generateLink(recovery) and return action_link for the agency
+ * to share (Auth mailer cannot reliably send recovery started from the server with PKCE).
  */
 export async function resendClientAccessEmail(
   client: SupabaseClient,
   options: {
     email: string
     name?: string
-    /** Prefer /confirm?flow=invite for first-time invited users. */
     redirectTo: string
   },
 ): Promise<ResendInviteResult> {
@@ -169,23 +173,53 @@ export async function resendClientAccessEmail(
     })
   }
 
-  // Recovery email works for invited-but-pending and for returning users.
-  // Redirect keeps flow=invite so /confirm can send first-time users to /invite.
-  const { error: recoveryError } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: options.redirectTo,
+  const neverSignedIn = !existingUser.user.last_sign_in_at
+
+  if (neverSignedIn) {
+    // Drop the pending Auth user and send a brand-new Invite email (working mailer path).
+    const { error: deleteError } = await client.auth.admin.deleteUser(existingId)
+    if (deleteError) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: deleteError.message || 'Não foi possível reiniciar o convite',
+      })
+    }
+
+    const invited = await inviteOrLinkAuthUserByEmail(client, {
+      email,
+      name: options.name,
+      redirectTo: options.redirectTo,
+    })
+
+    return {
+      email: invited.email,
+      invite_sent: invited.invite_sent,
+      method: 'invite',
+      user_id: invited.userId,
+    }
+  }
+
+  const { data: linkData, error: linkError } = await client.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: {
+      redirectTo: options.redirectTo,
+    },
   })
 
-  if (recoveryError) {
+  const actionLink = linkData?.properties?.action_link
+  if (linkError || !actionLink) {
     throw createError({
       statusCode: 400,
-      statusMessage: recoveryError.message || 'Não foi possível reenviar o e-mail de acesso',
+      statusMessage: linkError?.message || 'Não foi possível gerar o link de acesso',
     })
   }
 
   return {
     email,
-    invite_sent: true,
+    invite_sent: false,
     method: 'recovery',
     user_id: existingId,
+    action_link: actionLink,
   }
 }
