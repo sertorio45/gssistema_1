@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import process from 'node:process'
 import { createError, getRequestURL } from 'h3'
 
 export interface InviteOrLinkResult {
@@ -21,6 +22,10 @@ function isAlreadyRegisteredError(error: { message?: string, code?: string, stat
   )
 }
 
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase()
+}
+
 /**
  * Finds auth.users by email through the existing SECURITY DEFINER RPC
  * (avoids scanning listUsers).
@@ -30,7 +35,7 @@ export async function findAuthUserIdByEmail(
   email: string,
 ): Promise<string | null> {
   const { data, error } = await client.rpc('auth_find_user_id_by_email', {
-    p_email: email.trim().toLowerCase(),
+    p_email: normalizeEmail(email),
   })
 
   if (error) {
@@ -58,10 +63,9 @@ export async function inviteOrLinkAuthUserByEmail(
     metadata?: Record<string, unknown>
   },
 ): Promise<InviteOrLinkResult> {
-  const email = options.email.trim().toLowerCase()
-  if (!email) {
+  const email = normalizeEmail(options.email)
+  if (!email)
     throw createError({ statusCode: 422, statusMessage: 'E-mail do convite é obrigatório' })
-  }
 
   const existingId = await findAuthUserIdByEmail(client, email)
   if (existingId) {
@@ -118,108 +122,210 @@ export function resolveAuthRedirectOrigin(event: Parameters<typeof getRequestURL
   )
 }
 
-export interface ResendInviteResult {
+export interface AuthAccessState {
+  userId: string
   email: string
-  invite_sent: boolean
-  method: 'invite' | 'recovery'
-  user_id: string
-  /** Present when Auth cannot auto-mail (activated accounts) — share with the client. */
-  action_link?: string
+  /** Never signed in — invite still pending. */
+  pending: boolean
+  isPlatformStaff: boolean
+  lastSignInAt: string | null
+}
+
+/** Reads the Auth state used to decide invite vs recovery, and to guard deletions. */
+export async function readAuthAccessState(
+  client: SupabaseClient,
+  userId: string,
+): Promise<AuthAccessState | null> {
+  const { data, error } = await client.auth.admin.getUserById(userId)
+  if (error || !data.user)
+    return null
+
+  const user = data.user
+  const globalRole = String((user.app_metadata as any)?.role || '')
+
+  return {
+    userId: user.id,
+    email: normalizeEmail(user.email || ''),
+    pending: !user.last_sign_in_at,
+    isPlatformStaff: globalRole === 'admin' || globalRole === 'funcionario',
+    lastSignInAt: (user as any).last_sign_in_at ?? null,
+  }
 }
 
 /**
- * Resends access without recreating the tenant.
+ * A pending auth user may only be recycled when it belongs to this tenant alone
+ * and has no organization membership. Prevents deleting shared/staff accounts.
+ */
+export async function canRecyclePendingUser(
+  client: SupabaseClient,
+  input: { userId: string, tenantId: string },
+): Promise<boolean> {
+  const [{ data: tenantRoles }, { data: memberships }] = await Promise.all([
+    client.from('user_tenant_role').select('tenant_id').eq('user_id', input.userId),
+    client.from('organization_memberships').select('id').eq('user_id', input.userId).limit(1),
+  ])
+
+  if (memberships && memberships.length)
+    return false
+
+  const tenantIds = new Set((tenantRoles || []).map((row: any) => String(row.tenant_id)))
+  tenantIds.delete(input.tenantId)
+  return tenantIds.size === 0
+}
+
+export interface ResendAccessResult {
+  email: string
+  user_id: string
+  /** Auth mailer actually dispatched an email. */
+  email_sent: boolean
+  method: 'invite' | 'recovery'
+  /** Manual fallback link the operator can share. */
+  action_link: string | null
+  link_error: string | null
+}
+
+async function generateShareableLink(
+  client: SupabaseClient,
+  input: { type: 'recovery' | 'magiclink', email: string, redirectTo: string },
+): Promise<{ link: string | null, error: string | null }> {
+  const { data, error } = await client.auth.admin.generateLink({
+    type: input.type,
+    email: input.email,
+    options: { redirectTo: input.redirectTo },
+  })
+
+  const link = (data as any)?.properties?.action_link ?? null
+  if (error || !link)
+    return { link: null, error: error?.message || 'Link não gerado' }
+
+  return { link, error: null }
+}
+
+/**
+ * Resends access for a client workspace without recreating the tenant.
  *
- * Pending invite (never signed in): delete + inviteUserByEmail so Supabase sends a
- * fresh Invite email (avoids broken server-side PKCE from resetPasswordForEmail).
- *
- * Already activated: generateLink(recovery) and return action_link for the agency
- * to share (Auth mailer cannot reliably send recovery started from the server with PKCE).
+ * Always tries to (1) dispatch an email through the Auth mailer and
+ * (2) return a shareable link so the operator can deliver it manually.
  */
 export async function resendClientAccessEmail(
   client: SupabaseClient,
   options: {
     email: string
     name?: string
+    tenantId: string
     redirectTo: string
   },
-): Promise<ResendInviteResult> {
-  const email = options.email.trim().toLowerCase()
-  if (!email) {
+): Promise<ResendAccessResult> {
+  const email = normalizeEmail(options.email)
+  if (!email)
     throw createError({ statusCode: 422, statusMessage: 'E-mail é obrigatório' })
-  }
 
   const existingId = await findAuthUserIdByEmail(client, email)
 
+  // Brand new address: plain invite (mailer works) + link fallback.
   if (!existingId) {
     const invited = await inviteOrLinkAuthUserByEmail(client, {
       email,
       name: options.name,
       redirectTo: options.redirectTo,
     })
-    return {
-      email: invited.email,
-      invite_sent: invited.invite_sent,
-      method: 'invite',
-      user_id: invited.userId,
-    }
-  }
-
-  const { data: existingUser, error: userError } = await client.auth.admin.getUserById(existingId)
-  if (userError || !existingUser.user) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: userError?.message || 'Usuário não encontrado no Auth',
-    })
-  }
-
-  const neverSignedIn = !existingUser.user.last_sign_in_at
-
-  if (neverSignedIn) {
-    // Drop the pending Auth user and send a brand-new Invite email (working mailer path).
-    const { error: deleteError } = await client.auth.admin.deleteUser(existingId)
-    if (deleteError) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: deleteError.message || 'Não foi possível reiniciar o convite',
-      })
-    }
-
-    const invited = await inviteOrLinkAuthUserByEmail(client, {
+    const fallback = await generateShareableLink(client, {
+      type: 'recovery',
       email,
-      name: options.name,
       redirectTo: options.redirectTo,
     })
 
     return {
       email: invited.email,
-      invite_sent: invited.invite_sent,
-      method: 'invite',
       user_id: invited.userId,
+      email_sent: invited.invite_sent,
+      method: 'invite',
+      action_link: fallback.link,
+      link_error: fallback.error,
     }
   }
 
-  const { data: linkData, error: linkError } = await client.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: {
-      redirectTo: options.redirectTo,
-    },
+  const state = await readAuthAccessState(client, existingId)
+  if (!state) {
+    throw createError({ statusCode: 400, statusMessage: 'Usuário não encontrado no Auth' })
+  }
+
+  if (state.isPlatformStaff) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'Este e-mail pertence a um usuário da plataforma. Use outro endereço para o cliente.',
+    })
+  }
+
+  if (state.pending) {
+    const recyclable = await canRecyclePendingUser(client, {
+      userId: existingId,
+      tenantId: options.tenantId,
+    })
+
+    if (recyclable) {
+      const { error: deleteError } = await client.auth.admin.deleteUser(existingId)
+      if (deleteError) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: deleteError.message || 'Não foi possível reiniciar o convite',
+        })
+      }
+
+      const invited = await inviteOrLinkAuthUserByEmail(client, {
+        email,
+        name: options.name,
+        redirectTo: options.redirectTo,
+      })
+      const fallback = await generateShareableLink(client, {
+        type: 'recovery',
+        email,
+        redirectTo: options.redirectTo,
+      })
+
+      return {
+        email: invited.email,
+        user_id: invited.userId,
+        email_sent: invited.invite_sent,
+        method: 'invite',
+        action_link: fallback.link,
+        link_error: fallback.error,
+      }
+    }
+  }
+
+  // Activated (or shared) account: recovery mail + shareable link.
+  const { error: recoveryError } = await client.auth.resetPasswordForEmail(email, {
+    redirectTo: options.redirectTo,
   })
 
-  const actionLink = linkData?.properties?.action_link
-  if (linkError || !actionLink) {
+  let fallback = await generateShareableLink(client, {
+    type: 'recovery',
+    email,
+    redirectTo: options.redirectTo,
+  })
+
+  if (!fallback.link) {
+    fallback = await generateShareableLink(client, {
+      type: 'magiclink',
+      email,
+      redirectTo: options.redirectTo,
+    })
+  }
+
+  if (recoveryError && !fallback.link) {
     throw createError({
       statusCode: 400,
-      statusMessage: linkError?.message || 'Não foi possível gerar o link de acesso',
+      statusMessage: recoveryError.message || 'Não foi possível reenviar o acesso',
     })
   }
 
   return {
     email,
-    invite_sent: false,
-    method: 'recovery',
     user_id: existingId,
-    action_link: actionLink,
+    email_sent: !recoveryError,
+    method: 'recovery',
+    action_link: fallback.link,
+    link_error: fallback.error,
   }
 }

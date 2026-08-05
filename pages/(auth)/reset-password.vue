@@ -15,6 +15,23 @@ const successMessage = ref('')
 
 const { updatePassword, loading, error } = useAuth()
 const router = useRouter()
+const route = useRoute()
+
+/**
+ * Older recovery e-mails point straight here. The Supabase browser client runs
+ * in PKCE mode and rejects implicit `#access_token` callbacks, so hand those
+ * over to /confirm, which knows how to consume every callback shape.
+ */
+onMounted(() => {
+  const hash = window.location.hash || ''
+  const needsCallback = hash.includes('access_token')
+    || hash.includes('error')
+    || Boolean(route.query.token_hash)
+    || Boolean(route.query.code)
+
+  if (needsCallback)
+    window.location.replace(`/confirm?flow=recovery${window.location.search.replace(/^\?/, '&')}${hash}`)
+})
 
 watchEffect(() => {
   if (error.value) {

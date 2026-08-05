@@ -39,7 +39,6 @@ export function useAuth() {
         const role = await resolveRoleFromSession(client, tenantId)
         if (role) {
           userRole.value = role
-          return
         }
       }
     }
@@ -174,8 +173,10 @@ export function useAuth() {
     error.value = null
 
     try {
+      // /confirm normalizes every callback shape (hash, token_hash, PKCE code)
+      // before handing the user over to /reset-password.
       const redirectTo = import.meta.client
-        ? `${window.location.origin}/reset-password`
+        ? `${window.location.origin}/confirm?flow=recovery`
         : undefined
 
       const { error: resetError } = await client.auth.resetPasswordForEmail(email, {

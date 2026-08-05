@@ -24,6 +24,12 @@ const successMessage = ref('')
 const checking = ref(true)
 const hasSession = ref(false)
 
+const isStrongEnough = computed(() =>
+  password.value.length >= 8
+  && /[a-z]/i.test(password.value)
+  && /\d/.test(password.value),
+)
+
 onMounted(async () => {
   const { data } = await client.auth.getSession()
   hasSession.value = Boolean(data.session?.user || user.value)
@@ -55,8 +61,8 @@ async function onSubmit(event: Event) {
     return
   }
 
-  if (password.value.length < 6) {
-    errorMessage.value = 'A senha deve ter pelo menos 6 caracteres'
+  if (!isStrongEnough.value) {
+    errorMessage.value = 'Use ao menos 8 caracteres, com letras e números'
     return
   }
 
@@ -75,7 +81,7 @@ async function onSubmit(event: Event) {
 
 <template>
   <Auth reverse>
-    <div class="mx-auto grid max-w-sm gap-6">
+    <div class="grid mx-auto max-w-sm gap-6">
       <div class="grid gap-2 text-center">
         <h1 class="text-2xl font-semibold tracking-tight">
           Criar sua senha
@@ -84,7 +90,7 @@ async function onSubmit(event: Event) {
           Seu convite foi confirmado. Defina uma senha para acessar o Blimber.
         </p>
         <p v-if="user?.email" class="text-xs text-muted-foreground">
-          Conta: <span class="font-medium text-foreground">{{ user.email }}</span>
+          Conta: <span class="text-foreground font-medium">{{ user.email }}</span>
         </p>
       </div>
 
@@ -93,11 +99,11 @@ async function onSubmit(event: Event) {
       </div>
 
       <form v-else class="grid gap-6" @submit="onSubmit">
-        <div v-if="errorMessage" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div v-if="errorMessage" class="border border-red-200 rounded bg-red-50 p-3 text-sm text-red-600">
           {{ errorMessage }}
         </div>
 
-        <div v-if="successMessage" class="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        <div v-if="successMessage" class="border border-green-200 rounded bg-green-50 p-3 text-sm text-green-700">
           {{ successMessage }}
         </div>
 
@@ -111,6 +117,9 @@ async function onSubmit(event: Event) {
               :disabled="loading"
               autocomplete="new-password"
             />
+            <p class="text-xs" :class="isStrongEnough ? 'text-emerald-600' : 'text-muted-foreground'">
+              Mínimo de 8 caracteres, com letras e números.
+            </p>
           </div>
 
           <div class="grid gap-2">
