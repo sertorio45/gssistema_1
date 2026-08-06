@@ -14,6 +14,7 @@ definePageMeta({
   requiredCapability: 'agency.clients.manage',
   allowedOrganizationTypes: ['agency'],
   title: 'Onboarding de cliente',
+  alias: ['/agency/clients/onboarding'],
 })
 
 const STEP_LABELS: Record<string, string> = {
@@ -282,7 +283,7 @@ async function complete() {
     else {
       toast.success('Cliente provisionado com sucesso')
     }
-    await navigateTo('/organization/clients')
+    await navigateTo('/agency/clients')
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || 'Falha ao concluir o onboarding')
@@ -322,7 +323,7 @@ function goToStep(index: number) {
           variant="ghost"
           size="sm"
           class="-ml-2 h-8 px-2 text-muted-foreground"
-          @click="navigateTo('/organization/clients')"
+          @click="navigateTo('/agency/clients')"
         >
           <Icon name="lucide:arrow-left" class="mr-1 h-4 w-4" />
           Clientes

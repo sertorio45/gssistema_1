@@ -301,7 +301,7 @@ async function shareStories() {
   try {
     const response = await social.shareToStories(postId.value, { publishNow: true })
     toast.success('Stories enfileirado a partir desta publicação')
-    await navigateTo(`/marketing/posts/${response.data.storyPostId}`)
+    await navigateTo(`/marketing/content/${response.data.storyPostId}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível criar os Stories')
@@ -335,7 +335,7 @@ async function addComment() {
 }
 
 function onDeleted() {
-  navigateTo('/marketing/posts')
+  navigateTo('/marketing/content')
 }
 </script>
 
@@ -343,7 +343,7 @@ function onDeleted() {
   <div class="mx-auto max-w-5xl space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/posts')">
+        <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/content')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
           {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para produção' }}
         </Button>

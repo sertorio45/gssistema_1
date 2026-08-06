@@ -105,7 +105,7 @@ async function createBriefingLink() {
                 Produção {{ post.production_status }} · Editorial {{ post.editorial_status }}
               </p>
             </div>
-            <Button size="sm" variant="outline" @click="navigateTo(`/marketing/posts/${post.id}`)">
+            <Button size="sm" variant="outline" @click="navigateTo(`/marketing/content/${post.id}`)">
               Abrir
             </Button>
           </div>

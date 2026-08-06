@@ -46,6 +46,7 @@ definePageMeta({
   requiredCapability: 'agency.clients.read',
   allowedOrganizationTypes: ['agency'],
   title: 'Clientes',
+  alias: ['/agency/clients'],
 })
 
 const { organization, can, switchContext } = useWorkspace()
@@ -289,7 +290,7 @@ async function copyActionLink() {
           <Loader2 v-if="pending" class="mr-2 size-4 animate-spin" />
           Atualizar
         </Button>
-        <Button v-if="canManage" size="sm" @click="navigateTo('/organization/clients/onboarding')">
+        <Button v-if="canManage" size="sm" @click="navigateTo('/agency/clients/onboarding')">
           Novo cliente
         </Button>
       </div>
@@ -513,7 +514,7 @@ async function copyActionLink() {
         <p class="max-w-sm text-xs text-muted-foreground">
           Ajuste a busca ou os filtros. Se ainda não há clientes, inicie um novo onboarding.
         </p>
-        <Button v-if="canManage" size="sm" class="mt-2" @click="navigateTo('/organization/clients/onboarding')">
+        <Button v-if="canManage" size="sm" class="mt-2" @click="navigateTo('/agency/clients/onboarding')">
           Novo cliente
         </Button>
       </CardContent>

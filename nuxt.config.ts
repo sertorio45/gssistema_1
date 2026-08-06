@@ -55,10 +55,13 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
-    '/marketing/production': { redirect: { to: '/marketing/posts', statusCode: 301 } },
-    '/marketing/production/new': { redirect: { to: '/marketing/posts/new', statusCode: 301 } },
-    '/marketing/production/tasks': { redirect: { to: '/marketing/posts/tasks', statusCode: 301 } },
-    '/marketing/production/**': { redirect: { to: '/marketing/posts/**', statusCode: 301 } },
+    // Marketing MVP canonical routes — keep old bookmarks working.
+    '/marketing/posts': { redirect: { to: '/marketing/content', statusCode: 301 } },
+    '/marketing/posts/new': { redirect: { to: '/marketing/content/new', statusCode: 301 } },
+    '/marketing/posts/tasks': { redirect: { to: '/marketing/production/tasks', statusCode: 301 } },
+    '/marketing/posts/**': { redirect: { to: '/marketing/content/**', statusCode: 301 } },
+    '/marketing/library': { redirect: { to: '/marketing/media', statusCode: 301 } },
+    // Agency MVP aliases stay as page aliases; keep SSR headers for both trees.
     // Authenticated app: keep SSR (project rule) but never share/cache across users.
     '/crm/**': {
       headers: { 'Cache-Control': 'private, no-store' },
@@ -69,6 +72,8 @@ export default defineNuxtConfig({
     '/organization/**': {
       headers: { 'Cache-Control': 'private, no-store' },
     },
+    '/agency': { ssr: true, headers: { 'Cache-Control': 'private, no-store' } },
+    '/agency/**': { ssr: true, headers: { 'Cache-Control': 'private, no-store' } },
     '/admin/**': {
       headers: { 'Cache-Control': 'private, no-store' },
     },

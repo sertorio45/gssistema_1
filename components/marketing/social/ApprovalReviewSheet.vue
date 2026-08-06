@@ -383,7 +383,7 @@ function openEditor() {
   if (!detail.value?.post_id)
     return
   openProxy.value = false
-  navigateTo(`/marketing/posts/${detail.value.post_id}`)
+  navigateTo(`/marketing/content/${detail.value.post_id}`)
 }
 
 function waitingLabel(ms: number | null) {

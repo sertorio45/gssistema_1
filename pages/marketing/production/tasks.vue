@@ -79,7 +79,7 @@ const queues = [
           Trabalho interno por função{{ tenant?.name ? ` · ${tenant.name}` : '' }}.
         </p>
       </div>
-      <Button variant="outline" @click="navigateTo('/marketing/posts')">
+      <Button variant="outline" @click="navigateTo('/marketing/production')">
         <Icon name="lucide:kanban" class="mr-2 h-4 w-4" />
         Voltar ao Kanban
       </Button>
@@ -132,7 +132,7 @@ const queues = [
             <Button
               variant="outline"
               size="sm"
-              @click="navigateTo(`/marketing/posts/${task.postId}`)"
+              @click="navigateTo(`/marketing/content/${task.postId}`)"
             >
               Abrir
             </Button>

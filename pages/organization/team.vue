@@ -11,6 +11,7 @@ definePageMeta({
   middleware: ['auth', 'organization'],
   requiredCapability: 'organization.team.manage',
   title: 'Equipe da organização',
+  alias: ['/agency/team'],
 })
 
 const { organization, organizationType, tenants } = useWorkspace()

@@ -29,7 +29,7 @@ async function save(input: SocialPostInput) {
   try {
     const post = await social.createPost(input)
     toast.success('Rascunho criado')
-    await navigateTo(`/marketing/posts/${(post as any).id}`)
+    await navigateTo(`/marketing/content/${(post as any).id}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível salvar')
@@ -44,7 +44,7 @@ async function save(input: SocialPostInput) {
   <MarketingPageSkeleton v-if="!formReady" variant="detail" />
   <div v-else class="mx-auto max-w-5xl space-y-6">
     <div>
-      <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/posts')">
+      <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/content')">
         <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
         {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para produção' }}
       </Button>

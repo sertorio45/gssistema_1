@@ -221,7 +221,7 @@ async function duplicate(postId: string) {
   try {
     const copy = await social.duplicatePost(postId)
     toast.success('Publicação duplicada')
-    navigateTo(`/marketing/posts/${copy.id}`)
+    navigateTo(`/marketing/content/${copy.id}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || 'Falha ao duplicar')
@@ -232,7 +232,7 @@ function quickCreate(day?: Date) {
   const query: Record<string, string> = {}
   if (day)
     query.scheduledAt = day.toISOString()
-  navigateTo({ path: '/marketing/posts/new', query })
+  navigateTo({ path: '/marketing/content/new', query })
 }
 
 const editorialLabels: Record<string, string> = {
@@ -269,7 +269,7 @@ const publicationLabels: Record<string, string> = {
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
           Criação rápida
         </Button>
-        <Button @click="navigateTo('/marketing/posts/new')">
+        <Button @click="navigateTo('/marketing/content/new')">
           <Icon name="lucide:file-plus" class="mr-2 h-4 w-4" />
           Nova publicação
         </Button>
@@ -421,7 +421,7 @@ const publicationLabels: Record<string, string> = {
               >
                 Duplicar
               </Button>
-              <Button size="sm" variant="outline" @click="navigateTo(`/marketing/posts/${post.id}`)">
+              <Button size="sm" variant="outline" @click="navigateTo(`/marketing/content/${post.id}`)">
                 Abrir
               </Button>
             </div>
@@ -476,7 +476,7 @@ const publicationLabels: Record<string, string> = {
                   :title="post.title"
                   @dragstart="onDragStart(post.id, $event)"
                   @dragend="onDragEnd"
-                  @click="navigateTo(`/marketing/posts/${post.id}`)"
+                  @click="navigateTo(`/marketing/content/${post.id}`)"
                 >
                   <div class="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
                     <img

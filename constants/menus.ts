@@ -31,40 +31,108 @@ export const navMenu: NavMenu[] = [
         title: 'Marketing',
         icon: 'i-lucide-megaphone',
         roles: ['admin', 'funcionario', 'cliente', 'atendente'],
+        /**
+         * MVP IA tree (PDF §5). Advanced items (packages, automations, ops-metrics,
+         * logs, notifications) stay reachable by URL but hidden from the main path.
+         * Nested children flatten in the sidebar flat-module menu.
+         */
         children: [
           { title: 'Visão geral', icon: 'i-lucide-layout-dashboard', link: '/marketing', capability: 'marketing.social.read' },
-          { title: 'Produção', clientTitle: 'Publicações', icon: 'i-lucide-panels-top-left', link: '/marketing/posts', capability: 'marketing.social.create' },
-          { title: 'Filas', icon: 'i-lucide-list-todo', link: '/marketing/posts/tasks', capability: 'marketing.social.read', audience: 'agency' },
-          { title: 'Campanhas', icon: 'i-lucide-megaphone', link: '/marketing/campaigns', capability: 'marketing.social.campaigns.read', audience: 'agency' },
-          { title: 'Briefings', icon: 'i-lucide-clipboard-list', link: '/marketing/briefings', capability: 'marketing.social.briefing.create', audience: 'agency' },
-          { title: 'Aprovações', icon: 'i-lucide-badge-check', link: '/marketing/approvals', capability: 'marketing.social.read', audience: 'agency' },
-          { title: 'Calendário', icon: 'i-lucide-calendar-days', link: '/marketing/calendar', capability: 'marketing.social.read' },
-          { title: 'Pacotes', icon: 'i-lucide-package', link: '/marketing/packages', capability: 'marketing.social.packages.read', audience: 'agency' },
-          { title: 'Métricas ops', icon: 'i-lucide-gauge', link: '/marketing/ops-metrics', capability: 'marketing.social.ops_metrics.read', audience: 'agency' },
-          { title: 'Automações', icon: 'i-lucide-zap', link: '/marketing/automations', capability: 'marketing.social.automations.read', audience: 'agency' },
-          { title: 'Biblioteca', icon: 'i-lucide-images', link: '/marketing/library', capability: 'marketing.social.read', audience: 'agency' },
-          { title: 'Guia', icon: 'i-lucide-book-open', link: '/marketing/brand-guide', capability: 'marketing.social.brand_guide.read', audience: 'agency' },
-          { title: 'Notificações', icon: 'i-lucide-bell', link: '/marketing/notifications', capability: 'marketing.social.read', audience: 'agency' },
           {
-            title: 'Relatórios',
+            title: 'Planejamento',
+            icon: 'i-lucide-calendar-range',
+            link: '/marketing/calendar',
+            children: [
+              { title: 'Calendário', icon: 'i-lucide-calendar-days', link: '/marketing/calendar', capability: 'marketing.social.read' },
+              { title: 'Campanhas', icon: 'i-lucide-megaphone', link: '/marketing/campaigns', capability: 'marketing.social.campaigns.read' },
+              { title: 'Briefings', icon: 'i-lucide-clipboard-list', link: '/marketing/briefings', capability: 'marketing.social.briefing.create', audience: 'agency' },
+            ],
+          },
+          {
+            title: 'Conteúdo',
+            icon: 'i-lucide-file-pen-line',
+            link: '/marketing/content',
+            children: [
+              {
+                title: 'Conteúdos',
+                clientTitle: 'Publicações',
+                icon: 'i-lucide-panels-top-left',
+                link: '/marketing/content',
+                capability: 'marketing.social.create',
+              },
+              {
+                title: 'Produção',
+                icon: 'i-lucide-kanban',
+                link: '/marketing/production',
+                capability: 'marketing.social.read',
+                audience: 'agency',
+              },
+              {
+                title: 'Aprovações',
+                icon: 'i-lucide-badge-check',
+                link: '/marketing/approvals',
+                capability: 'marketing.social.read',
+                audience: 'agency',
+              },
+            ],
+          },
+          {
+            title: 'Operação',
+            icon: 'i-lucide-workflow',
+            link: '/marketing/media',
+            children: [
+              { title: 'Biblioteca', icon: 'i-lucide-images', link: '/marketing/media', capability: 'marketing.social.read' },
+              {
+                title: 'Publicações',
+                icon: 'i-lucide-send',
+                link: '/marketing/publishing',
+                capability: 'marketing.social.read',
+                // Agency queue (scheduled / live / errors). Client portal uses
+                // Conteúdos as "Publicações" instead — avoid duplicate labels.
+                audience: 'agency',
+              },
+            ],
+          },
+          {
+            title: 'Resultados',
             icon: 'i-lucide-bar-chart-3',
             link: '/marketing/reports',
-            roles: ['admin', 'funcionario', 'cliente'],
-            capability: 'marketing.social.reports',
+            children: [
+              {
+                title: 'Relatórios',
+                icon: 'i-lucide-bar-chart-3',
+                link: '/marketing/reports',
+                roles: ['admin', 'funcionario', 'cliente'],
+                capability: 'marketing.social.reports',
+              },
+            ],
           },
           {
-            title: 'Integrações',
-            icon: 'i-lucide-plug',
-            link: '/settings/integrations',
-            roles: ['admin', 'funcionario', 'cliente'],
-            capability: 'marketing.social.integrations',
-          },
-          {
-            title: 'Logs',
-            icon: 'i-lucide-scroll-text',
-            link: '/marketing/logs',
-            roles: ['admin'],
-            audience: 'agency',
+            title: 'Configurações',
+            icon: 'i-lucide-settings',
+            link: '/marketing/settings',
+            children: [
+              {
+                title: 'Contas sociais',
+                icon: 'i-lucide-share-2',
+                link: '/settings/integrations',
+                roles: ['admin', 'funcionario', 'cliente'],
+                capability: 'marketing.social.integrations',
+              },
+              {
+                title: 'Marca',
+                icon: 'i-lucide-book-open',
+                link: '/marketing/brand-guide',
+                capability: 'marketing.social.brand_guide.read',
+                audience: 'agency',
+              },
+              {
+                title: 'Equipe',
+                icon: 'i-lucide-users-round',
+                link: '/settings/team',
+                roles: ['admin', 'funcionario', 'cliente'],
+              },
+            ],
           },
         ],
       },
@@ -507,8 +575,8 @@ export const navMenuAdmin: NavMenu[] = [
 ]
 
 /**
- * Agency / organization scope — ops only (no marketing duplicates).
- * Marketing lives in the module menu; open a client via Clientes / seletor.
+ * Agency / organization scope — MVP agency nav (PDF §2) + kept org admin links.
+ * Canonical paths are `/agency/*`; `/organization/*` remains as alias/redirect.
  */
 export const navMenuOrganization: NavMenu[] = [
   {
@@ -521,21 +589,42 @@ export const navMenuOrganization: NavMenu[] = [
           {
             title: 'Visão geral',
             icon: 'i-lucide-layout-dashboard',
-            link: '/organization',
+            link: '/agency',
             capability: 'agency.clients.read',
             organizationTypes: ['agency'],
           },
           {
             title: 'Clientes',
             icon: 'i-lucide-network',
-            link: '/organization/clients',
+            link: '/agency/clients',
+            capability: 'agency.clients.read',
+            organizationTypes: ['agency'],
+          },
+          {
+            title: 'Produção geral',
+            icon: 'i-lucide-kanban',
+            link: '/agency/production',
+            capability: 'agency.clients.read',
+            organizationTypes: ['agency'],
+          },
+          {
+            title: 'Calendário consolidado',
+            icon: 'i-lucide-calendar-days',
+            link: '/agency/calendar',
+            capability: 'agency.clients.read',
+            organizationTypes: ['agency'],
+          },
+          {
+            title: 'Aprovações pendentes',
+            icon: 'i-lucide-badge-check',
+            link: '/agency/approvals',
             capability: 'agency.clients.read',
             organizationTypes: ['agency'],
           },
           {
             title: 'Equipe',
             icon: 'i-lucide-users-round',
-            link: '/organization/team',
+            link: '/agency/team',
             capability: 'organization.team.manage',
           },
           {

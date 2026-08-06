@@ -698,7 +698,7 @@ function submit() {
           v-if="currentStep === 1"
           type="button"
           variant="ghost"
-          @click="navigateTo('/marketing/posts')"
+          @click="navigateTo('/marketing/content')"
         >
           Cancelar
         </Button>

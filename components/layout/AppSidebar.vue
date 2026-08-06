@@ -90,18 +90,49 @@ function matchesOrganizationType(item: NavLink | NavGroup | NavSectionTitle) {
   )
 }
 
-function filterNavChildren(children: NavLink[] = []) {
+function isNavLeafVisible(child: NavLink): boolean {
+  return hasCapability(child)
+    && matchesAudience(child)
+    && matchesOrganizationType(child)
+    && (!child.roles || hasRole(child.roles))
+}
+
+/** Recursively keeps nested MVP groups and filters each leaf by gates. */
+function filterNavChildren(children: NavLink[] = []): NavLink[] {
   return children
-    .filter(child =>
-      hasCapability(child)
-      && matchesAudience(child)
-      && matchesOrganizationType(child)
-      && (!child.roles || hasRole(child.roles)),
-    )
-    .map(child => ({
-      ...child,
-      title: resolveItemTitle(child),
-    }))
+    .map((child) => {
+      if (child.children?.length) {
+        const nested = filterNavChildren(child.children)
+        if (!nested.length)
+          return null
+        return {
+          ...child,
+          title: resolveItemTitle(child),
+          children: nested,
+        }
+      }
+      if (!isNavLeafVisible(child))
+        return null
+      return {
+        ...child,
+        title: resolveItemTitle(child),
+      }
+    })
+    .filter((child): child is NavLink => child != null)
+}
+
+/** Flat sidebar: expand nested menu folders into leaf links (MVP IA tree). */
+function flattenNavLeaves(children: NavLink[] = []): NavLink[] {
+  const leaves: NavLink[] = []
+  for (const child of children) {
+    if (child.children?.length) {
+      leaves.push(...flattenNavLeaves(child.children))
+      continue
+    }
+    if (child.link)
+      leaves.push(child)
+  }
+  return leaves
 }
 
 /**
@@ -151,23 +182,14 @@ function filterMenuByRoleAndModule(menu: NavMenu[]) {
             if ('children' in item) {
               if (item.roles && !hasRole(item.roles))
                 return false
-              return item.children?.some(child =>
-                hasCapability(child)
-                && matchesAudience(child)
-                && (!child.roles || hasRole(child.roles)),
-              ) ?? false
+              return flattenNavLeaves(filterNavChildren(item.children || [])).length > 0
             }
             if ('link' in item)
               return hasCapability(item) && matchesAudience(item) && (!item.roles || hasRole(item.roles))
             return true
           }
-          if ('children' in item) {
-            return item.children?.some(child =>
-              hasCapability(child)
-              && matchesAudience(child)
-              && (!child.roles || hasRole(child.roles)),
-            ) ?? false
-          }
+          if ('children' in item)
+            return flattenNavLeaves(filterNavChildren(item.children || [])).length > 0
           return hasCapability(item)
             && matchesAudience(item)
             && (!('roles' in item) || !item.roles || hasRole(item.roles))
@@ -195,15 +217,8 @@ const flatModuleLinks = computed((): NavLink[] => {
     return []
   for (const section of filteredMenuComputed.value) {
     const group = section.items.find((i): i is NavGroup => 'children' in i && i.title === moduleTitle)
-    if (group?.children?.length) {
-      return group.children.map((child: NavLink) => ({
-        title: resolveItemTitle(child),
-        icon: child.icon,
-        link: child.link || (child.children?.[0]?.link) || '#',
-        roles: child.roles,
-        new: child.new,
-      }))
-    }
+    if (group?.children?.length)
+      return flattenNavLeaves(group.children)
   }
   return []
 })

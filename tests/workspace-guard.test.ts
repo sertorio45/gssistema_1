@@ -38,7 +38,7 @@ describe('guarda de rotas por tipo de organização', () => {
   })
 
   it('a carteira de clientes fica invisível para cliente direto', () => {
-    const clients = findOrgChild('Agência', '/organization/clients')
+    const clients = findOrgChild('Agência', '/agency/clients')
 
     const requirements = {
       capability: clients.capability ?? null,
@@ -67,8 +67,9 @@ describe('guarda de rotas por tipo de organização', () => {
     )!
     const links = agency.children.map(child => child.link)
     expect(links.some(link => link.startsWith('/marketing'))).toBe(false)
-    expect(links).toContain('/organization/clients')
-    expect(links).toContain('/organization')
+    expect(links).toContain('/agency/clients')
+    expect(links).toContain('/agency')
+    expect(links).toContain('/agency/production')
   })
 
   it('capability ausente bloqueia a rota', () => {
@@ -105,17 +106,32 @@ describe('guarda de rotas por tipo de organização', () => {
     expect(canEnterWorkspaceRoute(agencyScope, { audience: 'agency' })).toBe(true)
     expect(canEnterWorkspaceRoute(clientScope, { audience: 'both' })).toBe(true)
   })
-  it('menu marketing marca ops de agência', () => {
+
+  it('menu marketing MVP esconde pacotes e marca ops de agência', () => {
     const marketing = navMenu
       .flatMap(section => section.items)
       .find((item): item is NavGroup => 'children' in item && item.title === 'Marketing')!
 
-    const packages = marketing.children.find(child => child.link === '/marketing/packages')!
-    const calendar = marketing.children.find(child => child.link === '/marketing/calendar')!
-    const approvals = marketing.children.find(child => child.link === '/marketing/approvals')!
+    function flattenLeaves(children: NavLink[]): NavLink[] {
+      return children.flatMap(child =>
+        child.children?.length ? flattenLeaves(child.children) : [child],
+      )
+    }
 
-    expect(packages.audience).toBe('agency')
+    const leaves = flattenLeaves(marketing.children)
+    const packages = leaves.find(child => child.link === '/marketing/packages')
+    const calendar = leaves.find(child => child.link === '/marketing/calendar')!
+    const approvals = leaves.find(child => child.link === '/marketing/approvals')!
+    const production = leaves.find(child => child.link === '/marketing/production')!
+    const content = leaves.find(child => child.link === '/marketing/content')!
+    const publishing = leaves.find(child => child.link === '/marketing/publishing')!
+
+    expect(packages).toBeUndefined()
     expect(approvals.audience).toBe('agency')
+    expect(production.audience).toBe('agency')
+    expect(publishing.audience).toBe('agency')
+    expect(content.clientTitle).toBe('Publicações')
+    expect(publishing.title).toBe('Publicações')
     expect(calendar.title).toBe('Calendário')
   })
 })
@@ -136,14 +152,23 @@ describe('matchesNavAudience', () => {
     expect([...CLIENT_PORTAL_MARKETING_LINKS]).toEqual([
       '/marketing',
       '/marketing/calendar',
-      '/marketing/posts',
+      '/marketing/campaigns',
+      '/marketing/content',
+      '/marketing/media',
       '/marketing/reports',
+      '/marketing/settings',
       '/settings/integrations',
+      '/marketing/posts',
+      '/marketing/library',
     ])
     expect(isClientPortalMarketingLink('/marketing/packages')).toBe(false)
+    expect(isClientPortalMarketingLink('/marketing/content')).toBe(true)
+    expect(isClientPortalMarketingLink('/marketing/content/new')).toBe(true)
     expect(isClientPortalMarketingLink('/marketing/posts')).toBe(true)
     expect(isClientPortalMarketingLink('/marketing/posts/new')).toBe(true)
-    expect(isClientPortalMarketingLink('/marketing/posts/tasks')).toBe(false)
+    expect(isClientPortalMarketingLink('/marketing/production')).toBe(false)
+    expect(isClientPortalMarketingLink('/marketing/production/tasks')).toBe(false)
+    expect(isClientPortalMarketingLink('/marketing/publishing')).toBe(false)
     expect(isClientPortalMarketingLink('/marketing/calendar')).toBe(true)
     expect(isClientPortalMarketingLink('/settings/integrations')).toBe(true)
     expect(isClientPortalMarketingLink('/settings/integrations/meta-capi')).toBe(true)
