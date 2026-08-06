@@ -21,7 +21,7 @@ const { setOpenMobile } = useSidebar()
     <SidebarMenuItem>
       <SidebarMenuButton as-child :tooltip="item.title" :size="size">
         <NuxtLink :to="item.link" @click="setOpenMobile(false)">
-          <Icon :name="item.icon || ''" mode="svg" />
+          <ModuleIcon :name="item.icon || ''" class="size-4 shrink-0" :alt="item.title" />
           <span>{{ item.title }}</span>
           <span
             v-if="item.new"

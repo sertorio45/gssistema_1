@@ -6,9 +6,12 @@ import type {
   SocialAccount,
   SocialPostInput,
   SocialPostVariantInput,
+  SocialProductionPriority,
 } from '~/types/marketing-social'
+import type { MarketingPostScheduleInput } from '~/types/marketing-schedules'
 
-import SocialDateTimePicker from '~/components/marketing/social/SocialDateTimePicker.vue'
+import ScheduleSlotsEditor from '~/components/marketing/content/ScheduleSlotsEditor.vue'
+import ProductionMetaFields from '~/components/marketing/content/ProductionMetaFields.vue'
 
 const props = defineProps<{
   initialValue?: SocialPostInput
@@ -19,20 +22,53 @@ const emit = defineEmits<{
   save: [value: SocialPostInput]
 }>()
 
+type TeamMemberOption = {
+  userId: string
+  name: string
+  email: string
+}
+
+type CampaignOption = {
+  id: string
+  name: string
+  status: string
+}
+
 const social = useMarketingSocial()
 const { isClientExperience } = useMarketingAudience()
 const currentStep = ref(1)
 const formError = ref('')
 const title = ref(props.initialValue?.title || '')
 const content = ref(props.initialValue?.content || '')
+const artText = ref(props.initialValue?.artText || '')
+const cta = ref(props.initialValue?.cta || '')
+const hashtagsText = ref((props.initialValue?.hashtags || []).join(' '))
+const campaignId = ref(props.initialValue?.campaignId || 'none')
+const assignedTo = ref(props.initialValue?.assignedTo || 'none')
+const customizeVariants = ref(false)
 const scheduledAt = ref(props.initialValue?.scheduledAt?.slice(0, 16) || '')
+const schedules = ref<MarketingPostScheduleInput[]>(
+  props.initialValue?.schedules?.length
+    ? props.initialValue.schedules.map(slot => ({
+        ...slot,
+        scheduledAt: slot.scheduledAt.slice(0, 16),
+      }))
+    : (props.initialValue?.scheduledAt
+        ? [{ scheduledAt: props.initialValue.scheduledAt.slice(0, 16), platform: null, format: null }]
+        : []),
+)
+const copyOwnerId = ref(props.initialValue?.copyOwnerId || 'none')
+const designOwnerId = ref(props.initialValue?.designOwnerId || 'none')
+const publishOwnerId = ref(props.initialValue?.publishOwnerId || 'none')
+const productionPriority = ref<SocialProductionPriority>(props.initialValue?.productionPriority || 'normal')
+const productionDueAt = ref(props.initialValue?.productionDueAt?.slice(0, 16) || '')
 const approvalPolicy = ref<ApprovalPolicy>(props.initialValue?.approvalPolicy || 'any')
 const minimumApprovals = ref(props.initialValue?.minimumApprovals || 1)
 const variants = ref<SocialPostVariantInput[]>(props.initialValue?.variants || [])
 const publicationFormat = ref<SocialPostVariantInput['format']>(props.initialValue?.variants?.[0]?.format || 'static')
 const publicationLink = ref(props.initialValue?.variants?.[0]?.linkUrl || '')
 const publicationAssetIds = ref<string[]>(props.initialValue?.variants?.[0]?.assetIds || [])
-const referenceAssetIds = ref<string[]>(props.initialValue?.referenceAssetIds || [])
+const referenceAssetIds = ref(props.initialValue?.referenceAssetIds || [])
 const uploading = ref(false)
 const steps = [
   { step: 1, title: 'Conteúdo', description: 'Título e legenda' },
@@ -55,7 +91,43 @@ const { data: assets, pending: assetsPending, refresh: refreshAssets } = useMark
   watch: [social.tenantId],
   enabled: () => Boolean(social.tenantId.value),
 })
+const { data: campaigns, pending: campaignsPending } = useMarketingFetch({
+  key: () => `marketing-social-form-campaigns-${social.tenantId.value}`,
+  handler: async () => {
+    const response = await $fetch<{ data: CampaignOption[] }>('/api/marketing/social/campaigns', {
+      query: { tenant_id: social.tenantId.value || undefined, status: 'all' },
+    }).catch(() => ({ data: [] as CampaignOption[] }))
+    return response.data
+  },
+  default: () => [] as CampaignOption[],
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
+const { data: members, pending: membersPending } = useMarketingFetch({
+  key: () => `marketing-social-form-members-${social.tenantId.value}`,
+  handler: async () => {
+    const response = await $fetch<{ data: TeamMemberOption[] }>(
+      '/api/marketing/social/approvers',
+      { query: { tenant_id: social.tenantId.value || undefined } },
+    ).catch(() => ({ data: [] as TeamMemberOption[] }))
+    return response.data
+  },
+  default: () => [] as TeamMemberOption[],
+  watch: [social.tenantId, isClientExperience],
+  enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
+})
 const formDataPending = computed(() => accountsPending.value || assetsPending.value)
+
+const selectedCampaignName = computed(() => {
+  if (campaignId.value === 'none')
+    return 'Sem campanha'
+  return campaigns.value?.find(item => item.id === campaignId.value)?.name || 'Campanha'
+})
+const selectedAssigneeName = computed(() => {
+  if (assignedTo.value === 'none')
+    return 'Sem responsável'
+  return members.value?.find(item => item.userId === assignedTo.value)?.name || 'Responsável'
+})
 
 const publicationAssets = computed(() =>
   (assets.value || []).filter(asset => asset.purpose === 'publication' || (asset as any).purpose === 'publication'),
@@ -100,10 +172,34 @@ watch(
       return
     title.value = value.title
     content.value = value.content || ''
+    artText.value = value.artText || ''
+    cta.value = value.cta || ''
+    hashtagsText.value = (value.hashtags || []).join(' ')
+    campaignId.value = value.campaignId || 'none'
+    assignedTo.value = value.assignedTo || 'none'
     scheduledAt.value = value.scheduledAt?.slice(0, 16) || ''
+    schedules.value = value.schedules?.length
+      ? value.schedules.map(slot => ({
+          ...slot,
+          scheduledAt: slot.scheduledAt.slice(0, 16),
+        }))
+      : (value.scheduledAt
+          ? [{ scheduledAt: value.scheduledAt.slice(0, 16), platform: null, format: null }]
+          : [])
+    copyOwnerId.value = value.copyOwnerId || 'none'
+    designOwnerId.value = value.designOwnerId || 'none'
+    publishOwnerId.value = value.publishOwnerId || 'none'
+    productionPriority.value = value.productionPriority || 'normal'
+    productionDueAt.value = value.productionDueAt?.slice(0, 16) || ''
     approvalPolicy.value = value.approvalPolicy || 'any'
     minimumApprovals.value = value.minimumApprovals || 1
     variants.value = value.variants ? structuredClone(value.variants) : []
+    customizeVariants.value = Boolean(value.variants?.some((variant) => {
+      const captionDiffers = Boolean(variant.caption && variant.caption !== value.content)
+      const hashtagsOverride = Boolean(variant.hashtags?.length)
+      const config = variant.platformConfig || {}
+      return captionDiffers || hashtagsOverride || Boolean(config.cta) || Boolean(config.artText)
+    }))
     publicationFormat.value = value.variants?.[0]?.format || 'static'
     publicationLink.value = value.variants?.[0]?.linkUrl || ''
     publicationAssetIds.value = value.variants?.[0]?.assetIds ? [...value.variants[0].assetIds] : []
@@ -111,6 +207,17 @@ watch(
   },
   { deep: true },
 )
+
+function parseHashtags(raw: string): string[] {
+  return [...new Set(
+    raw
+      .split(/[\s,]+/)
+      .map(token => token.trim())
+      .filter(Boolean)
+      .map(token => (token.startsWith('#') ? token : `#${token}`))
+      .slice(0, 30),
+  )]
+}
 
 function accountSelected(accountId: string) {
   return variants.value.some(variant => variant.accountId === accountId)
@@ -124,19 +231,62 @@ function platformLabel(platform: SocialAccount['platform']) {
   }[platform]
 }
 
+function ensureVariantDefaults(variant: SocialPostVariantInput): SocialPostVariantInput {
+  return {
+    ...variant,
+    caption: variant.caption || content.value,
+    hashtags: variant.hashtags?.length ? variant.hashtags : parseHashtags(hashtagsText.value),
+    platformConfig: {
+      ...(variant.platformConfig || {}),
+      artText: String(variant.platformConfig?.artText || artText.value || ''),
+      cta: String(variant.platformConfig?.cta || cta.value || ''),
+    },
+  }
+}
+
 function toggleAccount(account: SocialAccount) {
   if (accountSelected(account.id)) {
     variants.value = variants.value.filter(variant => variant.accountId !== account.id)
     return
   }
-  variants.value.push({
+  variants.value.push(ensureVariantDefaults({
     accountId: account.id,
     platform: account.platform,
     format: publicationFormat.value,
-    caption: '',
-    hashtags: [],
+    caption: content.value,
+    hashtags: parseHashtags(hashtagsText.value),
+    platformConfig: {
+      artText: artText.value || '',
+      cta: cta.value || '',
+    },
     assetIds: [],
+  }))
+}
+
+function updateVariantField(
+  accountId: string,
+  field: 'caption' | 'hashtagsText' | 'artText' | 'cta',
+  value: string,
+) {
+  variants.value = variants.value.map((variant) => {
+    if (variant.accountId !== accountId)
+      return variant
+    if (field === 'caption')
+      return { ...variant, caption: value }
+    if (field === 'hashtagsText')
+      return { ...variant, hashtags: parseHashtags(value) }
+    return {
+      ...variant,
+      platformConfig: {
+        ...(variant.platformConfig || {}),
+        [field]: value,
+      },
+    }
   })
+}
+
+function variantHashtagsText(variant: SocialPostVariantInput) {
+  return (variant.hashtags || []).join(' ')
 }
 
 function toggleAllAccounts() {
@@ -146,14 +296,18 @@ function toggleAllAccounts() {
   }
 
   const existing = new Map(variants.value.map(variant => [variant.accountId, variant]))
-  variants.value = (accounts.value || []).map(account => existing.get(account.id) || {
+  variants.value = (accounts.value || []).map(account => existing.get(account.id) || ensureVariantDefaults({
     accountId: account.id,
     platform: account.platform,
     format: publicationFormat.value,
-    caption: '',
-    hashtags: [],
+    caption: content.value,
+    hashtags: parseHashtags(hashtagsText.value),
+    platformConfig: {
+      artText: artText.value || '',
+      cta: cta.value || '',
+    },
     assetIds: [],
-  })
+  }))
 }
 
 function toggleAsset(assetId: string) {
@@ -245,6 +399,31 @@ function previousStep() {
 }
 
 function formatScheduledDate() {
+  if (schedules.value.length) {
+    return schedules.value
+      .map((slot) => {
+        if (!slot.scheduledAt)
+          return null
+        const label = new Intl.DateTimeFormat('pt-BR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(slot.scheduledAt))
+        const parts = [label]
+        if (slot.format === 'story')
+          parts.push('Stories')
+        else if (slot.format === 'video')
+          parts.push('Reels/Vídeo')
+        else if (slot.format === 'carousel')
+          parts.push('Carrossel')
+        else if (slot.format === 'static')
+          parts.push('Feed')
+        if (slot.platform)
+          parts.push(slot.platform)
+        return parts.join(' · ')
+      })
+      .filter(Boolean)
+      .join(' · ') || 'Sem data sugerida'
+  }
   if (!scheduledAt.value)
     return 'Sem data sugerida'
   return new Intl.DateTimeFormat('pt-BR', {
@@ -257,20 +436,64 @@ function submit() {
   if (hasFormatConflict.value)
     return
 
+  const sharedHashtags = parseHashtags(hashtagsText.value)
+  const sharedArtText = artText.value.trim()
+  const sharedCta = cta.value.trim()
+  const normalizedSchedules = schedules.value
+    .filter(slot => slot.scheduledAt)
+    .map(slot => ({
+      id: slot.id,
+      variantId: slot.variantId || null,
+      platform: slot.platform || null,
+      format: slot.format || null,
+      scheduledAt: new Date(slot.scheduledAt).toISOString(),
+      notes: slot.notes || null,
+    }))
+  const primaryScheduledAt = normalizedSchedules[0]?.scheduledAt
+    || (scheduledAt.value ? new Date(scheduledAt.value).toISOString() : null)
+
   emit('save', {
     title: title.value.trim(),
     content: content.value,
-    scheduledAt: scheduledAt.value ? new Date(scheduledAt.value).toISOString() : null,
+    artText: sharedArtText || null,
+    cta: sharedCta || null,
+    hashtags: sharedHashtags,
+    campaignId: campaignId.value === 'none' ? null : campaignId.value,
+    assignedTo: assignedTo.value === 'none' ? null : assignedTo.value,
+    scheduledAt: primaryScheduledAt,
+    schedules: normalizedSchedules,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo',
     approvalPolicy: approvalPolicy.value,
     minimumApprovals: minimumApprovals.value,
-    variants: variants.value.map(variant => ({
-      ...variant,
-      format: publicationFormat.value,
-      caption: content.value,
-      linkUrl: publicationLink.value || undefined,
-      assetIds: [...publicationAssetIds.value],
-    })),
+    copyOwnerId: copyOwnerId.value === 'none' ? null : copyOwnerId.value,
+    designOwnerId: designOwnerId.value === 'none' ? null : designOwnerId.value,
+    publishOwnerId: publishOwnerId.value === 'none' ? null : publishOwnerId.value,
+    productionPriority: productionPriority.value,
+    productionDueAt: productionDueAt.value ? new Date(productionDueAt.value).toISOString() : null,
+    variants: variants.value.map((variant) => {
+      const prepared = ensureVariantDefaults(variant)
+      return {
+        ...prepared,
+        format: publicationFormat.value,
+        caption: customizeVariants.value
+          ? (prepared.caption || content.value)
+          : content.value,
+        linkUrl: publicationLink.value || undefined,
+        hashtags: customizeVariants.value
+          ? (prepared.hashtags?.length ? prepared.hashtags : sharedHashtags)
+          : sharedHashtags,
+        platformConfig: {
+          ...(prepared.platformConfig || {}),
+          artText: customizeVariants.value
+            ? String(prepared.platformConfig?.artText || sharedArtText || '')
+            : sharedArtText,
+          cta: customizeVariants.value
+            ? String(prepared.platformConfig?.cta || sharedCta || '')
+            : sharedCta,
+        },
+        assetIds: [...publicationAssetIds.value],
+      }
+    }),
     referenceAssetIds: referenceAssetIds.value,
   })
 }
@@ -311,7 +534,7 @@ function submit() {
       <CardHeader>
         <CardTitle>Conteúdo da publicação</CardTitle>
         <CardDescription>
-          A mesma legenda será aplicada a todas as redes selecionadas.
+          Defina o texto-base. Depois você pode adaptar por rede, se precisar.
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-5">
@@ -339,6 +562,77 @@ function submit() {
           <p class="text-right text-xs text-muted-foreground">
             {{ content.length }}/10.000
           </p>
+        </div>
+        <div class="space-y-2">
+          <Label for="social-art-text">Texto da arte</Label>
+          <Textarea
+            id="social-art-text"
+            v-model="artText"
+            class="min-h-24"
+            maxlength="2000"
+            placeholder="Texto que aparece na peça visual (opcional)"
+          />
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <Label for="social-hashtags">Hashtags</Label>
+            <Input
+              id="social-hashtags"
+              v-model="hashtagsText"
+              placeholder="#marca #campanha"
+            />
+          </div>
+          <div class="space-y-2">
+            <Label for="social-cta">CTA</Label>
+            <Input
+              id="social-cta"
+              v-model="cta"
+              maxlength="240"
+              placeholder="Ex.: Saiba mais, Compre agora"
+            />
+          </div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <Label>Campanha</Label>
+            <Select v-model="campaignId">
+              <SelectTrigger>
+                <SelectValue placeholder="Vincular campanha" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  Sem campanha
+                </SelectItem>
+                <SelectItem
+                  v-for="campaign in campaigns"
+                  :key="campaign.id"
+                  :value="campaign.id"
+                >
+                  {{ campaign.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div v-if="!isClientExperience" class="space-y-2">
+            <Label>Responsável</Label>
+            <Select v-model="assignedTo">
+              <SelectTrigger>
+                <SelectValue placeholder="Atribuir responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  Sem responsável
+                </SelectItem>
+                <SelectItem
+                  v-for="member in members"
+                  :key="member.userId"
+                  :value="member.userId"
+                >
+                  {{ member.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -457,6 +751,77 @@ function submit() {
             Use uma imagem ou vídeo vertical (9:16). No Facebook, a Meta exige um upload novo da peça — não reutiliza o mesmo arquivo já publicado no feed.
           </AlertDescription>
         </Alert>
+
+        <Separator />
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm font-medium">
+              Variantes por plataforma
+            </p>
+            <p class="text-xs text-muted-foreground">
+              Opcional: adapte legenda, hashtags, CTA e texto da arte por rede.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            :variant="customizeVariants ? 'secondary' : 'outline'"
+            :disabled="!variants.length"
+            @click="customizeVariants = !customizeVariants"
+          >
+            <Icon :name="customizeVariants ? 'lucide:check' : 'lucide:sliders-horizontal'" class="mr-2 h-4 w-4" />
+            {{ customizeVariants ? 'Adaptando por rede' : 'Adaptar por rede' }}
+          </Button>
+        </div>
+
+        <div v-if="customizeVariants && variants.length" class="space-y-4">
+          <Card
+            v-for="variant in variants"
+            :key="variant.accountId"
+            class="border-dashed"
+          >
+            <CardHeader class="pb-3">
+              <CardTitle class="text-base">
+                {{ platformLabel(variant.platform) }}
+              </CardTitle>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <div class="space-y-2">
+                <Label>Legenda</Label>
+                <Textarea
+                  :model-value="variant.caption"
+                  class="min-h-24"
+                  @update:model-value="updateVariantField(variant.accountId, 'caption', String($event))"
+                />
+              </div>
+              <div class="grid gap-3 md:grid-cols-2">
+                <div class="space-y-2">
+                  <Label>Hashtags</Label>
+                  <Input
+                    :model-value="variantHashtagsText(variant)"
+                    placeholder="#marca"
+                    @update:model-value="updateVariantField(variant.accountId, 'hashtagsText', String($event))"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label>CTA</Label>
+                  <Input
+                    :model-value="String(variant.platformConfig?.cta || '')"
+                    @update:model-value="updateVariantField(variant.accountId, 'cta', String($event))"
+                  />
+                </div>
+              </div>
+              <div class="space-y-2">
+                <Label>Texto da arte</Label>
+                <Input
+                  :model-value="String(variant.platformConfig?.artText || '')"
+                  @update:model-value="updateVariantField(variant.accountId, 'artText', String($event))"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </CardContent>
     </Card>
 
@@ -563,16 +928,22 @@ function submit() {
 
           <Separator />
 
-          <div class="grid gap-5 md:grid-cols-2">
-            <SocialDateTimePicker
-              v-model="scheduledAt"
-              label="Data sugerida"
-              :description="isClientExperience
-                ? 'Horário preferido para agendar a publicação.'
-                : 'A publicação só será agendada após a aprovação.'"
-              placeholder="Sem data sugerida"
-            />
-            <div v-if="!isClientExperience" class="space-y-2">
+          <ScheduleSlotsEditor
+            v-model="schedules"
+            :variants="variants"
+          />
+
+          <ProductionMetaFields
+            v-if="!isClientExperience"
+            v-model:copy-owner-id="copyOwnerId"
+            v-model:design-owner-id="designOwnerId"
+            v-model:publish-owner-id="publishOwnerId"
+            v-model:production-priority="productionPriority"
+            v-model:production-due-at="productionDueAt"
+            :members="members || []"
+          />
+
+          <div v-if="!isClientExperience" class="space-y-2">
               <Label>Política de aprovação</Label>
               <Select v-model="approvalPolicy">
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -600,7 +971,6 @@ function submit() {
             <div v-else class="space-y-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
               Sem fluxo de aprovação — você agenda ou publica direto.
             </div>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -623,6 +993,26 @@ function submit() {
           <p class="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
             {{ content || 'Sem legenda' }}
           </p>
+          <p v-if="artText" class="mt-2 text-sm">
+            <span class="text-muted-foreground">Arte:</span> {{ artText }}
+          </p>
+          <p v-if="hashtagsText" class="mt-1 text-sm text-muted-foreground">
+            {{ hashtagsText }}
+          </p>
+          <p v-if="cta" class="mt-1 text-sm">
+            <span class="text-muted-foreground">CTA:</span> {{ cta }}
+          </p>
+          <div class="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">
+              {{ selectedCampaignName }}
+            </Badge>
+            <Badge v-if="!isClientExperience" variant="outline">
+              {{ selectedAssigneeName }}
+            </Badge>
+            <Badge v-if="customizeVariants" variant="secondary">
+              Variantes por rede
+            </Badge>
+          </div>
         </div>
 
         <div class="grid gap-4 md:grid-cols-3">
@@ -698,7 +1088,7 @@ function submit() {
           v-if="currentStep === 1"
           type="button"
           variant="ghost"
-          @click="navigateTo('/marketing/posts')"
+          @click="navigateTo('/marketing/content')"
         >
           Cancelar
         </Button>

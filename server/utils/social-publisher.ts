@@ -202,7 +202,7 @@ export async function processPublicationJob(
           type: 'published',
           title: 'Publicação concluída',
           body: `${post.title} foi publicada em todos os canais.`,
-          actionUrl: `/marketing/posts/${claimed.post_id}`,
+          actionUrl: `/marketing/content/${claimed.post_id}`,
         })
       }
     }
@@ -279,7 +279,7 @@ export async function processPublicationJob(
           type: 'publish_failed',
           title: 'Falha na publicação',
           body: `${post.title}: ${details.message}`,
-          actionUrl: `/marketing/posts/${claimed.post_id}`,
+          actionUrl: `/marketing/content/${claimed.post_id}`,
         })
       }
 

@@ -226,7 +226,11 @@ export interface SocialPostVariantInput {
   caption: string
   linkUrl?: string
   hashtags?: string[]
-  platformConfig?: Record<string, unknown>
+  /** CTA / art text and other per-platform extras live in platformConfig for MVP. */
+  platformConfig?: Record<string, unknown> & {
+    artText?: string
+    cta?: string
+  }
   assetIds?: string[]
 }
 
@@ -266,11 +270,35 @@ export interface SocialPostVariant {
 export interface SocialPostInput {
   title: string
   content?: string
+  /** Shared art/overlay text applied to variants when they omit platformConfig.artText. */
+  artText?: string | null
+  /** Shared CTA applied to variants when they omit platformConfig.cta. */
+  cta?: string | null
+  /** Shared hashtags when variants do not override. */
+  hashtags?: string[]
+  campaignId?: string | null
   assignedTo?: string | null
+  /** @deprecated Prefer schedules[]; kept as primary/legacy single date. */
   scheduledAt?: string | null
+  /** Multi-date planning slots (reels/stories/feed can share one content). */
+  schedules?: Array<{
+    id?: string
+    variantId?: string | null
+    platform?: SocialPlatform | null
+    format?: SocialPostFormat | null
+    scheduledAt: string
+    timezone?: string
+    notes?: string | null
+  }>
   timezone?: string
   approvalPolicy?: ApprovalPolicy
   minimumApprovals?: number
+  /** Operational owners — agency/equipe only. */
+  copyOwnerId?: string | null
+  designOwnerId?: string | null
+  publishOwnerId?: string | null
+  productionPriority?: SocialProductionPriority
+  productionDueAt?: string | null
   variants?: SocialPostVariantInput[]
   referenceAssetIds?: string[]
 }

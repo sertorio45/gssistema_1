@@ -102,7 +102,7 @@ async function createLink() {
             v-if="item.post_id"
             size="sm"
             variant="outline"
-            @click="navigateTo(`/marketing/posts/${item.post_id}`)"
+            @click="navigateTo(`/marketing/content/${item.post_id}`)"
           >
             Abrir conteúdo
           </Button>

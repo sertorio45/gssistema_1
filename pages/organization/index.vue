@@ -11,6 +11,7 @@ definePageMeta({
   requiredCapability: 'agency.clients.read',
   allowedOrganizationTypes: ['agency'],
   title: 'Visão geral da agência',
+  alias: ['/agency'],
 })
 
 const { organization } = useWorkspace()
@@ -34,16 +35,16 @@ const metrics = computed(() => metricsRaw.value)
 const cards = computed(() => {
   const m = metrics.value
   return [
-    { label: 'Clientes ativos', value: m?.active_clients ?? 0, icon: 'lucide:building-2', link: '/organization/clients' },
-    { label: 'Integração social pendente', value: m?.pending_social_integrations ?? 0, icon: 'lucide:plug-zap', link: '/organization/clients' },
-    { label: 'Revisão interna', value: m?.pending_internal_reviews ?? 0, icon: 'lucide:clipboard-check', link: '/marketing/approvals' },
-    { label: 'Aguardando cliente', value: m?.pending_client_reviews ?? 0, icon: 'lucide:user-round-check', link: '/marketing/approvals' },
-    { label: 'Alterações solicitadas', value: m?.changes_requested ?? 0, icon: 'lucide:message-square-warning', link: '/marketing/posts?status=changes_requested' },
-    { label: 'Aprovados sem agenda', value: m?.approved_awaiting_schedule ?? 0, icon: 'lucide:calendar-plus', link: '/marketing/posts?status=approved' },
-    { label: 'Publicações com erro', value: m?.publication_errors ?? 0, icon: 'lucide:circle-alert', link: '/marketing/posts?status=failed' },
-    { label: 'Aprovações atrasadas', value: m?.overdue_approvals ?? 0, icon: 'lucide:alarm-clock', link: '/marketing/approvals' },
-    { label: 'Minhas tarefas', value: m?.assigned_tasks ?? 0, icon: 'lucide:list-todo', link: '/marketing/posts' },
-    { label: 'Próximos posts agendados', value: m?.upcoming_scheduled_posts ?? 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar' },
+    { label: 'Clientes ativos', value: m?.active_clients ?? 0, icon: 'lucide:building-2', link: '/agency/clients' },
+    { label: 'Integração social pendente', value: m?.pending_social_integrations ?? 0, icon: 'lucide:plug-zap', link: '/agency/clients' },
+    { label: 'Revisão interna', value: m?.pending_internal_reviews ?? 0, icon: 'lucide:clipboard-check', link: '/agency/approvals' },
+    { label: 'Aguardando cliente', value: m?.pending_client_reviews ?? 0, icon: 'lucide:user-round-check', link: '/agency/approvals' },
+    { label: 'Alterações solicitadas', value: m?.changes_requested ?? 0, icon: 'lucide:message-square-warning', link: '/marketing/content?mvp_status=producao' },
+    { label: 'Aprovados sem agenda', value: m?.approved_awaiting_schedule ?? 0, icon: 'lucide:calendar-plus', link: '/marketing/publishing?mvp_status=agendado' },
+    { label: 'Publicações com erro', value: m?.publication_errors ?? 0, icon: 'lucide:circle-alert', link: '/marketing/publishing?mvp_status=erro' },
+    { label: 'Aprovações atrasadas', value: m?.overdue_approvals ?? 0, icon: 'lucide:alarm-clock', link: '/agency/approvals' },
+    { label: 'Minhas tarefas', value: m?.assigned_tasks ?? 0, icon: 'lucide:list-todo', link: '/agency/production' },
+    { label: 'Próximos posts agendados', value: m?.upcoming_scheduled_posts ?? 0, icon: 'lucide:calendar-clock', link: '/agency/calendar' },
   ]
 })
 </script>
@@ -63,7 +64,7 @@ const cards = computed(() => {
         <Button variant="outline" size="sm" :disabled="pending" @click="refresh()">
           Atualizar
         </Button>
-        <Button size="sm" @click="navigateTo('/organization/clients/onboarding')">
+        <Button size="sm" @click="navigateTo('/agency/clients/onboarding')">
           Novo cliente
         </Button>
       </div>

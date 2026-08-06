@@ -31,7 +31,7 @@ export function findCalendarGaps(
     .filter(key => !occupied.has(key))
 }
 
-/** Conflict = 2+ posts scheduled on the same calendar day. */
+/** Conflict = 2+ different contents scheduled on the same calendar day. */
 export function findCalendarConflicts(posts: CalendarPostLike[]): Array<{
   day: string
   postIds: string[]
@@ -43,7 +43,9 @@ export function findCalendarConflicts(posts: CalendarPostLike[]): Array<{
       continue
     const key = dayKey(String(post.scheduled_at))
     const list = byDay.get(key) || []
-    list.push(post)
+    // Deduplicate by content id so multi-slots of the same post do not flag as conflict.
+    if (!list.some(item => item.id === post.id))
+      list.push(post)
     byDay.set(key, list)
   }
 

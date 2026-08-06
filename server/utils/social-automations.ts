@@ -272,7 +272,7 @@ async function handleCopyCompleted(client: any, input: AutomationEmitInput) {
       type: 'automation.copy_done',
       title: 'Copy pronta para design',
       body: `${post.title}: a copy foi concluída.`,
-      actionUrl: `/marketing/posts/${postId}`,
+      actionUrl: `/marketing/content/${postId}`,
       metadata: { postId, trigger: input.trigger },
       idempotencyKey: `auto:copy_done:${postId}:${input.entityId || 'x'}`,
     })
@@ -328,7 +328,7 @@ async function handleDesignCompleted(client: any, input: AutomationEmitInput) {
       type: 'automation.ready_for_review',
       title: 'Pronto para revisão interna',
       body: `${post.title}: copy e design concluídos.`,
-      actionUrl: `/marketing/posts/${postId}`,
+      actionUrl: `/marketing/content/${postId}`,
       idempotencyKey: `auto:ready_review:${postId}`,
     })
   }
@@ -555,7 +555,7 @@ async function handleContentStalled(client: any, input: AutomationEmitInput) {
       type: 'automation.content_stalled',
       title: 'Conteúdo parado',
       body: `${post.title}: prazo de produção vencido (${post.production_status}).`,
-      actionUrl: `/marketing/posts/${postId}`,
+      actionUrl: `/marketing/content/${postId}`,
       idempotencyKey: `auto:stalled:${postId}:${userId}:${new Date().toISOString().slice(0, 10)}`,
     })
   }

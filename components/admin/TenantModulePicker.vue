@@ -117,7 +117,7 @@ function toggleSlug(slug: string) {
                 ? 'border-primary/40 bg-background text-primary'
                 : 'border-border/60 bg-muted/40 text-muted-foreground'"
             >
-              <Icon :name="MODULE_META[moduleSlug]?.icon || 'lucide:box'" class="h-4 w-4" />
+              <ModuleIcon :name="MODULE_META[moduleSlug]?.icon || 'lucide:box'" class="h-4 w-4" />
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2">

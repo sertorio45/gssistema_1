@@ -1,22 +1,23 @@
 <script setup lang="ts">
-import type { SocialPostInput, SocialPostStatus } from '~/types/marketing-social'
+import type { SocialPostInput } from '~/types/marketing-social'
 
 import { toast } from 'vue-sonner'
+import ContentEditor from '~/components/marketing/content/ContentEditor.vue'
 import DeletePostDialog from '~/components/marketing/social/DeletePostDialog.vue'
 import SocialDateTimePicker from '~/components/marketing/social/SocialDateTimePicker.vue'
-import SocialPostForm from '~/components/marketing/social/SocialPostForm.vue'
+import MarketingMvpStatusBadge from '~/components/marketing/MarketingMvpStatusBadge.vue'
 import { ROLE_LABELS } from '~/constants/roles'
 import { useWorkspace } from '~/composables/useWorkspace'
 import {
   SOCIAL_EDITORIAL_STATUS_LABELS,
   SOCIAL_PRODUCTION_STATUS_LABELS,
   SOCIAL_PUBLICATION_STATUS_LABELS,
-  SOCIAL_STATUS_LABELS,
 } from '~/types/marketing-social'
+import { resolveMarketingMvpStatus } from '~/utils/marketing-mvp-status'
 
 definePageMeta({
   middleware: ['auth'],
-  title: 'Publicação',
+  title: 'Conteúdo',
 })
 
 const route = useRoute()
@@ -70,14 +71,43 @@ const formValue = computed<SocialPostInput | undefined>(() => {
   const value = post.value as any
   if (!value)
     return undefined
+  const metadata = (value.metadata && typeof value.metadata === 'object') ? value.metadata : {}
+  const firstVariant = (value.social_post_variants || [])[0]
+  const sharedHashtags = Array.isArray(metadata.hashtags) && metadata.hashtags.length
+    ? metadata.hashtags
+    : (firstVariant?.hashtags || [])
+  const sharedArtText = metadata.art_text
+    || firstVariant?.platform_config?.artText
+    || ''
+  const sharedCta = metadata.cta
+    || firstVariant?.platform_config?.cta
+    || ''
   return {
     title: value.title,
     content: value.content,
+    artText: sharedArtText || null,
+    cta: sharedCta || null,
+    hashtags: sharedHashtags,
+    campaignId: value.campaign_id || null,
     assignedTo: value.assigned_to,
     scheduledAt: value.scheduled_at,
+    schedules: (value.marketing_post_schedules || []).map((slot: any) => ({
+      id: slot.id,
+      variantId: slot.variant_id || null,
+      platform: slot.platform || null,
+      format: slot.format || null,
+      scheduledAt: slot.scheduled_at,
+      timezone: slot.timezone,
+      notes: slot.notes || null,
+    })),
     timezone: value.timezone,
     approvalPolicy: value.approval_policy,
     minimumApprovals: value.minimum_approvals,
+    copyOwnerId: value.copy_owner_id || null,
+    designOwnerId: value.design_owner_id || null,
+    publishOwnerId: value.publish_owner_id || null,
+    productionPriority: value.production_priority || 'normal',
+    productionDueAt: value.production_due_at || null,
     variants: (value.social_post_variants || []).map((variant: any) => ({
       id: variant.id,
       accountId: variant.account_id,
@@ -96,6 +126,7 @@ const formValue = computed<SocialPostInput | undefined>(() => {
   }
 })
 
+const mvpStatus = computed(() => resolveMarketingMvpStatus((post.value as any) || {}))
 const postStatus = computed(() => String((post.value as any)?.status || ''))
 const editorialStatus = computed(() => String((post.value as any)?.editorial_status || ''))
 const publicationStatus = computed(() => String((post.value as any)?.publication_status || ''))
@@ -117,9 +148,17 @@ const canBypass = computed(() =>
 )
 const selectableWorkflows = computed(() => (workflows.value || []) as any[])
 const scheduledAtValue = computed(() => {
+  const schedules = ((post.value as any)?.marketing_post_schedules || []) as Array<{ scheduled_at: string }>
+  if (schedules.length) {
+    const sorted = [...schedules].sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
+    return String(sorted[0]?.scheduled_at || '')
+  }
   const value = (post.value as any)?.scheduled_at
   return value ? String(value) : null
 })
+const scheduleCount = computed(() =>
+  (((post.value as any)?.marketing_post_schedules || []) as unknown[]).length,
+)
 const hasApprovedVersion = computed(() => Boolean((post.value as any)?.approved_version_id))
 const isSchedulePast = computed(() => {
   if (!scheduledAtValue.value)
@@ -301,7 +340,7 @@ async function shareStories() {
   try {
     const response = await social.shareToStories(postId.value, { publishNow: true })
     toast.success('Stories enfileirado a partir desta publicação')
-    await navigateTo(`/marketing/posts/${response.data.storyPostId}`)
+    await navigateTo(`/marketing/content/${response.data.storyPostId}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível criar os Stories')
@@ -335,7 +374,7 @@ async function addComment() {
 }
 
 function onDeleted() {
-  navigateTo('/marketing/posts')
+  navigateTo('/marketing/content')
 }
 </script>
 
@@ -343,14 +382,15 @@ function onDeleted() {
   <div class="mx-auto max-w-5xl space-y-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/posts')">
+        <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/content')">
           <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-          {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para produção' }}
+          {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para conteúdos' }}
         </Button>
         <div class="flex flex-wrap items-center gap-3">
           <h1 class="text-2xl font-bold tracking-tight">
-            {{ (post as any)?.title || 'Publicação' }}
+            {{ (post as any)?.title || 'Conteúdo' }}
           </h1>
+          <MarketingMvpStatusBadge v-if="post" :status="mvpStatus" />
           <Badge v-if="post && productionLabel && !isClientExperience" variant="outline">
             Produção · {{ productionLabel }}
           </Badge>
@@ -360,15 +400,12 @@ function onDeleted() {
           <Badge v-if="post && publicationLabel && publicationStatus !== 'not_scheduled'" variant="outline">
             {{ publicationLabel }}
           </Badge>
-          <Badge v-else-if="post && (isClientExperience || !editorialLabel)" variant="secondary">
-            {{ SOCIAL_STATUS_LABELS[(post as any).status as SocialPostStatus] || (post as any).status }}
-          </Badge>
           <Badge v-if="isBypassed && !isClientExperience" variant="destructive">
             Aprovação ignorada
           </Badge>
         </div>
         <p v-if="scheduledAtValue" class="mt-2 text-sm text-muted-foreground">
-          Agendada para {{ formatDate(scheduledAtValue) }}
+          {{ scheduleCount > 1 ? `${scheduleCount} agendamentos · próximo ` : 'Agendada para ' }}{{ formatDate(scheduledAtValue) }}
           <span v-if="isSchedulePast && postStatus === 'approved'"> · horário já passou</span>
         </p>
       </div>
@@ -380,7 +417,7 @@ function onDeleted() {
           @click="deleteDialogOpen = true"
         >
           <Icon name="lucide:trash-2" class="mr-2 h-4 w-4" />
-          Excluir publicação
+          Excluir conteúdo
         </Button>
         <Button v-if="canSubmit" variant="outline" @click="approvalDialogOpen = true">
           <Icon name="lucide:send" class="mr-2 h-4 w-4" />
@@ -449,7 +486,7 @@ function onDeleted() {
     </Alert>
 
     <MarketingPageSkeleton v-if="showSkeleton" variant="detail" />
-    <SocialPostForm
+    <ContentEditor
       v-else-if="formValue"
       :initial-value="formValue"
       :saving="saving"

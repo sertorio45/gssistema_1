@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+  emptyMarketingMvpOverviewCounts,
+  MARKETING_MVP_STATUS_LABELS,
+  type MarketingMvpOverviewCounts,
+  type MarketingMvpStatus,
+} from '~/types/marketing-mvp'
+import MarketingMvpStatusBadge from '~/components/marketing/MarketingMvpStatusBadge.vue'
 import { useMarketingAudience } from '~/composables/marketing/useMarketingAudience'
 
 definePageMeta({
@@ -15,32 +22,45 @@ const canReports = computed(() => workspace.can('marketing.social.reports'))
 const canIntegrations = computed(() => workspace.can('marketing.social.integrations'))
 
 const { data: overview, showSkeleton } = useMarketingFetch({
-  key: () => `marketing-social-overview-${tenantId.value}`,
+  key: () => `marketing-mvp-overview-${tenantId.value}`,
   handler: async () => {
-    const response = await $fetch<{ data: Record<string, number> }>('/api/marketing/social/overview', {
+    const response = await $fetch<{ data: MarketingMvpOverviewCounts }>('/api/marketing/mvp/overview', {
       query: { tenant_id: tenantId.value || undefined },
     })
     return response.data
   },
-  default: () => ({} as Record<string, number>),
+  default: () => emptyMarketingMvpOverviewCounts(),
   watch: [tenantId],
   enabled: () => Boolean(tenantId.value),
 })
-const cards = computed(() => {
-  if (isClientExperience.value) {
-    return [
-      { label: 'Agendados', value: overview.value.scheduled || 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar', highlight: false },
-      { label: 'Publicados', value: overview.value.published || 0, icon: 'lucide:circle-check', link: '/marketing/calendar', highlight: false },
-      { label: 'Falhas', value: overview.value.failed || 0, icon: 'lucide:circle-alert', link: '/marketing/calendar', highlight: true },
-    ]
+
+const statusCards = computed(() => {
+  const byStatus = overview.value.contents_by_mvp_status
+  const order: MarketingMvpStatus[] = isClientExperience.value
+    ? ['agendado', 'publicado', 'erro']
+    : ['rascunho', 'producao', 'aprovacao', 'agendado', 'publicado', 'erro']
+
+  const linkFor = (status: MarketingMvpStatus) => {
+    // Client portal: single "Publicações" surface is `/marketing/content`.
+    if (isClientExperience.value)
+      return `/marketing/content?mvp_status=${status}`
+
+    if (status === 'aprovacao')
+      return '/marketing/approvals'
+    if (status === 'producao')
+      return '/marketing/production'
+    if (status === 'agendado' || status === 'publicado' || status === 'erro')
+      return `/marketing/publishing?mvp_status=${status}`
+    return `/marketing/content?mvp_status=${status}`
   }
 
-  return [
-    { label: 'Rascunhos', value: overview.value.draft || 0, icon: 'lucide:file-pen-line', link: '/marketing/posts?status=draft', highlight: false },
-    { label: 'Aguardando aprovação', value: overview.value.pending_approval || 0, icon: 'lucide:circle-dashed', link: '/marketing/approvals', highlight: true },
-    { label: 'Agendados', value: overview.value.scheduled || 0, icon: 'lucide:calendar-clock', link: '/marketing/calendar', highlight: false },
-    { label: 'Publicados', value: overview.value.published || 0, icon: 'lucide:circle-check', link: '/marketing/posts?status=published', highlight: false },
-  ]
+  return order.map(status => ({
+    status,
+    label: MARKETING_MVP_STATUS_LABELS[status],
+    value: byStatus?.[status] || 0,
+    link: linkFor(status),
+    highlight: (status === 'aprovacao' || status === 'erro') && (byStatus?.[status] || 0) > 0,
+  }))
 })
 </script>
 
@@ -50,27 +70,20 @@ const cards = computed(() => {
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold tracking-tight">
-          {{ isClientExperience ? 'Conteúdo' : 'Marketing' }}
+          {{ isClientExperience ? 'Conteúdo' : 'Visão geral' }}
         </h1>
         <p class="mt-1 text-muted-foreground">
           <template v-if="isClientExperience">
             Acompanhe e publique conteúdo nas suas redes.
           </template>
           <template v-else>
-            Produção, aprovação e distribuição de conteúdo em um só fluxo.
+            Planejamento, produção, aprovação e publicação em um único fluxo.
           </template>
         </p>
       </div>
-      <Button v-if="!isClientExperience" @click="navigateTo('/marketing/posts/new')">
+      <Button v-if="canCreate" @click="navigateTo('/marketing/content/new')">
         <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-        Nova publicação
-      </Button>
-      <Button
-        v-else-if="canCreate"
-        @click="navigateTo('/marketing/posts/new')"
-      >
-        <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-        Nova publicação
+        Novo conteúdo
       </Button>
       <Button v-else @click="navigateTo('/marketing/calendar')">
         <Icon name="lucide:calendar-days" class="mr-2 h-4 w-4" />
@@ -78,16 +91,14 @@ const cards = computed(() => {
       </Button>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <NuxtLink v-for="card in cards" :key="card.label" :to="card.link">
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <NuxtLink v-for="card in statusCards" :key="card.status" :to="card.link">
         <Card
           class="h-full transition-colors hover:bg-muted/40"
-          :class="{ 'border-primary/40': card.highlight && card.value > 0 }"
+          :class="{ 'border-primary/40': card.highlight }"
         >
           <CardContent class="flex items-center gap-4 p-6">
-            <div class="h-10 w-10 flex items-center justify-center rounded-lg bg-muted">
-              <Icon :name="card.icon" class="h-5 w-5" />
-            </div>
+            <MarketingMvpStatusBadge :status="card.status" />
             <div>
               <p class="text-sm text-muted-foreground">
                 {{ card.label }}
@@ -101,13 +112,62 @@ const cards = computed(() => {
       </NuxtLink>
     </div>
 
+    <div
+      v-if="!isClientExperience"
+      class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      <Card>
+        <CardContent class="p-6">
+          <p class="text-sm text-muted-foreground">
+            Aprovações pendentes
+          </p>
+          <p class="mt-1 text-2xl font-semibold">
+            {{ overview.approvals_pending }}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent class="p-6">
+          <p class="text-sm text-muted-foreground">
+            Campanhas ativas
+          </p>
+          <p class="mt-1 text-2xl font-semibold">
+            {{ overview.campaigns_active }}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent class="p-6">
+          <p class="text-sm text-muted-foreground">
+            Filas de publicação
+          </p>
+          <p class="mt-1 text-2xl font-semibold">
+            {{ overview.publication_jobs_open }}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent class="p-6">
+          <p class="text-sm text-muted-foreground">
+            Datas agendadas
+          </p>
+          <p class="mt-1 text-2xl font-semibold">
+            {{ overview.schedules_upcoming }}
+          </p>
+          <p class="mt-1 text-[11px] text-muted-foreground">
+            Conta cada data, não o conteúdo
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+
     <div class="grid gap-6 lg:grid-cols-3">
       <Card class="lg:col-span-2">
         <CardHeader>
           <CardTitle>{{ isClientExperience ? 'Acesso rápido' : 'Fluxo editorial' }}</CardTitle>
           <CardDescription>
             {{ isClientExperience
-              ? 'Publicações, calendário, relatórios e integrações da sua empresa.'
+              ? 'Conteúdos, calendário, relatórios e contas sociais.'
               : 'Atalhos para as etapas mais usadas pela equipe.' }}
           </CardDescription>
         </CardHeader>
@@ -117,7 +177,7 @@ const cards = computed(() => {
               v-if="canCreate"
               variant="outline"
               class="h-auto justify-start p-4"
-              @click="navigateTo('/marketing/posts')"
+              @click="navigateTo('/marketing/content')"
             >
               <Icon name="lucide:panels-top-left" class="mr-3 h-5 w-5" />
               <span class="text-left">
@@ -152,7 +212,7 @@ const cards = computed(() => {
             >
               <Icon name="lucide:plug" class="mr-3 h-5 w-5" />
               <span class="text-left">
-                <span class="block font-medium">Integrações</span>
+                <span class="block font-medium">Contas sociais</span>
                 <span class="block text-xs text-muted-foreground">Contas e redes conectadas</span>
               </span>
             </Button>
@@ -175,18 +235,18 @@ const cards = computed(() => {
             <Button
               variant="outline"
               class="h-auto justify-start p-4"
-              @click="navigateTo('/marketing/posts')"
+              @click="navigateTo('/marketing/content')"
             >
-              <Icon name="lucide:layout-list" class="mr-3 h-5 w-5" />
+              <Icon name="lucide:file-pen-line" class="mr-3 h-5 w-5" />
               <span class="text-left">
-                <span class="block font-medium">Produção</span>
-                <span class="block text-xs text-muted-foreground">Crie e acompanhe as peças</span>
+                <span class="block font-medium">Conteúdos</span>
+                <span class="block text-xs text-muted-foreground">Editor central do fluxo</span>
               </span>
             </Button>
             <Button
               variant="outline"
               class="h-auto justify-start p-4"
-              @click="navigateTo('/marketing/library')"
+              @click="navigateTo('/marketing/media')"
             >
               <Icon name="lucide:images" class="mr-3 h-5 w-5" />
               <span class="text-left">
@@ -202,7 +262,7 @@ const cards = computed(() => {
         <CardHeader>
           <CardTitle>Relatórios</CardTitle>
           <CardDescription>
-            Acompanhe mídia paga, tráfego e resultados das campanhas.
+            Indicadores operacionais e desempenho orgânico.
           </CardDescription>
         </CardHeader>
         <CardContent>

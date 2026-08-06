@@ -346,7 +346,7 @@ export async function submitPublicBriefing(client: any, input: {
       type: 'briefing.submitted',
       title: 'Novo briefing recebido',
       body: title,
-      actionUrl: `/marketing/posts/${post.id}`,
+      actionUrl: `/marketing/content/${post.id}`,
       metadata: { briefing_id: briefing.id, post_id: post.id },
     })
   }

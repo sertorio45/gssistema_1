@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import { Icon } from '#components'
-
-import { computed, onMounted, ref } from 'vue'
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Skeleton } from '@/components/ui/skeleton'
-
+/**
+ * Module switcher — Linear/Notion-inspired list with large icons.
+ * Built on shadcn DropdownMenu; icon assets via ModuleIcon (custom SVG or Lucide).
+ */
+import { MODULE_DESCRIPTIONS_PT } from '~/constants/modules'
+import { cn } from '@/lib/utils'
 import { useModule } from '~/composables/useModule'
 import { useTenant } from '~/composables/useTenant'
 
@@ -33,7 +27,17 @@ onMounted(async () => {
 
 const currentModuleDisplay = computed(() => currentModuleMeta.value)
 
+const currentDescription = computed(() =>
+  MODULE_DESCRIPTIONS_PT[currentModuleDisplay.value.slug]
+  || 'Módulo ativo neste workspace',
+)
+
 async function selectModule(slug: string) {
+  if (slug === currentModuleSlug.value) {
+    isOpen.value = false
+    return
+  }
+
   const path = getModulePath(slug)
   if (!path)
     return
@@ -47,63 +51,119 @@ async function selectModule(slug: string) {
     new CustomEvent('module-changed', { detail: { moduleSlug: slug } }),
   )
 }
+
+function moduleDescription(slug: string) {
+  return MODULE_DESCRIPTIONS_PT[slug] || 'Abrir módulo'
+}
 </script>
 
 <template>
   <div class="w-full">
     <DropdownMenu v-model:open="isOpen">
-      <DropdownMenuTrigger
-        class="w-full flex items-center rounded-md px-3 py-2 outline-none space-x-2 hover:bg-muted/50 focus:outline-none focus:ring-0"
-      >
-        <div class="w-full flex items-center justify-between gap-2">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="h-8 w-8 shrink-0 flex items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Icon :name="currentModuleDisplay.icon" class="h-4 w-4" />
-            </div>
-            <span class="text-sm font-medium truncate">
-              {{ currentModuleDisplay.title }}
-            </span>
-            <Icon name="lucide:chevron-down" class="h-4 w-4 shrink-0 text-muted-foreground" />
+      <DropdownMenuTrigger as-child>
+        <button
+          type="button"
+          :class="cn(
+            'group w-full flex items-center gap-3 rounded-xl border bg-background px-3 py-2.5 text-left',
+            'shadow-sm transition-colors',
+            'hover:bg-accent/50 hover:border-border',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'data-[state=open]:bg-accent/60 data-[state=open]:border-primary/30',
+          )"
+          :aria-label="`Módulo atual: ${currentModuleDisplay.title}`"
+        >
+          <div
+            class="h-11 w-11 shrink-0 flex items-center justify-center rounded-xl bg-muted/80 ring-1 ring-border/60"
+          >
+            <ModuleIcon
+              :name="currentModuleDisplay.icon"
+              class="h-7 w-7"
+              :alt="currentModuleDisplay.title"
+            />
           </div>
-        </div>
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <p class="truncate text-sm font-semibold leading-none">
+              {{ currentModuleDisplay.title }}
+            </p>
+            <p class="truncate text-xs text-muted-foreground">
+              {{ currentDescription }}
+            </p>
+          </div>
+          <Icon
+            name="lucide:chevrons-up-down"
+            class="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+          />
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" class="w-[260px]" side="right" :side-offset="8">
-        <div class="px-3 py-2 border-b">
-          <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Selecionar módulo
+
+      <DropdownMenuContent
+        align="start"
+        side="bottom"
+        :side-offset="8"
+        class="w-[min(100vw-2rem,18.5rem)] rounded-xl p-0"
+      >
+        <DropdownMenuLabel class="px-3 py-2.5">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Trocar módulo
+          </span>
+          <p
+            v-if="currentTenant?.name"
+            class="mt-0.5 truncate text-xs font-normal text-muted-foreground"
+          >
+            {{ currentTenant.name }}
           </p>
-        </div>
-        <div class="py-1.5 max-h-[280px] overflow-y-auto">
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator class="m-0" />
+
+        <div class="p-1.5 max-h-[min(22rem,70vh)] overflow-y-auto">
           <template v-if="isLoadingModules">
-            <div class="px-3 py-2 space-y-2">
-              <div class="flex items-center gap-2">
-                <Skeleton class="h-8 w-8 rounded-md" />
-                <Skeleton class="h-4 w-24" />
-              </div>
-              <div class="flex items-center gap-2">
-                <Skeleton class="h-8 w-8 rounded-md" />
-                <Skeleton class="h-4 w-20" />
+            <div class="space-y-1 p-1">
+              <div
+                v-for="n in 3"
+                :key="n"
+                class="flex items-center gap-3 rounded-lg px-2 py-2"
+              >
+                <Skeleton class="h-11 w-11 rounded-xl" />
+                <div class="flex-1 space-y-2">
+                  <Skeleton class="h-3.5 w-24" />
+                  <Skeleton class="h-3 w-36" />
+                </div>
               </div>
             </div>
           </template>
-          <template v-else>
+
+          <template v-else-if="availableModules.length">
             <DropdownMenuItem
               v-for="module in availableModules"
               :key="module.id"
-              class="flex cursor-pointer items-center gap-3 px-3 py-2.5"
-              :class="{ 'bg-muted/60': currentModuleSlug === module.slug }"
+              class="cursor-pointer gap-3 rounded-lg px-2 py-2.5"
+              :class="cn(
+                currentModuleSlug === module.slug
+                  && 'bg-primary/10 text-foreground focus:bg-primary/15',
+              )"
               @select.prevent="selectModule(module.slug)"
             >
               <div
-                class="h-8 w-8 shrink-0 flex items-center justify-center rounded-md bg-primary/10 text-primary"
+                :class="cn(
+                  'h-11 w-11 shrink-0 flex items-center justify-center rounded-xl ring-1',
+                  currentModuleSlug === module.slug
+                    ? 'bg-primary/10 ring-primary/25'
+                    : 'bg-muted/70 ring-border/50',
+                )"
               >
-                <Icon :name="module.icon" class="h-4 w-4" />
+                <ModuleIcon
+                  :name="module.icon"
+                  class="h-7 w-7"
+                  :alt="module.title"
+                />
               </div>
-              <div class="flex flex-col items-start min-w-0 flex-1">
-                <span class="text-sm font-medium">{{ module.title }}</span>
-                <span v-if="currentTenant?.name" class="text-xs text-muted-foreground truncate w-full">
-                  {{ currentTenant.name }}
-                </span>
+              <div class="min-w-0 flex-1 space-y-0.5">
+                <p class="truncate text-sm font-medium leading-none">
+                  {{ module.title }}
+                </p>
+                <p class="truncate text-xs text-muted-foreground">
+                  {{ moduleDescription(module.slug) }}
+                </p>
               </div>
               <Icon
                 v-if="currentModuleSlug === module.slug"
@@ -111,13 +171,16 @@ async function selectModule(slug: string) {
                 class="h-4 w-4 shrink-0 text-primary"
               />
             </DropdownMenuItem>
-            <div v-if="availableModules.length === 0" class="px-3 py-4 text-center text-sm text-muted-foreground">
-              Nenhum módulo disponível
-            </div>
           </template>
+
+          <div
+            v-else
+            class="px-3 py-8 text-center text-sm text-muted-foreground"
+          >
+            Nenhum módulo disponível
+          </div>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
   </div>
 </template>
-

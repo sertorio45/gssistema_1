@@ -218,7 +218,7 @@ export async function buildAgencyAttention(context: WorkspaceContext): Promise<H
     title: 'Publicações com erro',
     description: 'Falhas nos últimos 7 dias',
     count: publicationErrors,
-    to: '/marketing/posts?status=failed',
+    to: '/marketing/publishing?mvp_status=erro',
     icon: 'lucide:circle-alert',
     tone: 'danger',
   })
@@ -227,7 +227,7 @@ export async function buildAgencyAttention(context: WorkspaceContext): Promise<H
     title: 'Alterações solicitadas',
     description: 'Posts que precisam de ajustes',
     count: changesRequested,
-    to: '/marketing/posts?status=changes_requested',
+    to: '/marketing/content?mvp_status=producao',
     icon: 'lucide:message-square-warning',
     tone: 'warning',
   })
@@ -236,7 +236,7 @@ export async function buildAgencyAttention(context: WorkspaceContext): Promise<H
     title: 'Minhas tarefas',
     description: 'Produção atribuída a você',
     count: assignedTasks,
-    to: '/marketing/posts/tasks',
+    to: '/marketing/production/tasks',
     icon: 'lucide:list-todo',
     tone: 'default',
   })
@@ -362,7 +362,8 @@ export async function buildTenantAttention(input: {
         title: 'Publicações com erro',
         description: 'Falhas recentes de publicação',
         count: failedPosts,
-        to: '/marketing/posts?status=failed',
+        // Client "Publicações" surface is content list, not the agency send queue.
+        to: '/marketing/content?mvp_status=erro',
         icon: 'lucide:circle-alert',
         tone: 'danger',
       })

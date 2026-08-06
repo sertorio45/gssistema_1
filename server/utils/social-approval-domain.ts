@@ -538,7 +538,7 @@ async function notifyScheduleReady(
     type: 'approved',
     title: 'Arte aprovada',
     body: `${input.postTitle} está aprovada e pronta para agendar.`,
-    actionUrl: `/marketing/posts/${input.postId}`,
+    actionUrl: `/marketing/content/${input.postId}`,
     metadata: { postId: input.postId, versionId: input.versionId },
     idempotencyKey: `schedule_ready:${input.postId}:${input.versionId}`,
   })
@@ -971,7 +971,7 @@ export async function submitApprovalDecision(client: any, input: SubmitDecisionI
         type: input.decision,
         title: input.decision === 'rejected' ? 'Publicação reprovada' : 'Ajustes solicitados',
         body: `${post.title} recebeu uma nova decisão.`,
-        actionUrl: `/marketing/posts/${request.post_id}`,
+        actionUrl: `/marketing/content/${request.post_id}`,
         metadata: { postId: request.post_id, requestId: request.id, decision: input.decision },
         idempotencyKey: `decision:${request.id}:${input.decision}`,
       })
@@ -1498,7 +1498,7 @@ export async function bypassApproval(
       type: 'approval_bypassed',
       title: 'Aprovação ignorada',
       body: `A aprovação de "${post.title}" foi ignorada com justificativa e a publicação está liberada.`,
-      actionUrl: `/marketing/posts/${input.postId}`,
+      actionUrl: `/marketing/content/${input.postId}`,
       metadata: { postId: input.postId, versionId: latest.id, reason: justification },
       idempotencyKey: `bypass:${input.postId}:${latest.id}`,
     })

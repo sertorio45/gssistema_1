@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
 import { useWorkspace } from '~/composables/useWorkspace'
+import MarketingMvpStatusBadge from '~/components/marketing/MarketingMvpStatusBadge.vue'
+import { resolveMarketingMvpStatus } from '~/utils/marketing-mvp-status'
 
 definePageMeta({
   middleware: ['auth'],
@@ -12,6 +14,7 @@ const social = useMarketingSocial()
 const { can } = useWorkspace()
 const campaignId = computed(() => String(route.params.id))
 const canBriefing = computed(() => can('marketing.social.briefing.create'))
+const canCreate = computed(() => can('marketing.social.create'))
 const linkUrl = ref('')
 const creatingLink = ref(false)
 
@@ -47,6 +50,7 @@ async function createBriefingLink() {
   }
   finally {
     creatingLink.value = false
+    await refresh()
   }
 }
 </script>
@@ -72,10 +76,20 @@ async function createBriefingLink() {
             {{ campaign.objective || 'Sem objetivo' }}
           </p>
         </div>
-        <Button v-if="canBriefing" :disabled="creatingLink" @click="createBriefingLink">
-          <Icon name="lucide:link" class="mr-2 h-4 w-4" />
-          Link de briefing
-        </Button>
+        <div class="flex flex-wrap gap-2">
+          <Button
+            v-if="canCreate"
+            variant="outline"
+            @click="navigateTo(`/marketing/content/new?campaignId=${campaignId}`)"
+          >
+            <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
+            Novo conteúdo
+          </Button>
+          <Button v-if="canBriefing" :disabled="creatingLink" @click="createBriefingLink">
+            <Icon name="lucide:link" class="mr-2 h-4 w-4" />
+            Link de briefing
+          </Button>
+        </div>
       </div>
 
       <Card v-if="linkUrl">
@@ -97,15 +111,13 @@ async function createBriefingLink() {
             :key="post.id"
             class="flex items-center justify-between rounded-lg border p-3"
           >
-            <div>
+            <div class="min-w-0 space-y-1">
               <p class="font-medium">
                 {{ post.title }}
               </p>
-              <p class="text-xs text-muted-foreground">
-                Produção {{ post.production_status }} · Editorial {{ post.editorial_status }}
-              </p>
+              <MarketingMvpStatusBadge :status="resolveMarketingMvpStatus(post)" />
             </div>
-            <Button size="sm" variant="outline" @click="navigateTo(`/marketing/posts/${post.id}`)">
+            <Button size="sm" variant="outline" @click="navigateTo(`/marketing/content/${post.id}`)">
               Abrir
             </Button>
           </div>

@@ -26,6 +26,9 @@ import {
 import { findCalendarConflicts, findCalendarGaps } from '@/utils/social-calendar'
 import { useMarketingAudience } from '~/composables/marketing/useMarketingAudience'
 import { useWorkspace } from '~/composables/useWorkspace'
+import MarketingMvpStatusBadge from '~/components/marketing/MarketingMvpStatusBadge.vue'
+import { MARKETING_MVP_STATUS_LABELS } from '~/types/marketing-mvp'
+import { resolveMarketingMvpStatus } from '~/utils/marketing-mvp-status'
 
 definePageMeta({
   middleware: ['auth'],
@@ -47,6 +50,7 @@ const filters = ref({
   platform: 'all',
   editorialStatus: 'all',
   publicationStatus: 'all',
+  mvpStatus: 'all',
 })
 
 const canSchedule = computed(() => can('marketing.social.schedule'))
@@ -100,15 +104,31 @@ const periodLabel = computed(() => {
 
 const { data: response, showSkeleton, refresh } = useMarketingFetch({
   key: () => `marketing-calendar-${social.tenantId.value}-${format(interval.value.start, 'yyyy-MM-dd')}-${format(interval.value.end, 'yyyy-MM-dd')}-${JSON.stringify(filters.value)}`,
-  handler: () => social.listPosts({
-    start: interval.value.start.toISOString(),
-    end: interval.value.end.toISOString(),
-    page_size: 100,
-    campaign_id: filters.value.campaignId !== 'all' ? filters.value.campaignId : undefined,
-    platform: filters.value.platform !== 'all' ? filters.value.platform : undefined,
-    editorial_status: filters.value.editorialStatus !== 'all' ? filters.value.editorialStatus : undefined,
-    publication_status: filters.value.publicationStatus !== 'all' ? filters.value.publicationStatus : undefined,
-  }),
+  handler: async () => {
+    const calendar = await $fetch<{ data: any[] }>('/api/marketing/social/calendar', {
+      query: {
+        tenant_id: social.tenantId.value || undefined,
+        start: interval.value.start.toISOString(),
+        end: interval.value.end.toISOString(),
+        campaign_id: filters.value.campaignId !== 'all' ? filters.value.campaignId : undefined,
+        platform: filters.value.platform !== 'all' ? filters.value.platform : undefined,
+      },
+    }).catch(() => ({ data: [] as any[] }))
+
+    // Flatten occurrences into post-shaped rows for the existing calendar UI.
+    const data = (calendar.data || []).map((occurrence: any) => ({
+      ...(occurrence.post || {}),
+      id: occurrence.postId,
+      occurrence_id: occurrence.occurrenceId,
+      schedule_id: occurrence.scheduleId,
+      scheduled_at: occurrence.scheduledAt,
+      title: occurrence.title,
+      schedule_platform: occurrence.platform,
+      schedule_format: occurrence.format,
+    }))
+
+    return { data, pagination: {} as Record<string, unknown> }
+  },
   default: () => ({ data: [] as any[], pagination: {} as Record<string, unknown> }),
   watch: [social.tenantId, interval, filters],
   enabled: () => Boolean(social.tenantId.value),
@@ -123,7 +143,12 @@ const { data: campaignsResponse } = useMarketingFetch({
   watch: [social.tenantId, isClientExperience],
   enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
 })
-const posts = computed(() => (response.value?.data || []) as any[])
+const posts = computed(() => {
+  const rows = (response.value?.data || []) as any[]
+  if (filters.value.mvpStatus === 'all')
+    return rows
+  return rows.filter(post => resolveMarketingMvpStatus(post) === filters.value.mvpStatus)
+})
 const days = computed(() => eachDayOfInterval(interval.value))
 const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
@@ -149,8 +174,23 @@ function postThumb(post: any) {
 }
 
 function platformsLabel(post: any) {
+  if (post.schedule_platform)
+    return post.schedule_platform
   const platforms = [...new Set((post.social_post_variants || []).map((v: any) => v.platform))]
   return platforms.join(', ') || '—'
+}
+
+function occurrenceLabel(post: any) {
+  const format = post.schedule_format
+  if (format === 'story')
+    return 'Stories'
+  if (format === 'video')
+    return 'Reels'
+  if (format === 'carousel')
+    return 'Carrossel'
+  if (format === 'static')
+    return 'Feed'
+  return null
 }
 
 function goPrev() {
@@ -171,11 +211,14 @@ function goToday() {
   anchor.value = view.value === 'month' ? startOfMonth(new Date()) : new Date()
 }
 
-function onDragStart(postId: string, event: DragEvent) {
+function onDragStart(postId: string, event: DragEvent, scheduleId?: string | null) {
   if (!canSchedule.value)
     return
   draggingPostId.value = postId
-  event.dataTransfer?.setData('text/plain', postId)
+  event.dataTransfer?.setData('text/plain', JSON.stringify({
+    postId,
+    scheduleId: scheduleId || null,
+  }))
   if (event.dataTransfer)
     event.dataTransfer.effectAllowed = 'move'
 }
@@ -188,12 +231,27 @@ async function onDropDay(day: Date, event: DragEvent) {
   event.preventDefault()
   if (isClientExperience.value)
     return
-  const postId = event.dataTransfer?.getData('text/plain') || draggingPostId.value
+  const raw = event.dataTransfer?.getData('text/plain') || draggingPostId.value
   draggingPostId.value = null
-  if (!postId || !canSchedule.value)
+  if (!raw || !canSchedule.value)
     return
 
-  const post = posts.value.find(p => p.id === postId)
+  let postId = raw
+  let scheduleId: string | null = null
+  try {
+    const parsed = JSON.parse(raw) as { postId?: string, scheduleId?: string | null }
+    if (parsed.postId) {
+      postId = parsed.postId
+      scheduleId = parsed.scheduleId || null
+    }
+  }
+  catch {
+    // legacy plain post id
+  }
+
+  const post = posts.value.find(p =>
+    p.id === postId && (!scheduleId || p.schedule_id === scheduleId || p.occurrence_id === scheduleId),
+  ) || posts.value.find(p => p.id === postId)
   if (!post?.scheduled_at)
     return
 
@@ -205,7 +263,9 @@ async function onDropDay(day: Date, event: DragEvent) {
 
   rescheduling.value = true
   try {
-    await social.reschedulePost(postId, next.toISOString())
+    await social.reschedulePost(postId, next.toISOString(), {
+      scheduleId: scheduleId || post.schedule_id || undefined,
+    })
     toast.success('Data atualizada')
     await refresh()
   }
@@ -221,7 +281,7 @@ async function duplicate(postId: string) {
   try {
     const copy = await social.duplicatePost(postId)
     toast.success('Publicação duplicada')
-    navigateTo(`/marketing/posts/${copy.id}`)
+    navigateTo(`/marketing/content/${copy.id}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || 'Falha ao duplicar')
@@ -232,7 +292,7 @@ function quickCreate(day?: Date) {
   const query: Record<string, string> = {}
   if (day)
     query.scheduledAt = day.toISOString()
-  navigateTo({ path: '/marketing/posts/new', query })
+  navigateTo({ path: '/marketing/content/new', query })
 }
 
 const editorialLabels: Record<string, string> = {
@@ -269,7 +329,7 @@ const publicationLabels: Record<string, string> = {
           <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
           Criação rápida
         </Button>
-        <Button @click="navigateTo('/marketing/posts/new')">
+        <Button @click="navigateTo('/marketing/content/new')">
           <Icon name="lucide:file-plus" class="mr-2 h-4 w-4" />
           Nova publicação
         </Button>
@@ -351,6 +411,23 @@ const publicationLabels: Record<string, string> = {
             </SelectItem>
           </SelectContent>
         </Select>
+        <Select v-model="filters.mvpStatus">
+          <SelectTrigger class="w-full lg:w-44">
+            <SelectValue placeholder="Status MVP" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Status MVP: todos
+            </SelectItem>
+            <SelectItem
+              v-for="(label, value) in MARKETING_MVP_STATUS_LABELS"
+              :key="value"
+              :value="value"
+            >
+              {{ label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </CardContent>
     </Card>
 
@@ -398,9 +475,12 @@ const publicationLabels: Record<string, string> = {
             class="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div class="min-w-0 flex-1">
-              <p class="truncate font-medium">
-                {{ post.title }}
-              </p>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="truncate font-medium">
+                  {{ post.title }}
+                </p>
+                <MarketingMvpStatusBadge :status="resolveMarketingMvpStatus(post)" />
+              </div>
               <p class="text-xs text-muted-foreground">
                 {{ format(new Date(post.scheduled_at), "EEEE, d MMM · HH:mm", { locale: ptBR }) }}
                 · {{ platformsLabel(post) }}
@@ -421,7 +501,7 @@ const publicationLabels: Record<string, string> = {
               >
                 Duplicar
               </Button>
-              <Button size="sm" variant="outline" @click="navigateTo(`/marketing/posts/${post.id}`)">
+              <Button size="sm" variant="outline" @click="navigateTo(`/marketing/content/${post.id}`)">
                 Abrir
               </Button>
             </div>
@@ -467,16 +547,16 @@ const publicationLabels: Record<string, string> = {
                 </div>
                 <div
                   v-for="post in postsForDay(day)"
-                  :key="post.id"
+                  :key="post.occurrence_id || post.schedule_id || post.id"
                   class="mb-2 flex w-full items-center gap-2 overflow-hidden rounded-lg border bg-card p-1.5 text-left transition"
                   :class="isClientExperience
                     ? 'cursor-pointer hover:border-primary/40 hover:bg-muted/40'
                     : 'cursor-grab hover:border-primary/40 hover:bg-muted/40 active:cursor-grabbing'"
                   :draggable="canSchedule && !isClientExperience"
                   :title="post.title"
-                  @dragstart="onDragStart(post.id, $event)"
+                  @dragstart="onDragStart(post.id, $event, post.schedule_id || post.occurrence_id)"
                   @dragend="onDragEnd"
-                  @click="navigateTo(`/marketing/posts/${post.id}`)"
+                  @click="navigateTo(`/marketing/content/${post.id}`)"
                 >
                   <div class="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
                     <img
@@ -503,6 +583,9 @@ const publicationLabels: Record<string, string> = {
                     <p class="text-[11px] text-muted-foreground">
                       {{ format(new Date(post.scheduled_at), 'HH:mm') }}
                       · {{ platformsLabel(post) }}
+                      <template v-if="occurrenceLabel(post)">
+                        · {{ occurrenceLabel(post) }}
+                      </template>
                     </p>
                   </div>
                 </div>

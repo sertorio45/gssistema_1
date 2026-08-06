@@ -2,11 +2,11 @@
 import type { SocialPostInput } from '~/types/marketing-social'
 
 import { toast } from 'vue-sonner'
-import SocialPostForm from '~/components/marketing/social/SocialPostForm.vue'
+import ContentEditor from '~/components/marketing/content/ContentEditor.vue'
 
 definePageMeta({
   middleware: ['auth'],
-  title: 'Nova publicação',
+  title: 'Novo conteúdo',
 })
 
 const route = useRoute()
@@ -21,7 +21,11 @@ onMounted(() => {
 
 const initialValue = computed(() => {
   const scheduledAt = typeof route.query.scheduledAt === 'string' ? route.query.scheduledAt : undefined
-  return scheduledAt ? { scheduledAt } as SocialPostInput : undefined
+  const campaignId = typeof route.query.campaignId === 'string' ? route.query.campaignId : undefined
+  return {
+    ...(scheduledAt ? { scheduledAt } : {}),
+    ...(campaignId ? { campaignId } : {}),
+  } as SocialPostInput | undefined
 })
 
 async function save(input: SocialPostInput) {
@@ -29,7 +33,7 @@ async function save(input: SocialPostInput) {
   try {
     const post = await social.createPost(input)
     toast.success('Rascunho criado')
-    await navigateTo(`/marketing/posts/${(post as any).id}`)
+    await navigateTo(`/marketing/content/${(post as any).id}`)
   }
   catch (error: any) {
     toast.error(error?.data?.statusMessage || error?.message || 'Não foi possível salvar')
@@ -44,20 +48,20 @@ async function save(input: SocialPostInput) {
   <MarketingPageSkeleton v-if="!formReady" variant="detail" />
   <div v-else class="mx-auto max-w-5xl space-y-6">
     <div>
-      <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/posts')">
+      <Button variant="ghost" class="mb-2 -ml-3" @click="navigateTo('/marketing/content')">
         <Icon name="lucide:arrow-left" class="mr-2 h-4 w-4" />
-        {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para produção' }}
+        {{ isClientExperience ? 'Voltar para publicações' : 'Voltar para conteúdos' }}
       </Button>
       <h1 class="text-2xl font-bold tracking-tight">
-        Nova publicação
+        Novo conteúdo
       </h1>
       <p class="mt-1 text-muted-foreground">
         {{ isClientExperience
           ? 'Prepare o conteúdo, escolha os canais e agende ou publique na hora.'
-          : 'Prepare o conteúdo, selecione os canais e envie para aprovação.' }}
+          : 'Título, legenda, variantes por rede, anexos, campanha e responsáveis.' }}
       </p>
     </div>
 
-    <SocialPostForm :initial-value="initialValue" :saving="saving" @save="save" />
+    <ContentEditor :initial-value="initialValue" :saving="saving" @save="save" />
   </div>
 </template>

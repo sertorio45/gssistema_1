@@ -581,7 +581,7 @@ const clientBuckets = [
           <span class="block text-xs text-muted-foreground">Veja o que está agendado</span>
         </span>
       </Button>
-      <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/posts?status=published')">
+      <Button variant="outline" class="h-auto justify-start p-4" @click="navigateTo('/marketing/content?status=published')">
         <Icon name="lucide:circle-check" class="mr-3 h-5 w-5" />
         <span class="text-left">
           <span class="block font-medium">Conteúdo publicado</span>

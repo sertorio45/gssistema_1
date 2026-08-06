@@ -5,7 +5,7 @@ definePageMeta({
   allowedOrganizationTypes: ['agency'],
 })
 
-await navigateTo('/organization/clients', { replace: true })
+await navigateTo('/agency/clients', { replace: true })
 </script>
 
 <template>

@@ -39,6 +39,16 @@ export default defineEventHandler(async (event) => {
   if (error || !post)
     throw createError({ statusCode: 404, statusMessage: 'Publicação não encontrada' })
 
+  const { data: scheduleRows } = await client
+    .from('marketing_post_schedules')
+    .select('id, variant_id, platform, format, scheduled_at, timezone, status, notes, created_at, updated_at')
+    .eq('tenant_id', tenantId)
+    .eq('post_id', postId)
+    .neq('status', 'cancelled')
+    .order('scheduled_at', { ascending: true })
+
+  post.marketing_post_schedules = scheduleRows || []
+
   const paths = [
     ...(post.social_post_variants || [])
       .flatMap((variant: any) => variant.social_post_assets || [])
