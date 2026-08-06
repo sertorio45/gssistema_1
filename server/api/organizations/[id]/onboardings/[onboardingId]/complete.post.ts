@@ -2,8 +2,8 @@ import { getRouterParam, readBody } from 'h3'
 import { z } from 'zod'
 
 import { assertAgencyOrganization } from '~/server/utils/agency-ops'
-import { inviteOrLinkAuthUserByEmail, resolveAuthRedirectOrigin } from '~/server/utils/auth-invite'
 import { recordAuditEvent } from '~/server/utils/audit-events'
+import { inviteOrLinkAuthUserByEmail, resolveAuthRedirectOrigin } from '~/server/utils/auth-invite'
 import { requireWorkspaceContext } from '~/server/utils/workspace-context'
 
 const paramsSchema = z.object({
@@ -71,6 +71,28 @@ export default defineEventHandler(async (event) => {
 
   if (onboarding.status === 'completed') {
     return { data: { tenant_id: onboarding.tenant_id, onboarding } }
+  }
+
+  // Block duplicate display names within this agency's portfolio (create mode).
+  if (input.tenantMode === 'create' && input.tenantName) {
+    const normalizedName = input.tenantName.trim().toLowerCase()
+    const { data: links } = await context.client
+      .from('organization_tenants')
+      .select('tenant_id, tenant:tenant_id (id, name)')
+      .eq('organization_id', params.id)
+      .eq('is_active', true)
+
+    const duplicate = (links || []).find((row: any) => {
+      const name = String(row.tenant?.name || '').trim().toLowerCase()
+      return name && name === normalizedName
+    })
+
+    if (duplicate) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Já existe uma empresa com este nome na carteira da agência',
+      })
+    }
   }
 
   const payload = {

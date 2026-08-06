@@ -8,14 +8,14 @@ export default defineEventHandler(async (event) => {
   if (!companyId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Company ID is required',
+      statusMessage: 'ID da empresa é obrigatório',
     })
   }
 
   if (!tenantId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant ID is required',
+      statusMessage: 'Tenant ID é obrigatório',
     })
   }
 
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
   if (!data) {
     throw createError({
       statusCode: 404,
-      statusMessage: 'Company not found',
+      statusMessage: 'Empresa não encontrada',
     })
   }
 

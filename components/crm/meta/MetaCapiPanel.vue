@@ -299,7 +299,7 @@ async function saveSettings() {
     return
   if (setupMode.value === 'oauth') {
     if (metaBusinesses.value.length && !businessId.value.trim()) {
-      toast.error('Selecione a empresa (Business Manager)')
+      toast.error('Selecione a empresa (Gerenciador de Negócios)')
       return
     }
     if (!adAccountId.value.trim()) {
@@ -359,7 +359,7 @@ async function sendTest() {
       method: 'POST',
       body: { tenant_id: tenantId.value },
     })
-    toast.success('Evento de teste enviado. Confira no Events Manager.')
+    toast.success('Evento de teste enviado. Confira no Gerenciador de Eventos.')
     await loadAll()
   }
   catch (error: any) {
@@ -467,8 +467,8 @@ onMounted(() => {
               Conversões CRM (Meta CAPI)
             </CardTitle>
             <CardDescription class="mt-1 max-w-2xl">
-              Conecte com a Meta (empresa → anúncios → dataset) no padrão CRM do Events Manager.
-              Envio semi-manual de ganhos (Purchase, BRL, action_source system_generated, event_source crm).
+              Conecte à Meta (empresa → anúncios → dataset) no padrão do Gerenciador de Eventos.
+              Envio semi-manual de ganhos (evento Purchase, BRL, action_source system_generated, event_source crm).
             </CardDescription>
           </div>
           <Badge
@@ -498,7 +498,7 @@ onMounted(() => {
                   Ativar Conversões Meta
                 </p>
                 <p class="text-xs text-muted-foreground">
-                  Permite o envio semi-manual de ganhos qualificáveis (Purchase)
+                  Permite o envio semi-manual de ganhos qualificáveis (evento Purchase)
                 </p>
             </div>
             <Switch v-model:checked="enabled" />
@@ -522,7 +522,7 @@ onMounted(() => {
                   1) Conectar com a Meta · 2) escolher a empresa · 3) conta de anúncios ·
                   4) dataset CRM. Eventos: action_source=<code>system_generated</code>,
                   lead_event_source=<code>Blimber</code>, event_source=<code>crm</code>.
-                  Em Development, use um usuário tester/admin do app.
+                  Em modo Development, use um usuário tester/admin do app.
                 </AlertDescription>
               </Alert>
 
@@ -551,7 +551,7 @@ onMounted(() => {
 
               <div v-if="settings.has_oauth" class="grid gap-4 md:grid-cols-2">
                 <div class="space-y-2 md:col-span-2">
-                  <Label>1. Empresa (Business Manager)</Label>
+                  <Label>1. Empresa (Gerenciador de Negócios)</Label>
                   <Select
                     :model-value="businessId || undefined"
                     :disabled="accountsLoading"
@@ -630,7 +630,7 @@ onMounted(() => {
                     v-model="accessToken"
                     type="password"
                     autocomplete="off"
-                    :placeholder="settings.has_token ? '•••••••• (já há token)' : 'Fallback Events Manager — opcional'"
+                    :placeholder="settings.has_token ? '•••••••• (já há token)' : 'Alternativa do Gerenciador de Eventos — opcional'"
                   />
                 </div>
               </div>
@@ -639,9 +639,9 @@ onMounted(() => {
             <TabsContent value="manual" class="mt-4 space-y-4">
               <Alert>
                 <Icon name="lucide:info" class="h-4 w-4" />
-                <AlertTitle>Cadastro manual (fallback)</AlertTitle>
+                <AlertTitle>Cadastro manual (alternativa)</AlertTitle>
                 <AlertDescription class="text-sm">
-                  Preferimos o fluxo Conectar Meta. Use manual só se precisar colar Dataset ID + token do Events Manager.
+                  Preferimos o fluxo Conectar Meta. Use o cadastro manual só se precisar colar o ID do Dataset e o token do Gerenciador de Eventos.
                 </AlertDescription>
               </Alert>
 
@@ -670,7 +670,7 @@ onMounted(() => {
                     v-model="accessToken"
                     type="password"
                     autocomplete="off"
-                    :placeholder="settings.has_token ? '•••••••• (já configurado — cole para substituir)' : 'Cole o token do Events Manager'"
+                    :placeholder="settings.has_token ? '•••••••• (já configurado — cole para substituir)' : 'Cole o token do Gerenciador de Eventos'"
                   />
                 </div>
               </div>

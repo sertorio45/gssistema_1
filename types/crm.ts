@@ -79,6 +79,8 @@ export interface Company {
   name: string
   website?: string
   address?: string
+  address_number?: string
+  address_complement?: string
   cep?: string
   city?: string
   country?: string
@@ -93,6 +95,8 @@ export interface CrmCompanyLookupResult {
   name: string
   website: string | null
   address: string | null
+  address_number: string | null
+  address_complement: string | null
   cep: string | null
   city: string | null
   country: string | null

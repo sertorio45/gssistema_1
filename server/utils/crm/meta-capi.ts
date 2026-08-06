@@ -864,7 +864,7 @@ export async function sendMetaCapiTestEvent(
   if (!accessToken)
     throw createErrorLike(400, 'Conecte a conta Meta ou informe o token da API de Conversões')
   if (!testCode)
-    throw createErrorLike(400, 'Informe o código de teste do Events Manager (TEST...)')
+    throw createErrorLike(400, 'Informe o código de teste do Gerenciador de Eventos (TEST...)')
 
   const eventId = randomUUID()
   const eventTime = new Date().toISOString()

@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   if (!tenant_id) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant ID is required',
+      statusMessage: 'Tenant ID é obrigatório',
     })
   }
 
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to fetch companies',
+      statusMessage: error.message || 'Falha ao buscar empresas',
     })
   }
 })

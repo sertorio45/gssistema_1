@@ -5,7 +5,7 @@ import { defineEventHandler, readBody } from 'h3'
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    return { status: 401, message: 'Unauthorized' }
+    return { status: 401, message: 'Não autorizado' }
 
   const id = event.context.params?.id
   const body = await readBody(event)
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!id || !sales_stage_id)
-    return { status: 400, message: 'Missing data' }
+    return { status: 400, message: 'Dados ausentes' }
 
   const client = await serverSupabaseServiceRole(event)
 
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     .maybeSingle()
 
   if (!existingLead)
-    return { status: 404, message: 'Lead not found' }
+    return { status: 404, message: 'Lead não encontrado' }
 
   const updatePayload: Record<string, unknown> = { sales_stage_id }
   if (status !== undefined)

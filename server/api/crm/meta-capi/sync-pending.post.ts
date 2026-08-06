@@ -16,7 +16,7 @@ import {
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
 
   const body = await readBody(event)
   const { role, tenantId: userTenantId } = resolveTenantApiAuth(user as any, event.context.auth?.tenantId)
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
   const tenantId = body?.tenant_id || userTenantId
   if (!tenantId)
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   assertScopedTenantAccess(role, userTenantId, tenantId)
 
   const leadIds = Array.isArray(body?.lead_ids)

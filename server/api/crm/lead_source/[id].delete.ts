@@ -5,7 +5,7 @@ import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const id = getRouterParam(event, 'id')
@@ -34,11 +34,11 @@ export default defineEventHandler(async (event) => {
   }
 
   if (isWrongTenantForScopedUser(role, tenantId, leadSource.tenant_id)) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   if (requestedTenantId && requestedTenantId !== leadSource.tenant_id) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   const { data: deleted, error } = await client

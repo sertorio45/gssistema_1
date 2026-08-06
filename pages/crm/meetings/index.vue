@@ -1,23 +1,30 @@
 <script setup lang="ts">
 import type { Meeting } from '~/types/crm'
+
+import {
+  endOfWeek,
+  startOfWeek,
+} from 'date-fns'
 import { columns } from '~/components/crm/meetings/columns'
 import MeetingForm from '~/components/crm/meetings/MeetingForm.vue'
+import MeetingsCalendar from '~/components/crm/meetings/MeetingsCalendar.vue'
 import MultiActionBar from '~/components/shared/MultiActionBar.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
 import CardContent from '~/components/ui/card/CardContent.vue'
 import CardHeader from '~/components/ui/card/CardHeader.vue'
 import CardTitle from '~/components/ui/card/CardTitle.vue'
-import Dialog from '~/components/ui/dialog/Dialog.vue'
-import DialogContent from '~/components/ui/dialog/DialogContent.vue'
-import DialogDescription from '~/components/ui/dialog/DialogDescription.vue'
-import DialogHeader from '~/components/ui/dialog/DialogHeader.vue'
-import DialogTitle from '~/components/ui/dialog/DialogTitle.vue'
+import Sheet from '~/components/ui/sheet/Sheet.vue'
+import SheetContent from '~/components/ui/sheet/SheetContent.vue'
+import SheetDescription from '~/components/ui/sheet/SheetDescription.vue'
+import SheetFooter from '~/components/ui/sheet/SheetFooter.vue'
+import SheetHeader from '~/components/ui/sheet/SheetHeader.vue'
+import SheetTitle from '~/components/ui/sheet/SheetTitle.vue'
 import Skeleton from '~/components/ui/skeleton/Skeleton.vue'
-import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import DataTable from '~/components/ui/table/DataTable.vue'
 import DataTablePagination from '~/components/ui/table/DataTablePagination.vue'
 import DataTableToolbar from '~/components/ui/table/DataTableToolbar.vue'
+import DataTableViewOptions from '~/components/ui/table/DataTableViewOptions.vue'
 import { deleteWithConfirm } from '~/composables/useConfirmDelete'
 import { useTenantPage } from '~/composables/useTenantPage'
 
@@ -27,22 +34,27 @@ definePageMeta({
   description: 'Gerencie suas reuniões e compromissos',
 })
 
+type PageMode = 'calendar' | 'table'
+
 const { tenantId } = useTenantPage()
 
 const meetingsData = ref<Meeting[]>([])
-const selectedMeeting = ref<Meeting | null>(null)
-const isDialogOpen = ref(false)
+const selectedMeeting = ref<Partial<Meeting> | null>(null)
+const isSheetOpen = ref(false)
+const isSavingMeeting = ref(false)
 const selectedItems = ref<number[]>([])
 const isLoading = ref(false)
+const pageMode = ref<PageMode>('calendar')
+
+const isEditingMeeting = computed(() => Boolean(selectedMeeting.value?.id))
 
 async function fetchMeetings() {
-  if (!tenantId.value) {
+  if (!tenantId.value)
     return
-  }
 
   isLoading.value = true
   try {
-    const { data } = await $fetch('/api/crm/meetings', {
+    const { data } = await $fetch<{ data: Meeting[] }>('/api/crm/meetings', {
       params: { tenant_id: tenantId.value },
     })
     meetingsData.value = data || []
@@ -56,6 +68,24 @@ async function fetchMeetings() {
 }
 
 watch(tenantId, fetchMeetings, { immediate: true })
+
+const scheduledCount = computed(() =>
+  meetingsData.value.filter(meeting => meeting.status === 'scheduled').length,
+)
+
+const completedCount = computed(() =>
+  meetingsData.value.filter(meeting => meeting.status === 'completed').length,
+)
+
+const thisWeekCount = computed(() => {
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 0 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 0 })
+  return meetingsData.value.filter((meeting) => {
+    const at = new Date(meeting.start_time)
+    return at >= weekStart && at <= weekEnd
+  }).length
+})
 
 function updateSelectedItems(items: number[]) {
   selectedItems.value = items
@@ -93,7 +123,7 @@ async function handleMultiDelete() {
 
 function handleEdit(meeting: Meeting) {
   selectedMeeting.value = meeting
-  isDialogOpen.value = true
+  isSheetOpen.value = true
 }
 
 async function handleDelete(meeting: Meeting) {
@@ -114,49 +144,61 @@ async function handleDelete(meeting: Meeting) {
     await fetchMeetings()
 }
 
-function handleCreateNew() {
-  selectedMeeting.value = null
-  isDialogOpen.value = true
+function handleCreateNew(slot?: { start: string, end: string }) {
+  selectedMeeting.value = slot
+    ? { start_time: slot.start, end_time: slot.end, type: 'call', status: 'scheduled' }
+    : null
+  isSheetOpen.value = true
 }
 
-function closeDialog() {
-  isDialogOpen.value = false
+function closeSheet() {
+  isSheetOpen.value = false
   selectedMeeting.value = null
+  isSavingMeeting.value = false
+}
+
+async function onFormSuccess() {
+  closeSheet()
+  await fetchMeetings()
 }
 </script>
 
 <template>
   <div class="w-full flex flex-col items-stretch gap-4">
-    <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
+    <div class="mb-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 class="text-2xl font-bold">
+        <h1 class="text-2xl font-bold tracking-tight">
           Reuniões
         </h1>
-        <p class="text-muted-foreground">
-          Gerencie suas reuniões e compromissos
+        <p class="text-sm text-muted-foreground">
+          Agenda da equipe — calendário ou tabela, com ligação a leads, contatos e empresas.
         </p>
       </div>
-      <div class="flex gap-2">
-        <Button variant="outline">
-          <Icon name="lucide:calendar" class="mr-2 h-4 w-4" />
-          Ver calendário
-        </Button>
-        <Button @click="handleCreateNew">
-          <Icon name="lucide:plus" class="mr-2 h-4 w-4" />
-          Agendar Reunião
+      <div class="flex flex-wrap gap-2">
+        <Tabs v-model="pageMode" class="w-full sm:w-auto">
+          <TabsList>
+            <TabsTrigger value="calendar">
+              Calendário
+            </TabsTrigger>
+            <TabsTrigger value="table">
+              Tabela
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Button @click="handleCreateNew()">
+          <Icon name="lucide:plus" class="mr-2 size-4" />
+          Agendar reunião
         </Button>
       </div>
     </div>
 
-    <!-- Stats Cards -->
     <div class="grid gap-4 lg:grid-cols-4 md:grid-cols-2">
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Total de Reuniões
+            Total
           </CardTitle>
-          <Icon name="lucide:calendar" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:calendar" class="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
@@ -170,11 +212,11 @@ function closeDialog() {
           <CardTitle class="text-sm font-medium">
             Agendadas
           </CardTitle>
-          <Icon name="lucide:clock" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:clock" class="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ meetingsData.filter(m => m.status === 'scheduled').length }}
+            {{ scheduledCount }}
           </div>
         </CardContent>
       </Card>
@@ -182,22 +224,13 @@ function closeDialog() {
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle class="text-sm font-medium">
-            Esta Semana
+            Esta semana
           </CardTitle>
-          <Icon name="lucide:calendar-days" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:calendar-days" class="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{
-              meetingsData.filter(m => {
-                const meetingDate = new Date(m.start_time)
-                const now = new Date()
-                const weekStart = new Date(now.setDate(now.getDate() - now.getDay()))
-                const weekEnd = new Date(weekStart)
-                weekEnd.setDate(weekStart.getDate() + 6)
-                return meetingDate >= weekStart && meetingDate <= weekEnd
-              }).length
-            }}
+            {{ thisWeekCount }}
           </div>
         </CardContent>
       </Card>
@@ -207,36 +240,38 @@ function closeDialog() {
           <CardTitle class="text-sm font-medium">
             Concluídas
           </CardTitle>
-          <Icon name="lucide:check-circle" class="h-4 w-4 text-muted-foreground" />
+          <Icon name="lucide:check-circle" class="size-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div class="text-2xl font-bold">
-            {{ meetingsData.filter(m => m.status === 'completed').length }}
+            {{ completedCount }}
           </div>
         </CardContent>
       </Card>
     </div>
 
-    <!-- DataTable with Skeleton -->
     <div v-if="isLoading" class="space-y-4">
       <Card class="border shadow-sm">
-        <CardContent class="p-4">
-          <div class="space-y-2">
-            <Skeleton class="h-8 w-[250px]" />
-            <Skeleton class="h-8 w-full" />
-            <Skeleton class="h-8 w-full" />
-            <Skeleton class="h-8 w-full" />
-          </div>
+        <CardContent class="p-4 space-y-2">
+          <Skeleton class="h-8 w-[250px]" />
+          <Skeleton class="h-48 w-full" />
         </CardContent>
       </Card>
     </div>
+
     <template v-else>
-      <!-- DataTable -->
+      <MeetingsCalendar
+        v-if="pageMode === 'calendar'"
+        :meetings="meetingsData"
+        @select="handleEdit"
+        @create="handleCreateNew"
+      />
+
       <DataTable
+        v-else
         :data="meetingsData"
         :columns="columns"
         :meta="{ onEdit: handleEdit, onDelete: handleDelete }"
-        @delete="handleDelete"
         @selection-change="updateSelectedItems"
       >
         <template #toolbar="{ table }">
@@ -253,43 +288,57 @@ function closeDialog() {
     </template>
 
     <MultiActionBar
-      v-if="selectedItems.length > 0"
+      v-if="selectedItems.length > 0 && pageMode === 'table'"
       :count="selectedItems.length"
       :on-delete="handleMultiDelete"
     />
 
-    <!-- Dialog de Criação/Edição -->
-    <Dialog v-model:open="isDialogOpen">
-      <DialogContent class="mx-auto w-full overflow-hidden p-0 lg:max-w-3xl md:max-w-2xl sm:max-w-lg">
-        <DialogHeader class="border-b p-4 md:p-6">
-          <DialogTitle class="text-xl">
-            {{ selectedMeeting ? 'Editar Reunião' : 'Agendar Reunião' }}
-          </DialogTitle>
-          <DialogDescription class="mt-1 text-sm text-muted-foreground">
-            {{ selectedMeeting ? 'Edite os dados da reunião.' : 'Adicione uma nova reunião ao seu calendário.' }}
-          </DialogDescription>
-        </DialogHeader>
-        <div class="max-h-[calc(80vh-10rem)] overflow-y-auto p-4 md:p-6">
+    <Sheet v-model:open="isSheetOpen">
+      <SheetContent class="flex h-full w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+        <SheetHeader class="shrink-0 space-y-1 border-b px-6 py-5 text-left">
+          <div class="flex items-center gap-3 pr-8">
+            <div class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Icon
+                :name="isEditingMeeting ? 'lucide:pencil' : 'lucide:calendar-plus'"
+                class="size-4"
+              />
+            </div>
+            <div class="min-w-0">
+              <SheetTitle class="text-lg">
+                {{ isEditingMeeting ? 'Editar reunião' : 'Agendar reunião' }}
+              </SheetTitle>
+              <SheetDescription class="text-sm">
+                {{ isEditingMeeting
+                  ? 'Atualize horário, vínculos e o registro desta reunião.'
+                  : 'Defina horário, tipo e vincule a um lead, contato ou empresa.' }}
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div class="flex-1 overflow-y-auto px-6 py-5">
           <MeetingForm
             :initial-data="selectedMeeting || undefined"
-            @success="
-              () => {
-                closeDialog()
-                fetchMeetings()
-              }
-            "
-            @cancel="closeDialog"
+            @success="onFormSuccess"
+            @cancel="closeSheet"
+            @submitting="isSavingMeeting = $event"
           />
         </div>
-        <div class="flex justify-end gap-2 border-t p-4">
-          <Button variant="outline" @click="closeDialog">
+
+        <SheetFooter class="shrink-0 gap-2 border-t bg-muted/30 px-6 py-4 sm:space-x-0">
+          <Button variant="outline" :disabled="isSavingMeeting" @click="closeSheet">
             Cancelar
           </Button>
-          <Button type="submit" form="meeting-form">
-            Salvar
+          <Button type="submit" form="meeting-form" :disabled="isSavingMeeting">
+            <Icon
+              v-if="isSavingMeeting"
+              name="lucide:loader-2"
+              class="mr-2 size-4 animate-spin"
+            />
+            {{ isEditingMeeting ? 'Salvar alterações' : 'Agendar reunião' }}
           </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   </div>
 </template>

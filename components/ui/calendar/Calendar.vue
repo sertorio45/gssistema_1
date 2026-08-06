@@ -20,7 +20,13 @@ import {
   CalendarPrevButton,
 } from '.'
 
-const props = defineProps<CalendarRootProps & { class?: HTMLAttributes['class'] }>()
+const props = withDefaults(
+  defineProps<CalendarRootProps & { class?: HTMLAttributes['class'] }>(),
+  {
+    locale: 'pt-BR',
+    weekdayFormat: 'short',
+  },
+)
 
 const emits = defineEmits<CalendarRootEmits>()
 

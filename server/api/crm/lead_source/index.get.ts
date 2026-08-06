@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
 
   if (!user)
-    return { status: 401, message: 'Unauthorized' }
+    return { status: 401, message: 'Não autorizado' }
 
   const { role, tenantId } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
   const client = await serverSupabaseServiceRole(event)
@@ -19,13 +19,13 @@ export default defineEventHandler(async (event) => {
   const queryTenantId = tenant_id ? String(tenant_id) : tenantId
 
   if (!queryTenantId)
-    return { status: 400, message: 'Tenant ID is required' }
+    return { status: 400, message: 'Tenant ID é obrigatório' }
 
   if (!canAccessTenantModule(role))
-    return { status: 403, message: 'Forbidden' }
+    return { status: 403, message: 'Acesso negado' }
 
   if (isWrongTenantForScopedUser(role, tenantId, queryTenantId))
-    return { status: 403, message: 'Forbidden' }
+    return { status: 403, message: 'Acesso negado' }
 
   const { data, error } = await client
     .from('crm_lead_source_table')

@@ -346,7 +346,7 @@ function initials(name: string) {
 
       <Card class="lg:col-span-3">
         <CardHeader>
-          <CardTitle>Melhores Performers</CardTitle>
+          <CardTitle>Melhores vendedores</CardTitle>
           <CardDescription>Membros com melhor desempenho em vendas</CardDescription>
         </CardHeader>
         <CardContent>

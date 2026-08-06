@@ -1,19 +1,19 @@
+import type { CrmCompanyLookupResult } from '~/types/crm'
 import { serverSupabaseServiceRole, serverSupabaseUser } from '#supabase/server'
-import { isWrongTenantForScopedUser } from '~/server/utils/tenant-access'
 import { createError, getQuery } from 'h3'
 
-import type { CrmCompanyLookupResult } from '~/types/crm'
+import { isWrongTenantForScopedUser } from '~/server/utils/tenant-access'
 
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const { tenant_id, q, exclude_id, limit = '8' } = getQuery(event)
 
   if (!tenant_id) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   }
 
   const query = String(q || '').trim()
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     : user.user_metadata?.role || user.app_metadata?.role
 
   if (isWrongTenantForScopedUser(role, tenantId || null, String(tenant_id))) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   const maxResults = Math.min(Math.max(Number(limit) || 8, 1), 20)
@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
 
   let request = client
     .from('crm_company')
-    .select('id, name, website, address, cep, city, country, notes')
+    .select('id, name, website, address, address_number, address_complement, cep, city, country, notes')
     .eq('tenant_id', tenant_id)
     .ilike('name', `%${query}%`)
     .order('updated_at', { ascending: false })
@@ -63,6 +63,8 @@ export default defineEventHandler(async (event) => {
     name: String(row.name || ''),
     website: row.website ? String(row.website) : null,
     address: row.address ? String(row.address) : null,
+    address_number: row.address_number ? String(row.address_number) : null,
+    address_complement: row.address_complement ? String(row.address_complement) : null,
     cep: row.cep ? String(row.cep) : null,
     city: row.city ? String(row.city) : null,
     country: row.country ? String(row.country) : null,

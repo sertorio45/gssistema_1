@@ -5,7 +5,7 @@ import { defineEventHandler, readBody } from 'h3'
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    return { status: 401, message: 'Unauthorized' }
+    return { status: 401, message: 'Não autorizado' }
 
   const body = await readBody(event) as {
     tenant_id: string
@@ -20,13 +20,13 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!body.tenant_id)
-    return { status: 400, message: 'Tenant ID is required' }
+    return { status: 400, message: 'Tenant ID é obrigatório' }
   if (!body.name || String(body.name).trim() === '')
-    return { status: 400, message: 'Name is required' }
+    return { status: 400, message: 'Nome é obrigatório' }
   if (body.type !== 'recorrente' && body.type !== 'avulso')
-    return { status: 400, message: 'Type must be recorrente or avulso' }
+    return { status: 400, message: 'Tipo deve ser recorrente ou avulso' }
   if (typeof body.price !== 'number' || body.price < 0)
-    return { status: 400, message: 'Valid price is required' }
+    return { status: 400, message: 'Preço válido é obrigatório' }
 
   const client = await serverSupabaseServiceRole(event)
   const insert: Record<string, unknown> = {

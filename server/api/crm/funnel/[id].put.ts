@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await serverSupabaseUser(event)
     if (!user) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' })
+      throw createError({ statusCode: 401, message: 'Não autorizado' })
     }
     const client = await serverSupabaseServiceRole(event)
     const id = getRouterParam(event, 'id')

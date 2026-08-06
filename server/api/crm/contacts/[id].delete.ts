@@ -8,14 +8,14 @@ export default defineEventHandler(async (event) => {
   if (!contactId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Contact ID is required',
+      statusMessage: 'ID do contato é obrigatório',
     })
   }
 
   if (!tenant_id) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant ID is required',
+      statusMessage: 'Tenant ID é obrigatório',
     })
   }
 
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     if (!deleted) {
       throw createError({
         statusCode: 404,
-        statusMessage: 'Contact not found',
+        statusMessage: 'Contato não encontrado',
       })
     }
 
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to delete contact',
+      statusMessage: error.message || 'Falha ao excluir contato',
     })
   }
 })

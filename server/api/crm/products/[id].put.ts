@@ -5,11 +5,11 @@ import { defineEventHandler, getRouterParam, readBody } from 'h3'
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    return { status: 401, message: 'Unauthorized' }
+    return { status: 401, message: 'Não autorizado' }
 
   const id = getRouterParam(event, 'id')
   if (!id)
-    return { status: 400, message: 'ID is required' }
+    return { status: 400, message: 'ID é obrigatório' }
 
   const body = await readBody(event) as {
     tenant_id: string
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!body.tenant_id)
-    return { status: 400, message: 'Tenant ID is required' }
+    return { status: 400, message: 'Tenant ID é obrigatório' }
 
   const client = await serverSupabaseServiceRole(event)
   const update: Record<string, unknown> = {
@@ -60,6 +60,6 @@ export default defineEventHandler(async (event) => {
   if (error)
     return { status: 400, message: error.message }
   if (!data)
-    return { status: 404, message: 'Product not found' }
+    return { status: 404, message: 'Produto não encontrado' }
   return data
 })

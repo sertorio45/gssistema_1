@@ -9,12 +9,12 @@ import {
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const id = getRouterParam(event, 'id')
   if (!id) {
-    throw createError({ statusCode: 400, statusMessage: 'ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
   }
 
   const query = getQuery(event)
@@ -22,15 +22,15 @@ export default defineEventHandler(async (event) => {
   const requestedTenantId = (query.tenant_id as string) || tenantId
 
   if (!requestedTenantId) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   }
 
   if (!canAccessTenantModule(role)) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   if (isWrongTenantForScopedUser(role, tenantId, requestedTenantId)) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   const client = serverSupabaseServiceRole(event)

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
 import { useSupabaseClient } from '#imports'
 import { Check, Circle, Dot } from 'lucide-vue-next'
 import { computed, nextTick, ref, watch } from 'vue'
@@ -10,8 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Stepper, StepperDescription, StepperItem, StepperSeparator, StepperTitle, StepperTrigger } from '@/components/ui/stepper'
-import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
+import CompanyAddressFields from '~/components/crm/company/CompanyAddressFields.vue'
 import CompanyNameAutofillInput from '~/components/crm/leads/CompanyNameAutofillInput.vue'
+import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
 import LeadValuesFields from '~/components/crm/leads/LeadValuesFields.vue'
 import Button from '~/components/ui/button/Button.vue'
 import Card from '~/components/ui/card/Card.vue'
@@ -22,15 +24,14 @@ import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
 import {
+  applyCompanyAutofill,
+  applyCrmLeadAutofill,
+} from '~/composables/crm/useCrmLeadAutofill'
+import {
   BR_PHONE_MASKS,
   parseLeadValueInput,
   parseLeadValuesInputs,
 } from '~/composables/crm/useCrmLeadValue'
-import {
-  applyCompanyAutofill,
-  applyCrmLeadAutofill,
-} from '~/composables/crm/useCrmLeadAutofill'
-import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
 import { useTenant } from '~/composables/useTenant'
 
 const props = withDefaults(
@@ -82,22 +83,23 @@ const { data: activePipelines, pending: pipelinesPending, error: pipelinesError 
 })
 
 // Computed para estado geral de loading
-const isLoadingAnyData = computed(() => 
-  leadSourcesPending.value || salesStagesPending.value || pipelinesPending.value
+const isLoadingAnyData = computed(() =>
+  leadSourcesPending.value || salesStagesPending.value || pipelinesPending.value,
 )
 
 // Computed para verificar se há algum erro
-const hasDataError = computed(() => 
-  leadSourcesError.value || salesStagesError.value || pipelinesError.value
+const hasDataError = computed(() =>
+  leadSourcesError.value || salesStagesError.value || pipelinesError.value,
 )
 
 // Watch para gerenciar estado de loading geral
 watch([leadSourcesPending, salesStagesPending, pipelinesPending], () => {
   isLoadingData.value = isLoadingAnyData.value
-  
+
   if (hasDataError.value) {
     dataError.value = 'Erro ao carregar dados. Tente novamente.'
-  } else {
+  }
+  else {
     dataError.value = null
   }
 }, { immediate: true })
@@ -160,6 +162,8 @@ const companyForm = ref({
   name: '',
   website: '',
   address: '',
+  address_number: '',
+  address_complement: '',
   cep: '',
   city: '',
   country: '',
@@ -196,6 +200,8 @@ function startNewCompany() {
     name: '',
     website: '',
     address: '',
+    address_number: '',
+    address_complement: '',
     cep: '',
     city: '',
     country: '',
@@ -337,47 +343,44 @@ async function submitLead() {
       throw new Error('Falha ao criar lead: nenhum dado retornado')
     }
 
-    // 2. Resolve company (reuse autofill match or create)
+    // 2. Resolve company via API (enforces unique name + address fields)
     let resolvedCompanyId = companyId.value
     if (companyForm.value.name && companyForm.value.name.trim()) {
-      if (resolvedCompanyId) {
-        await supabase
-          .from('crm_company')
-          .update({
-            name: companyForm.value.name.trim(),
-            website: companyForm.value.website || null,
-            address: companyForm.value.address || null,
-            cep: companyForm.value.cep || null,
-            city: companyForm.value.city || null,
-            country: companyForm.value.country || null,
-            notes: companyForm.value.notes || null,
-          })
-          .eq('id', resolvedCompanyId)
-          .eq('tenant_id', tenantId.value)
+      const companyPayload = {
+        name: companyForm.value.name.trim(),
+        website: companyForm.value.website || null,
+        address: companyForm.value.address || null,
+        address_number: companyForm.value.address_number || null,
+        address_complement: companyForm.value.address_complement || null,
+        cep: companyForm.value.cep || null,
+        city: companyForm.value.city || null,
+        country: companyForm.value.country || null,
+        notes: companyForm.value.notes || null,
+        tenant_id: tenantId.value,
       }
-      else {
-        const { data: companyResult, error: companyError } = await supabase
-          .from('crm_company')
-          .insert([{
-            name: companyForm.value.name.trim(),
-            website: companyForm.value.website || null,
-            address: companyForm.value.address || null,
-            cep: companyForm.value.cep || null,
-            city: companyForm.value.city || null,
-            country: companyForm.value.country || null,
-            notes: companyForm.value.notes || null,
-            tenant_id: tenantId.value,
-          }])
-          .select()
-          .single()
 
-        if (companyError) {
-          console.error('Erro ao criar empresa:', companyError)
-          console.warn('Falha ao criar empresa, continuando sem empresa')
+      try {
+        if (resolvedCompanyId) {
+          await $fetch(`/api/crm/company/${resolvedCompanyId}`, {
+            method: 'PUT',
+            body: companyPayload,
+          })
         }
         else {
-          resolvedCompanyId = companyResult?.id ?? null
+          const companyResponse = await $fetch<{ data: { id: string } }>('/api/crm/company', {
+            method: 'POST',
+            body: companyPayload,
+          })
+          resolvedCompanyId = companyResponse.data?.id ?? null
         }
+      }
+      catch (companyErr: any) {
+        console.error('Erro ao criar empresa:', companyErr)
+        throw new Error(
+          companyErr?.data?.statusMessage
+          || companyErr?.message
+          || 'Falha ao salvar a empresa',
+        )
       }
     }
 
@@ -452,7 +455,7 @@ async function submitLead() {
       email: contact.email,
       phone: contact.phone,
     })
-    
+
     // Lead criado com sucesso - sem log para evitar violação de linter
   }
   catch (err: any) {
@@ -470,62 +473,68 @@ async function submitLead() {
     <!-- Loading State with Skeleton -->
     <div v-if="isLoadingData" class="space-y-6">
       <!-- Stepper Skeleton -->
-      <div class="flex justify-center mb-8">
-        <div class="flex items-center space-x-8 max-w-3xl w-full">
+      <div class="mb-8 flex justify-center">
+        <div class="max-w-3xl w-full flex items-center space-x-8">
           <div v-for="i in 4" :key="i" class="flex flex-col items-center space-y-2">
-            <div class="w-10 h-10 bg-muted rounded-full animate-pulse" />
-            <div class="w-16 h-3 bg-muted rounded animate-pulse" />
-            <div class="w-20 h-2 bg-muted rounded animate-pulse" />
+            <div class="h-10 w-10 animate-pulse rounded-full bg-muted" />
+            <div class="h-3 w-16 animate-pulse rounded bg-muted" />
+            <div class="h-2 w-20 animate-pulse rounded bg-muted" />
           </div>
         </div>
       </div>
-      
+
       <!-- Form Skeleton -->
-      <div class="max-w-3xl mx-auto">
+      <div class="mx-auto max-w-3xl">
         <div class="border rounded-lg p-6 space-y-6">
           <div class="space-y-2">
-            <div class="w-32 h-5 bg-muted rounded animate-pulse" />
-            <div class="w-full h-10 bg-muted rounded animate-pulse" />
+            <div class="h-5 w-32 animate-pulse rounded bg-muted" />
+            <div class="h-10 w-full animate-pulse rounded bg-muted" />
           </div>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div v-for="i in 4" :key="i" class="space-y-2">
-              <div class="w-24 h-4 bg-muted rounded animate-pulse" />
-              <div class="w-full h-10 bg-muted rounded animate-pulse" />
+              <div class="h-4 w-24 animate-pulse rounded bg-muted" />
+              <div class="h-10 w-full animate-pulse rounded bg-muted" />
             </div>
           </div>
-          
+
           <div class="space-y-2">
-            <div class="w-16 h-4 bg-muted rounded animate-pulse" />
-            <div class="w-full h-20 bg-muted rounded animate-pulse" />
+            <div class="h-4 w-16 animate-pulse rounded bg-muted" />
+            <div class="h-20 w-full animate-pulse rounded bg-muted" />
           </div>
-          
+
           <div class="flex justify-between pt-4">
-            <div class="w-20 h-10 bg-muted rounded animate-pulse" />
-            <div class="w-20 h-10 bg-muted rounded animate-pulse" />
+            <div class="h-10 w-20 animate-pulse rounded bg-muted" />
+            <div class="h-10 w-20 animate-pulse rounded bg-muted" />
           </div>
         </div>
       </div>
-      
+
       <!-- Loading text -->
       <div class="text-center">
-        <p class="text-sm text-muted-foreground">Carregando dados do formulário...</p>
+        <p class="text-sm text-muted-foreground">
+          Carregando dados do formulário...
+        </p>
       </div>
     </div>
 
     <!-- Error State -->
     <div v-else-if="dataError" class="flex flex-col items-center justify-center py-12 space-y-4">
-      <div class="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-        <svg class="w-6 h-6 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="h-12 w-12 flex items-center justify-center rounded-full bg-destructive/10">
+        <svg class="h-6 w-6 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
         </svg>
       </div>
       <div class="text-center">
-        <h3 class="text-sm font-medium text-destructive">Falha ao carregar dados</h3>
-        <p class="text-xs text-muted-foreground mt-1">{{ dataError }}</p>
+        <h3 class="text-sm text-destructive font-medium">
+          Falha ao carregar dados
+        </h3>
+        <p class="mt-1 text-xs text-muted-foreground">
+          {{ dataError }}
+        </p>
       </div>
       <Button variant="outline" size="sm" @click="refreshData">
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
         Tentar novamente
@@ -534,269 +543,276 @@ async function submitLead() {
 
     <!-- Main Form Content -->
     <div v-else>
-    <!-- Stepper Horizontal -->
-    <div class="w-full flex flex-col items-center">
-      <Stepper v-model="step" orientation="horizontal" class="mb-8 max-w-3xl w-full flex flex-row justify-between gap-0">
-        <StepperItem
-          v-for="(item, index) in steps"
-          :key="index"
-          v-slot="{ state }"
-          class="relative flex flex-1 flex-col items-center"
-          :step="index"
-        >
-          <StepperTrigger as-child>
-            <Button
-              :variant="state === 'completed' || state === 'active' ? 'default' : 'outline'"
-              size="icon"
-              class="z-10 shrink-0 rounded-full"
-              :class="[state === 'active' && 'ring-2 ring-ring ring-offset-2 ring-offset-background']"
-            >
-              <Check v-if="state === 'completed'" class="size-5" />
-              <Circle v-else-if="state === 'active'" />
-              <Dot v-else />
-            </Button>
-          </StepperTrigger>
-          <StepperTitle
-            :class="[state === 'active' && 'text-primary']"
-            class="mt-2 text-center text-sm font-semibold transition lg:text-base"
+      <!-- Stepper Horizontal -->
+      <div class="w-full flex flex-col items-center">
+        <Stepper v-model="step" orientation="horizontal" class="mb-8 max-w-3xl w-full flex flex-row justify-between gap-0">
+          <StepperItem
+            v-for="(item, index) in steps"
+            :key="index"
+            v-slot="{ state }"
+            class="relative flex flex-1 flex-col items-center"
+            :step="index"
           >
-            {{ item.title }}<span v-if="item.required" class="ml-1 text-xs text-destructive">*</span>
-          </StepperTitle>
-          <StepperDescription
-            :class="[state === 'active' && 'text-primary']"
-            class="text-center text-xs text-muted-foreground transition lg:text-sm"
-          >
-            {{ item.description }}
-          </StepperDescription>
-          <StepperSeparator
-            v-if="index !== steps.length - 1"
-            class="absolute left-auto right-0 top-5 h-0.5 w-full bg-muted group-data-[state=completed]:bg-primary"
-            style="left: 50%; right: -50%; width: 100%; height: 2px; top: 24px; z-index: 0;"
-          />
-        </StepperItem>
-      </Stepper>
-    </div>
-    <!-- Step Content -->
-    <div class="w-full flex justify-center">
-      <Card class="max-w-3xl w-full border p-2 shadow-lg">
-        <CardHeader class="mb-4">
-          <CardTitle>
-            <span v-if="step === 0">Informações do lead <span class="text-destructive">*</span></span>
-            <span v-else-if="step === 1">Detalhes do contato <span class="text-destructive">*</span></span>
-            <span v-else-if="step === 2">Informações da empresa</span>
-            <span v-else>Detalhes da reunião</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <template v-if="step === 0">
-            <!-- Lead Information Form -->
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
-                <LeadNameAutofillInput
-                  v-model="leadForm.name"
-                  input-id="lead-name"
-                  placeholder="Nome do lead"
-                  required
-                  @autofill="handleLeadAutofill"
-                />
-              </div>
-              <div class="space-y-2">
-                <Label for="lead-priority">Prioridade</Label>
-                <Select v-model="leadForm.priority">
-                  <SelectTrigger id="lead-priority" class="w-full">
-                    <SelectValue placeholder="Selecione a prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="priority in priorityOptions" :key="priority.value" :value="priority.value">
-                      {{ priority.label }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-2">
-                <Label for="lead-source">Origem</Label>
-                <Select v-model="leadForm.source">
-                  <SelectTrigger id="lead-source" class="w-full">
-                    <SelectValue placeholder="Selecione a origem" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="source in leadSources" :key="source.id" :value="source.id">
-                      {{ source.name }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-2">
-                <Label for="lead-status">Status</Label>
-                <Select v-model="leadForm.status">
-                  <SelectTrigger id="lead-status">
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem v-for="stage in salesStages" :key="stage.id" :value="stage.id">
-                      {{ stage.name }}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="md:col-span-2">
-                <LeadValuesFields
-                  v-model="leadForm.valuesInputs"
-                  v-model:closed-value="leadForm.closedValue"
-                  show-closed-value
-                  id-prefix="step-lead-value"
-                />
-              </div>
-              <div class="md:col-span-2 space-y-2">
-                <Label for="lead-notes">Observações</Label>
-                <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Observações sobre o lead" rows="3" />
-              </div>
-            </div>
-          </template>
-          <template v-else-if="step === 1">
-            <!-- Contact Details Form -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="contact-name">Nome do contato <span class="text-destructive">*</span></Label>
-                <LeadNameAutofillInput
-                  v-model="contactForm.name"
-                  input-id="contact-name"
-                  placeholder="Nome do contato"
-                  search-field="contact"
-                  required
-                  @autofill="handleLeadAutofill"
-                />
-              </div>
-              <div class="space-y-2">
-                <Label for="contact-email">E-mail <span class="text-destructive">*</span></Label>
-                <Input id="contact-email" v-model="contactForm.email" placeholder="email@exemplo.com" type="email" required />
-              </div>
-              <div class="space-y-2">
-                <Label for="contact-phone">Telefone</Label>
-                <Input
-                  id="contact-phone"
-                  v-model="contactForm.phone"
-                  v-maska="{ mask: [...BR_PHONE_MASKS] }"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-              <div class="space-y-2">
-                <Label for="contact-position">Cargo</Label>
-                <Input id="contact-position" v-model="contactForm.position" placeholder="Cargo do contato" />
-              </div>
-              <div class="md:col-span-2 space-y-2">
-                <Label for="contact-notes">Observações</Label>
-                <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Observações sobre o contato" rows="3" />
-              </div>
-            </div>
-          </template>
-          <template v-else-if="step === 2">
-            <!-- Company Info Form -->
-            <div class="mb-4 flex items-center justify-between gap-2">
-              <div>
-                <h3 class="text-sm font-medium">
-                  Empresa
-                </h3>
-                <p class="text-xs text-muted-foreground">
-                  Busque uma empresa cadastrada ou crie uma nova.
-                </p>
-              </div>
-              <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="startNewCompany">
-                <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
-                Nova empresa
+            <StepperTrigger as-child>
+              <Button
+                :variant="state === 'completed' || state === 'active' ? 'default' : 'outline'"
+                size="icon"
+                class="z-10 shrink-0 rounded-full"
+                :class="[state === 'active' && 'ring-2 ring-ring ring-offset-2 ring-offset-background']"
+              >
+                <Check v-if="state === 'completed'" class="size-5" />
+                <Circle v-else-if="state === 'active'" />
+                <Dot v-else />
               </Button>
-            </div>
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div class="space-y-2 md:col-span-2">
-                <Label for="company-name">Nome da empresa</Label>
-                <CompanyNameAutofillInput
-                  v-model="companyForm.name"
-                  input-id="company-name"
-                  placeholder="Digite para buscar empresas do tenant"
-                  @autofill="handleCompanyAutofill"
-                />
+            </StepperTrigger>
+            <StepperTitle
+              :class="[state === 'active' && 'text-primary']"
+              class="mt-2 text-center text-sm font-semibold transition lg:text-base"
+            >
+              {{ item.title }}<span v-if="item.required" class="ml-1 text-xs text-destructive">*</span>
+            </StepperTitle>
+            <StepperDescription
+              :class="[state === 'active' && 'text-primary']"
+              class="text-center text-xs text-muted-foreground transition lg:text-sm"
+            >
+              {{ item.description }}
+            </StepperDescription>
+            <StepperSeparator
+              v-if="index !== steps.length - 1"
+              class="absolute left-auto right-0 top-5 h-0.5 w-full bg-muted group-data-[state=completed]:bg-primary"
+              style="left: 50%; right: -50%; width: 100%; height: 2px; top: 24px; z-index: 0;"
+            />
+          </StepperItem>
+        </Stepper>
+      </div>
+      <!-- Step Content -->
+      <div class="w-full flex justify-center">
+        <Card class="max-w-3xl w-full border p-2 shadow-lg">
+          <CardHeader class="mb-4">
+            <CardTitle>
+              <span v-if="step === 0">Informações do lead <span class="text-destructive">*</span></span>
+              <span v-else-if="step === 1">Detalhes do contato <span class="text-destructive">*</span></span>
+              <span v-else-if="step === 2">Informações da empresa</span>
+              <span v-else>Detalhes da reunião</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <template v-if="step === 0">
+              <!-- Lead Information Form -->
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div class="space-y-2">
+                  <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
+                  <LeadNameAutofillInput
+                    v-model="leadForm.name"
+                    input-id="lead-name"
+                    placeholder="Nome do lead"
+                    required
+                    @autofill="handleLeadAutofill"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label for="lead-priority">Prioridade</Label>
+                  <Select v-model="leadForm.priority">
+                    <SelectTrigger id="lead-priority" class="w-full">
+                      <SelectValue placeholder="Selecione a prioridade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="priority in priorityOptions" :key="priority.value" :value="priority.value">
+                        {{ priority.label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="space-y-2">
+                  <Label for="lead-source">Origem</Label>
+                  <Select v-model="leadForm.source">
+                    <SelectTrigger id="lead-source" class="w-full">
+                      <SelectValue placeholder="Selecione a origem" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="source in leadSources" :key="source.id" :value="source.id">
+                        {{ source.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="space-y-2">
+                  <Label for="lead-status">Status</Label>
+                  <Select v-model="leadForm.status">
+                    <SelectTrigger id="lead-status">
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="stage in salesStages" :key="stage.id" :value="stage.id">
+                        {{ stage.name }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="md:col-span-2">
+                  <LeadValuesFields
+                    v-model="leadForm.valuesInputs"
+                    v-model:closed-value="leadForm.closedValue"
+                    show-closed-value
+                    id-prefix="step-lead-value"
+                  />
+                </div>
+                <div class="md:col-span-2 space-y-2">
+                  <Label for="lead-notes">Observações</Label>
+                  <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Observações sobre o lead" rows="3" />
+                </div>
               </div>
-              <div class="space-y-2">
-                <Label for="company-website">Site</Label>
-                <Input id="company-website" v-model="companyForm.website" placeholder="https://exemplo.com" />
+            </template>
+            <template v-else-if="step === 1">
+              <!-- Contact Details Form -->
+              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="space-y-2">
+                  <Label for="contact-name">Nome do contato <span class="text-destructive">*</span></Label>
+                  <LeadNameAutofillInput
+                    v-model="contactForm.name"
+                    input-id="contact-name"
+                    placeholder="Nome do contato"
+                    search-field="contact"
+                    required
+                    @autofill="handleLeadAutofill"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label for="contact-email">E-mail <span class="text-destructive">*</span></Label>
+                  <Input id="contact-email" v-model="contactForm.email" placeholder="email@exemplo.com" type="email" required />
+                </div>
+                <div class="space-y-2">
+                  <Label for="contact-phone">Telefone</Label>
+                  <Input
+                    id="contact-phone"
+                    v-model="contactForm.phone"
+                    v-maska="{ mask: [...BR_PHONE_MASKS] }"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label for="contact-position">Cargo</Label>
+                  <Input id="contact-position" v-model="contactForm.position" placeholder="Cargo do contato" />
+                </div>
+                <div class="md:col-span-2 space-y-2">
+                  <Label for="contact-notes">Observações</Label>
+                  <Textarea id="contact-notes" v-model="contactForm.notes" placeholder="Observações sobre o contato" rows="3" />
+                </div>
               </div>
-              <div class="space-y-2">
-                <Label for="company-cep">CEP</Label>
-                <Input id="company-cep" v-model="companyForm.cep" placeholder="00000-000" />
+            </template>
+            <template v-else-if="step === 2">
+              <!-- Company Info Form -->
+              <div class="mb-4 flex items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-sm font-medium">
+                    Empresa
+                  </h3>
+                  <p class="text-xs text-muted-foreground">
+                    Busque uma empresa cadastrada ou crie uma nova.
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="startNewCompany">
+                  <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
+                  Nova empresa
+                </Button>
               </div>
-              <div class="space-y-2">
-                <Label for="company-city">Cidade</Label>
-                <Input id="company-city" v-model="companyForm.city" placeholder="Cidade" />
+              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="md:col-span-2 space-y-2">
+                  <Label for="company-name">Nome da empresa</Label>
+                  <CompanyNameAutofillInput
+                    v-model="companyForm.name"
+                    input-id="company-name"
+                    placeholder="Digite para buscar empresas do tenant"
+                    @autofill="handleCompanyAutofill"
+                  />
+                </div>
+                <div class="md:col-span-2 space-y-2">
+                  <Label for="company-website">Site</Label>
+                  <Input id="company-website" v-model="companyForm.website" placeholder="https://exemplo.com" />
+                </div>
+                <div class="md:col-span-2">
+                  <CompanyAddressFields
+                    :model-value="{
+                      cep: companyForm.cep || '',
+                      address: companyForm.address || '',
+                      address_number: companyForm.address_number || '',
+                      address_complement: companyForm.address_complement || '',
+                      city: companyForm.city || '',
+                      country: companyForm.country || '',
+                    }"
+                    @update:model-value="(value) => {
+                      companyForm.cep = value.cep
+                      companyForm.address = value.address
+                      companyForm.address_number = value.address_number
+                      companyForm.address_complement = value.address_complement
+                      companyForm.city = value.city
+                      companyForm.country = value.country
+                    }"
+                  />
+                </div>
+                <div class="md:col-span-2 space-y-2">
+                  <Label for="company-notes">Observações</Label>
+                  <Textarea id="company-notes" v-model="companyForm.notes" placeholder="Observações sobre a empresa" rows="3" />
+                </div>
               </div>
-              <div class="space-y-2">
-                <Label for="company-country">País</Label>
-                <Input id="company-country" v-model="companyForm.country" placeholder="País" />
+            </template>
+            <template v-else>
+              <!-- Meeting Details Form -->
+              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div class="space-y-2">
+                  <Label for="meeting-date">Data</Label>
+                  <Input id="meeting-date" v-model="meetingForm.date" type="date" />
+                </div>
+                <div class="space-y-2">
+                  <Label for="meeting-time">Horário</Label>
+                  <Input id="meeting-time" v-model="meetingForm.time" type="time" />
+                </div>
+                <div class="space-y-2">
+                  <Label for="meeting-type">Tipo de reunião</Label>
+                  <Select v-model="meetingForm.type">
+                    <SelectTrigger id="meeting-type">
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="call">
+                        Ligação
+                      </SelectItem>
+                      <SelectItem value="video">
+                        Vídeo
+                      </SelectItem>
+                      <SelectItem value="in-person">
+                        Presencial
+                      </SelectItem>
+                      <SelectItem value="demo">
+                        Demonstração
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div class="space-y-2">
+                  <Label for="meeting-duration">Duração (minutos)</Label>
+                  <Input id="meeting-duration" v-model="meetingForm.duration" type="number" placeholder="30" />
+                </div>
+                <div class="md:col-span-2 space-y-2">
+                  <Label for="meeting-agenda">Pauta</Label>
+                  <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Descreva a pauta da reunião" rows="3" />
+                </div>
               </div>
-              <div class="md:col-span-2 space-y-2">
-                <Label for="company-address">Endereço</Label>
-                <Textarea id="company-address" v-model="companyForm.address" placeholder="Endereço completo" rows="2" />
-              </div>
-              <div class="md:col-span-2 space-y-2">
-                <Label for="company-notes">Observações</Label>
-                <Textarea id="company-notes" v-model="companyForm.notes" placeholder="Observações sobre a empresa" rows="3" />
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <!-- Meeting Details Form -->
-            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="meeting-date">Data</Label>
-                <Input id="meeting-date" v-model="meetingForm.date" type="date" />
-              </div>
-              <div class="space-y-2">
-                <Label for="meeting-time">Horário</Label>
-                <Input id="meeting-time" v-model="meetingForm.time" type="time" />
-              </div>
-              <div class="space-y-2">
-                <Label for="meeting-type">Tipo de reunião</Label>
-                <Select v-model="meetingForm.type">
-                  <SelectTrigger id="meeting-type">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="presential">
-                      Presencial
-                    </SelectItem>
-                    <SelectItem value="virtual">
-                      Virtual
-                    </SelectItem>
-                    <SelectItem value="phone">
-                      Telefone
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div class="space-y-2">
-                <Label for="meeting-duration">Duração (minutos)</Label>
-                <Input id="meeting-duration" v-model="meetingForm.duration" type="number" placeholder="30" />
-              </div>
-              <div class="md:col-span-2 space-y-2">
-                <Label for="meeting-agenda">Pauta</Label>
-                <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Descreva a pauta da reunião" rows="3" />
-              </div>
-            </div>
-          </template>
-        </CardContent>
-        <div class="flex justify-between gap-2 px-5 py-2">
-          <Button variant="outline" :disabled="step === 0" @click="prevStep">
-            Voltar
-          </Button>
-          <Button v-if="step < totalSteps - 1" :disabled="!validateStep()" @click="nextStep">
-            Próximo
-          </Button>
-          <Button v-else :loading="loading" :disabled="!validateStep()" @click="submitLead">
-            Salvar lead
-          </Button>
-        </div>
-      </Card>
-    </div>
+            </template>
+          </CardContent>
+          <div class="flex justify-between gap-2 px-5 py-2">
+            <Button variant="outline" :disabled="step === 0" @click="prevStep">
+              Voltar
+            </Button>
+            <Button v-if="step < totalSteps - 1" :disabled="!validateStep()" @click="nextStep">
+              Próximo
+            </Button>
+            <Button v-else :loading="loading" :disabled="!validateStep()" @click="submitLead">
+              Salvar lead
+            </Button>
+          </div>
+        </Card>
+      </div>
     </div>
   </div>
 </template>

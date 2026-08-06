@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const tenantId = String(query.tenant_id || '').trim()
   if (!tenantId)
-    throw createError({ statusCode: 400, statusMessage: 'tenant_id is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
 
   const attendantsOnly = query.attendants_only === 'true'
 

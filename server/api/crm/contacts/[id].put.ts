@@ -7,28 +7,28 @@ export default defineEventHandler(async (event) => {
   if (!contactId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Contact ID is required',
+      statusMessage: 'ID do contato é obrigatório',
     })
   }
 
   if (!body.tenant_id) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant ID is required',
+      statusMessage: 'Tenant ID é obrigatório',
     })
   }
 
   if (!body.name) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Contact name is required',
+      statusMessage: 'Nome do contato é obrigatório',
     })
   }
 
   if (!body.email) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Email is required',
+      statusMessage: 'E-mail é obrigatório',
     })
   }
 
@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
     if (!data) {
       throw createError({
         statusCode: 404,
-        statusMessage: 'Contact not found',
+        statusMessage: 'Contato não encontrado',
       })
     }
 
@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to update contact',
+      statusMessage: error.message || 'Falha ao atualizar contato',
     })
   }
 })

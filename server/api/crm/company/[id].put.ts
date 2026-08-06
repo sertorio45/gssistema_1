@@ -1,4 +1,10 @@
 import { serverSupabaseServiceRole } from '#supabase/server'
+import { createError, getRouterParam, readBody } from 'h3'
+
+import {
+  assertUniqueCompanyName,
+  companyAddressPayload,
+} from '~/server/utils/crm-company'
 
 export default defineEventHandler(async (event) => {
   const companyId = getRouterParam(event, 'id')
@@ -7,29 +13,34 @@ export default defineEventHandler(async (event) => {
   if (!companyId) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Company ID is required',
+      statusMessage: 'ID da empresa é obrigatório',
     })
   }
 
   if (!body.tenant_id) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant ID is required',
+      statusMessage: 'Tenant ID é obrigatório',
     })
   }
 
   try {
     const supabase = serverSupabaseServiceRole(event)
 
+    const name = body.name
+      ? await assertUniqueCompanyName(supabase, {
+        tenantId: String(body.tenant_id),
+        name: String(body.name),
+        excludeId: companyId,
+      })
+      : undefined
+
     const { data, error } = await supabase
       .from('crm_company')
       .update({
-        name: body.name,
+        ...(name ? { name } : {}),
         website: body.website || null,
-        address: body.address || null,
-        cep: body.cep || null,
-        city: body.city || null,
-        country: body.country || null,
+        ...companyAddressPayload(body),
         notes: body.notes || null,
         updated_at: new Date().toISOString(),
       })
@@ -42,7 +53,13 @@ export default defineEventHandler(async (event) => {
       if (error.code === 'PGRST116') {
         throw createError({
           statusCode: 404,
-          statusMessage: 'Company not found',
+          statusMessage: 'Empresa não encontrada',
+        })
+      }
+      if (error.code === '23505') {
+        throw createError({
+          statusCode: 409,
+          statusMessage: 'Já existe uma empresa com este nome neste ambiente',
         })
       }
       throw createError({
@@ -51,17 +68,14 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return {
-      data,
-    }
+    return { data }
   }
   catch (error: any) {
-    if (error.statusCode) {
+    if (error.statusCode)
       throw error
-    }
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to update company',
+      statusMessage: error.message || 'Falha ao atualizar empresa',
     })
   }
 })

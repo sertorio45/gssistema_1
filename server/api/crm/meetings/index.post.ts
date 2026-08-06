@@ -6,14 +6,14 @@ export default defineEventHandler(async (event) => {
   if (!body.tenant_id) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Tenant ID is required',
+      statusMessage: 'Tenant ID é obrigatório',
     })
   }
 
   if (!body.title) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Meeting title is required',
+      statusMessage: 'Título da reunião é obrigatório',
     })
   }
 
@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
   catch (error: any) {
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to create meeting',
+      statusMessage: error.message || 'Falha ao criar reunião',
     })
   }
 })

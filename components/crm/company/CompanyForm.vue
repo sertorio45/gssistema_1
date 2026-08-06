@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { Company } from '~/types/crm'
-import { Loader2 } from 'lucide-vue-next'
-
 import { toast } from 'vue-sonner'
-import { useCEP } from '~/composables/useCEP'
+
+import CompanyAddressFields from '~/components/crm/company/CompanyAddressFields.vue'
 import { useTenant } from '~/composables/useTenant'
+import { DEFAULT_COUNTRY_LABEL } from '~/constants/countries'
 
 interface Props {
   initialData?: Partial<Company>
@@ -18,19 +18,40 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { tenantId } = useTenant()
-const { fetchCEP, formatCEP, isLoading: cepLoading } = useCEP()
-
 const isSubmitting = ref(false)
 
 const formData = reactive({
   name: props.initialData?.name || '',
   website: props.initialData?.website || '',
-  address: props.initialData?.address || '',
-  cep: props.initialData?.cep || '',
-  city: props.initialData?.city || '',
-  country: props.initialData?.country || '',
   notes: props.initialData?.notes || '',
+  address: {
+    cep: props.initialData?.cep || '',
+    address: props.initialData?.address || '',
+    address_number: props.initialData?.address_number || '',
+    address_complement: props.initialData?.address_complement || '',
+    city: props.initialData?.city || '',
+    country: props.initialData?.country || DEFAULT_COUNTRY_LABEL,
+  },
 })
+
+watch(
+  () => props.initialData,
+  (data) => {
+    if (!data)
+      return
+    formData.name = data.name || ''
+    formData.website = data.website || ''
+    formData.notes = data.notes || ''
+    formData.address = {
+      cep: data.cep || '',
+      address: data.address || '',
+      address_number: data.address_number || '',
+      address_complement: data.address_complement || '',
+      city: data.city || '',
+      country: data.country || DEFAULT_COUNTRY_LABEL,
+    }
+  },
+)
 
 async function handleSubmit() {
   if (!formData.name.trim()) {
@@ -39,7 +60,7 @@ async function handleSubmit() {
   }
 
   if (!tenantId.value) {
-    toast.error('Nenhum tenant disponível')
+    toast.error('Nenhuma empresa disponível')
     return
   }
 
@@ -47,7 +68,15 @@ async function handleSubmit() {
 
   try {
     const payload = {
-      ...formData,
+      name: formData.name.trim(),
+      website: formData.website,
+      notes: formData.notes,
+      cep: formData.address.cep,
+      address: formData.address.address,
+      address_number: formData.address.address_number,
+      address_complement: formData.address.address_complement,
+      city: formData.address.city,
+      country: formData.address.country,
       tenant_id: tenantId.value,
     }
 
@@ -69,24 +98,10 @@ async function handleSubmit() {
     }
   }
   catch (error: any) {
-    toast.error(error?.data?.message || 'Erro ao salvar empresa')
+    toast.error(error?.data?.statusMessage || error?.data?.message || 'Erro ao salvar empresa')
   }
   finally {
     isSubmitting.value = false
-  }
-}
-
-async function handleCEPLookup(cep: string) {
-  if (!cep || cep.length < 8)
-    return
-
-  const cepData = await fetchCEP(cep)
-  if (cepData) {
-    formData.address = cepData.logradouro || ''
-    formData.city = cepData.localidade || ''
-    formData.country = 'Brasil'
-    formData.cep = formatCEP(cep)
-    toast.success('Dados do CEP carregados')
   }
 }
 </script>
@@ -94,56 +109,18 @@ async function handleCEPLookup(cep: string) {
 <template>
   <form id="company-form" class="space-y-5" @submit.prevent="handleSubmit">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div class="space-y-2 md:col-span-2">
+      <div class="md:col-span-2 space-y-2">
         <Label for="name">Nome da empresa <span class="text-destructive">*</span></Label>
         <Input id="name" v-model="formData.name" placeholder="Nome da empresa" required />
       </div>
 
-      <div class="space-y-2 md:col-span-2">
+      <div class="md:col-span-2 space-y-2">
         <Label for="website">Site</Label>
         <Input id="website" v-model="formData.website" placeholder="https://exemplo.com" type="url" />
       </div>
     </div>
 
-    <div class="space-y-4">
-      <h3 class="text-sm font-medium text-muted-foreground">
-        Endereço
-      </h3>
-
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div class="space-y-2">
-          <Label for="cep">CEP</Label>
-          <div class="relative">
-            <Input
-              id="cep"
-              v-model="formData.cep"
-              placeholder="00000-000"
-              :disabled="cepLoading"
-              @blur="handleCEPLookup(($event.target as HTMLInputElement).value)"
-            />
-            <Loader2
-              v-if="cepLoading"
-              class="absolute right-3 top-1/2 h-4 w-4 animate-spin text-muted-foreground -translate-y-1/2"
-            />
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <Label for="city">Cidade</Label>
-          <Input id="city" v-model="formData.city" placeholder="Cidade" />
-        </div>
-
-        <div class="space-y-2">
-          <Label for="country">País</Label>
-          <Input id="country" v-model="formData.country" placeholder="País" />
-        </div>
-      </div>
-
-      <div class="space-y-2">
-        <Label for="address">Endereço</Label>
-        <Textarea id="address" v-model="formData.address" placeholder="Endereço completo" :rows="2" />
-      </div>
-    </div>
+    <CompanyAddressFields v-model="formData.address" />
 
     <div class="space-y-2">
       <Label for="notes">Observações</Label>

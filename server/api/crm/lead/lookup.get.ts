@@ -50,13 +50,13 @@ function mapContactRow(
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const { tenant_id, q, exclude_lead_id, limit = '8' } = getQuery(event)
 
   if (!tenant_id) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   }
 
   const query = String(q || '').trim()
@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
     : user.user_metadata?.role || user.app_metadata?.role
 
   if (isWrongTenantForScopedUser(role, tenantId, String(tenant_id))) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   const client = serverSupabaseServiceRole(event)

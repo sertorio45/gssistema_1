@@ -55,7 +55,7 @@ import { useTenantPage } from '~/composables/useTenantPage'
 
 // SEO Meta
 useSeoMeta({
-  title: 'CRM Funil',
+  title: 'Funil de vendas',
   description: 'Gerencie seu funil de vendas e leads com eficiência.',
 })
 
@@ -288,6 +288,19 @@ function getPriorityLabel(priority: string) {
     low: 'Baixa',
   }
   return labels[priority] || priority
+}
+
+function getStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    new: 'Novo',
+    contacted: 'Contatado',
+    qualified: 'Qualificado',
+    proposal: 'Proposta',
+    negotiation: 'Negociação',
+    won: 'Ganho',
+    lost: 'Perdido',
+  }
+  return labels[status] || status
 }
 
 function getMetaCapiLabel(status?: string | null) {
@@ -1540,13 +1553,13 @@ async function saveStagesOrder() {
             <div>
               <Label class="text-sm font-medium">Status</Label>
               <Badge class="mt-1" variant="secondary">
-                {{ selectedLead.status }}
+                {{ getStatusLabel(selectedLead.status) }}
               </Badge>
             </div>
             <div>
               <Label class="text-sm font-medium">Prioridade</Label>
               <Badge class="mt-1" variant="outline">
-                {{ selectedLead.priority }}
+                {{ getPriorityLabel(selectedLead.priority) }}
               </Badge>
             </div>
             <div>

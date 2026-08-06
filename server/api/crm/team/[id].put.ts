@@ -18,12 +18,12 @@ interface UpdateTeamMemberBody {
 export default defineEventHandler(async (event) => {
   const membershipId = getRouterParam(event, 'id')
   if (!membershipId)
-    throw createError({ statusCode: 400, statusMessage: 'id is required' })
+    throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
 
   const body = await readBody<UpdateTeamMemberBody>(event)
   const tenantId = String(body.tenant_id || '').trim()
   if (!tenantId)
-    throw createError({ statusCode: 400, statusMessage: 'tenant_id is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
 
   const { isStaff, role: managerRole } = await assertCanManageTenantTeam(event, tenantId)
   if (body.role)

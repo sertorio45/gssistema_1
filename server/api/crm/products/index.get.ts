@@ -11,7 +11,7 @@ import {
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
 
   const { role, tenantId } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
   const query = getQuery(event)
@@ -19,13 +19,13 @@ export default defineEventHandler(async (event) => {
   const effectiveTenantId = (queryTenantId as string) || tenantId
 
   if (!effectiveTenantId)
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
 
   if (!canAccessTenantModule(role))
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
 
   if (isWrongTenantForScopedUser(role, tenantId, effectiveTenantId))
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
 
   const client = await serverSupabaseServiceRole(event)
   let req = client

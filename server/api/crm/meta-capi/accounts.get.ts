@@ -32,7 +32,7 @@ function mapGraphError(error: any, fallback: string) {
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
 
   const client = await serverSupabaseServiceRole(event)
   const query = getQuery(event)
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
 
   const tenantId = (query.tenant_id as string) || userTenantId
   if (!tenantId)
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   assertScopedTenantAccess(role, userTenantId, tenantId)
 
   const resource = String(query.resource || 'businesses')

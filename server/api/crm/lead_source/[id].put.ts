@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await serverSupabaseUser(event)
     if (!user) {
-      throw createError({ statusCode: 401, message: 'Unauthorized' })
+      throw createError({ statusCode: 401, message: 'Não autorizado' })
     }
     const client = await serverSupabaseServiceRole(event)
     const id = getRouterParam(event, 'id')
@@ -34,10 +34,10 @@ export default defineEventHandler(async (event) => {
       .eq('id', id)
       .single()
     if (existError || !existing) {
-      throw createError({ statusCode: 404, message: 'Source não encontrado' })
+      throw createError({ statusCode: 404, message: 'Origem não encontrada' })
     }
     if (existing.tenant_id !== tenantId) {
-      throw createError({ statusCode: 403, message: 'Acesso negado ao source' })
+      throw createError({ statusCode: 403, message: 'Acesso negado à origem' })
     }
     // Atualizar apenas campos permitidos
     const updateData = {

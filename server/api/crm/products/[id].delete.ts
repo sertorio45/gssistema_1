@@ -5,7 +5,7 @@ import { createError, defineEventHandler, getQuery, getRouterParam } from 'h3'
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const id = getRouterParam(event, 'id')
@@ -13,10 +13,10 @@ export default defineEventHandler(async (event) => {
   const tenant_id = String(query.tenant_id || '')
 
   if (!id) {
-    throw createError({ statusCode: 400, statusMessage: 'ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
   }
   if (!tenant_id) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   }
 
   const client = serverSupabaseServiceRole(event)

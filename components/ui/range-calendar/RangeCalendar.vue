@@ -20,7 +20,13 @@ import {
   RangeCalendarPrevButton,
 } from '.'
 
-const props = defineProps<RangeCalendarRootProps & { class?: HTMLAttributes['class'] }>()
+const props = withDefaults(
+  defineProps<RangeCalendarRootProps & { class?: HTMLAttributes['class'] }>(),
+  {
+    locale: 'pt-BR',
+    weekdayFormat: 'short',
+  },
+)
 
 const emits = defineEmits<RangeCalendarRootEmits>()
 

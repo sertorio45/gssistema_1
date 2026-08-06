@@ -343,7 +343,7 @@ async function handleMultiDelete() {
       </Select>
       <Select v-model="filterActive">
         <SelectTrigger class="w-[160px]">
-          <SelectValue placeholder="Status" />
+          <SelectValue placeholder="Selecione o status" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem :value="FILTER_ALL">

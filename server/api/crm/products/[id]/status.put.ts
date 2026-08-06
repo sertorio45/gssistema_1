@@ -5,20 +5,20 @@ import { createError, defineEventHandler, getRouterParam, readBody } from 'h3'
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const id = getRouterParam(event, 'id')
   const body = await readBody(event) as { tenant_id?: string, active?: boolean }
 
   if (!id) {
-    throw createError({ statusCode: 400, statusMessage: 'ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
   }
   if (!body?.tenant_id) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   }
   if (typeof body.active !== 'boolean') {
-    throw createError({ statusCode: 400, statusMessage: 'active (boolean) is required' })
+    throw createError({ statusCode: 400, statusMessage: 'active (boolean) é obrigatório' })
   }
 
   const client = serverSupabaseServiceRole(event)

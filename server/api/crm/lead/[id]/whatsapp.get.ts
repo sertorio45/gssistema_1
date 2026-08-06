@@ -11,12 +11,12 @@ import { isActiveWhatsAppConversationStatus } from '~/server/utils/whatsapp/conv
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
+    throw createError({ statusCode: 401, statusMessage: 'Não autorizado' })
   }
 
   const leadId = getRouterParam(event, 'id')
   if (!leadId) {
-    throw createError({ statusCode: 400, statusMessage: 'Lead ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'ID do lead é obrigatório' })
   }
 
   const tenantRoles = user.app_metadata?.tenant_roles || {}
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   const { tenant_id: queryTenantId } = getQuery(event)
   const effectiveTenantId = (queryTenantId as string) || tenantId
   if (!effectiveTenantId) {
-    throw createError({ statusCode: 400, statusMessage: 'Tenant ID is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
   }
 
   const role = tenantId && tenantRoles[tenantId]
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
     : user.user_metadata?.role || user.app_metadata?.role
 
   if (isWrongTenantForScopedUser(role, tenantId, effectiveTenantId)) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+    throw createError({ statusCode: 403, statusMessage: 'Acesso negado' })
   }
 
   const client = serverSupabaseServiceRole(event)
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!lead) {
-    throw createError({ statusCode: 404, statusMessage: 'Lead not found' })
+    throw createError({ statusCode: 404, statusMessage: 'Lead não encontrado' })
   }
 
   const { data: conversationByLead } = await client

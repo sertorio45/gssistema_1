@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { useSupabaseClient } from '#imports'
+import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
 import { Icon } from '#components'
+import { useSupabaseClient } from '#imports'
 import { computed, ref, watch } from 'vue'
 import {
   Select,
@@ -9,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import CompanyAddressFields from '~/components/crm/company/CompanyAddressFields.vue'
+import CompanyNameAutofillInput from '~/components/crm/leads/CompanyNameAutofillInput.vue'
 // Removendo import de tabs temporariamente
 // import {
 //   Tabs,
@@ -17,7 +20,6 @@ import {
 //   TabsTrigger,
 // } from '@/components/ui/tabs'
 import LeadNameAutofillInput from '~/components/crm/leads/LeadNameAutofillInput.vue'
-import CompanyNameAutofillInput from '~/components/crm/leads/CompanyNameAutofillInput.vue'
 import LeadValuesFields from '~/components/crm/leads/LeadValuesFields.vue'
 import TeamMemberSelect from '~/components/crm/team/TeamMemberSelect.vue'
 import Button from '~/components/ui/button/Button.vue'
@@ -25,18 +27,17 @@ import Input from '~/components/ui/input/Input.vue'
 import Label from '~/components/ui/label/Label.vue'
 import Textarea from '~/components/ui/textarea/Textarea.vue'
 import {
+  applyCompanyAutofill,
+  applyCrmLeadAutofill,
+} from '~/composables/crm/useCrmLeadAutofill'
+import {
   BR_PHONE_MASKS,
   formatLeadValueInput,
   normalizeLeadValues,
   parseLeadValueInput,
   parseLeadValuesInputs,
 } from '~/composables/crm/useCrmLeadValue'
-import {
-  applyCompanyAutofill,
-  applyCrmLeadAutofill,
-} from '~/composables/crm/useCrmLeadAutofill'
 import { useCrmLeadWhatsapp } from '~/composables/crm/useCrmLeadWhatsapp'
-import type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
 import { useTenant } from '~/composables/useTenant'
 
 // Props
@@ -49,7 +50,7 @@ const props = defineProps<Props>()
 // Define emits
 const emit = defineEmits<{
   'lead-updated': [lead: any]
-  cancel: []
+  'cancel': []
 }>()
 
 const { tenantId } = useTenant()
@@ -81,8 +82,8 @@ const { data: salesStages, pending: salesStagesPending } = await useLazyFetch<an
 })
 
 // Computed para estado geral de loading
-const isLoadingAnyData = computed(() => 
-  leadSourcesPending.value || salesStagesPending.value
+const isLoadingAnyData = computed(() =>
+  leadSourcesPending.value || salesStagesPending.value,
 )
 
 // Watch para gerenciar estado de loading geral
@@ -109,9 +110,10 @@ const statusOptions = [
 ]
 
 const meetingTypeOptions = [
-  { value: 'presential', label: 'Presencial' },
-  { value: 'virtual', label: 'Virtual' },
-  { value: 'phone', label: 'Telefone' },
+  { value: 'call', label: 'Ligação' },
+  { value: 'video', label: 'Vídeo' },
+  { value: 'in-person', label: 'Presencial' },
+  { value: 'demo', label: 'Demonstração' },
 ]
 
 // Form data - pré-preenchido com dados do lead
@@ -160,6 +162,8 @@ const companyForm = ref({
   name: '',
   website: '',
   address: '',
+  address_number: '',
+  address_complement: '',
   cep: '',
   city: '',
   country: '',
@@ -193,6 +197,8 @@ function emptyCompanyForm() {
     name: '',
     website: '',
     address: '',
+    address_number: '',
+    address_complement: '',
     cep: '',
     city: '',
     country: '',
@@ -206,7 +212,7 @@ async function loadLeadContacts(leadId: string) {
 
   const { data, error } = await supabase
     .from('crm_contact')
-    .select('id, name, email, phone, position, notes, company_id, company:crm_company(id, name, website, address, cep, city, country, notes)')
+    .select('id, name, email, phone, position, notes, company_id, company:crm_company(id, name, website, address, address_number, address_complement, cep, city, country, notes)')
     .eq('lead_id', leadId)
     .eq('tenant_id', tenantId.value)
     .order('created_at', { ascending: true })
@@ -239,6 +245,8 @@ async function loadLeadContacts(leadId: string) {
           name: company.name || '',
           website: company.website || '',
           address: company.address || '',
+          address_number: company.address_number || '',
+          address_complement: company.address_complement || '',
           cep: company.cep || '',
           city: company.city || '',
           country: company.country || '',
@@ -333,6 +341,8 @@ function handleContactAutofill(index: number, match: CrmLeadLookupResult) {
       name: match.company_name || '',
       website: match.company_website || '',
       address: match.company_address || '',
+      address_number: '',
+      address_complement: '',
       cep: match.company_cep || '',
       city: match.company_city || '',
       country: match.company_country || '',
@@ -403,7 +413,8 @@ watch([() => props.lead, leadSources], () => {
 
 // Função para encontrar o ID do lead source baseado no valor enum
 function findLeadSourceId(sourceEnum: string): string {
-  if (!sourceEnum || !leadSources.value) return ''
+  if (!sourceEnum || !leadSources.value)
+    return ''
 
   const exactId = leadSources.value.find(s => s.id === sourceEnum)
   if (exactId)
@@ -412,21 +423,27 @@ function findLeadSourceId(sourceEnum: string): string {
   const exactName = leadSources.value.find(s => s.name.toLowerCase() === sourceEnum.toLowerCase())
   if (exactName)
     return exactName.id
-  
-  const source = leadSources.value.find(s => {
+
+  const source = leadSources.value.find((s) => {
     const sourceName = s.name.toLowerCase()
     const enumValue = sourceEnum.toLowerCase()
-    
-    if (enumValue === 'website' && (sourceName.includes('website') || sourceName.includes('web'))) return true
-    if (enumValue === 'referral' && (sourceName.includes('referral') || sourceName.includes('indica'))) return true
-    if (enumValue === 'social' && (sourceName.includes('social') || sourceName.includes('redes'))) return true
-    if (enumValue === 'email' && (sourceName.includes('email') || sourceName.includes('e-mail'))) return true
-    if (enumValue === 'phone' && (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats'))) return true
-    if (enumValue === 'other' && (sourceName.includes('other') || sourceName.includes('outro'))) return true
-    
+
+    if (enumValue === 'website' && (sourceName.includes('website') || sourceName.includes('web')))
+      return true
+    if (enumValue === 'referral' && (sourceName.includes('referral') || sourceName.includes('indica')))
+      return true
+    if (enumValue === 'social' && (sourceName.includes('social') || sourceName.includes('redes')))
+      return true
+    if (enumValue === 'email' && (sourceName.includes('email') || sourceName.includes('e-mail')))
+      return true
+    if (enumValue === 'phone' && (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats')))
+      return true
+    if (enumValue === 'other' && (sourceName.includes('other') || sourceName.includes('outro')))
+      return true
+
     return false
   })
-  
+
   return source?.id || ''
 }
 
@@ -442,12 +459,17 @@ function getSourceEnumValue(sourceId: string | null): 'website' | 'referral' | '
   }
 
   const sourceName = source.name.toLowerCase()
-  if (sourceName.includes('website') || sourceName.includes('web')) return 'website'
-  if (sourceName.includes('referral') || sourceName.includes('indica')) return 'referral'
-  if (sourceName.includes('social') || sourceName.includes('redes')) return 'social'
-  if (sourceName.includes('email') || sourceName.includes('e-mail')) return 'email'
-  if (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats')) return 'phone'
-  
+  if (sourceName.includes('website') || sourceName.includes('web'))
+    return 'website'
+  if (sourceName.includes('referral') || sourceName.includes('indica'))
+    return 'referral'
+  if (sourceName.includes('social') || sourceName.includes('redes'))
+    return 'social'
+  if (sourceName.includes('email') || sourceName.includes('e-mail'))
+    return 'email'
+  if (sourceName.includes('phone') || sourceName.includes('telefone') || sourceName.includes('whatsapp') || sourceName.includes('whats'))
+    return 'phone'
+
   return 'other'
 }
 
@@ -500,6 +522,8 @@ async function updateLead() {
         name: companyForm.value.name,
         website: companyForm.value.website || null,
         address: companyForm.value.address || null,
+        address_number: companyForm.value.address_number || null,
+        address_complement: companyForm.value.address_complement || null,
         cep: companyForm.value.cep || null,
         city: companyForm.value.city || null,
         country: companyForm.value.country || null,
@@ -522,8 +546,12 @@ async function updateLead() {
           companyId.value = companyResponse.data?.id ?? null
         }
       }
-      catch (companyErr) {
-        console.warn('Falha ao criar/atualizar empresa:', companyErr)
+      catch (companyErr: any) {
+        throw new Error(
+          companyErr?.data?.statusMessage
+          || companyErr?.message
+          || 'Falha ao salvar a empresa',
+        )
       }
     }
 
@@ -628,13 +656,13 @@ function cancel() {
     <div v-if="isLoadingData" class="space-y-6">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div v-for="i in 6" :key="i" class="space-y-2">
-          <div class="w-24 h-4 bg-muted rounded animate-pulse" />
-          <div class="w-full h-10 bg-muted rounded animate-pulse" />
+          <div class="h-4 w-24 animate-pulse rounded bg-muted" />
+          <div class="h-10 w-full animate-pulse rounded bg-muted" />
         </div>
       </div>
       <div class="space-y-2">
-        <div class="w-16 h-4 bg-muted rounded animate-pulse" />
-        <div class="w-full h-20 bg-muted rounded animate-pulse" />
+        <div class="h-4 w-16 animate-pulse rounded bg-muted" />
+        <div class="h-20 w-full animate-pulse rounded bg-muted" />
       </div>
     </div>
 
@@ -645,307 +673,307 @@ function cancel() {
         <button
           v-for="tab in ['lead', 'contact', 'company', 'meeting']"
           :key="tab"
-          @click="activeTab = tab as any"
-          :class="[
-            'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          class="border-b-2 px-4 py-2 text-sm font-medium transition-colors" :class="[
             activeTab === tab
               ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground',
           ]"
+          @click="activeTab = tab as any"
         >
           {{ ({ lead: 'Lead', contact: 'Contatos', company: 'Empresa', meeting: 'Reunião' } as Record<string, string>)[tab] }}
         </button>
       </div>
 
-        <!-- Lead Tab -->
-        <div v-if="activeTab === 'lead'" class="space-y-6">
+      <!-- Lead Tab -->
+      <div v-if="activeTab === 'lead'" class="space-y-6">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
+            <LeadNameAutofillInput
+              v-model="leadForm.name"
+              input-id="lead-name"
+              placeholder="Nome do lead"
+              :exclude-lead-id="props.lead?.id"
+              required
+              @autofill="handleLeadAutofill"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="lead-priority">Prioridade</Label>
+            <Select v-model="leadForm.priority">
+              <SelectTrigger id="lead-priority">
+                <SelectValue placeholder="Selecione a prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="priority in priorityOptions" :key="priority.value" :value="priority.value">
+                  {{ priority.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="lead-source">Origem</Label>
+            <Select v-model="leadForm.source">
+              <SelectTrigger id="lead-source">
+                <SelectValue placeholder="Selecione a origem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="source in leadSources" :key="source.id" :value="source.id">
+                  {{ source.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="lead-status">Status</Label>
+            <Select v-model="leadForm.status">
+              <SelectTrigger id="lead-status">
+                <SelectValue placeholder="Selecione o status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="status in statusOptions" :key="status.value" :value="status.value">
+                  {{ status.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="lead-stage">Estágio de vendas</Label>
+            <Select v-model="leadForm.sales_stage_id">
+              <SelectTrigger id="lead-stage">
+                <SelectValue placeholder="Selecione o estágio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="stage in salesStages" :key="stage.id" :value="stage.id">
+                  {{ stage.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="lead-assigned">Responsável</Label>
+            <TeamMemberSelect
+              id="lead-assigned"
+              v-model="leadForm.assigned_to"
+              include-unassigned
+              placeholder="Selecionar responsável"
+            />
+          </div>
+
+          <div class="md:col-span-2">
+            <LeadValuesFields
+              v-model="leadForm.valuesInputs"
+              v-model:closed-value="leadForm.closedValue"
+              show-closed-value
+              id-prefix="edit-lead-value"
+            />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <Label for="lead-notes">Observações</Label>
+          <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Observações sobre o lead" rows="3" />
+        </div>
+      </div>
+
+      <!-- Contact Tab -->
+      <div v-if="activeTab === 'contact'" class="space-y-6">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-medium">
+              Contatos do lead
+            </h3>
+            <p class="text-xs text-muted-foreground">
+              Adicione um ou mais contatos vinculados a este lead.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="addContact">
+            <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
+            Adicionar contato
+          </Button>
+        </div>
+
+        <div
+          v-for="(contact, index) in contacts"
+          :key="contact.key"
+          class="border border-border rounded-lg p-4 space-y-4"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-sm font-medium">
+              Contato {{ index + 1 }}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="h-8 text-muted-foreground hover:text-destructive"
+              @click="removeContact(index)"
+            >
+              <Icon name="lucide:trash-2" class="mr-1 h-4 w-4" />
+              Remover
+            </Button>
+          </div>
+
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-2">
-              <Label for="lead-name">Nome do lead <span class="text-destructive">*</span></Label>
+              <Label :for="`contact-name-${index}`">Nome do contato</Label>
               <LeadNameAutofillInput
-                v-model="leadForm.name"
-                input-id="lead-name"
-                placeholder="Nome do lead"
+                v-model="contact.name"
+                :input-id="`contact-name-${index}`"
+                placeholder="Nome do contato"
+                search-field="contact"
                 :exclude-lead-id="props.lead?.id"
-                required
-                @autofill="handleLeadAutofill"
-              />
-            </div>
-            
-            <div class="space-y-2">
-              <Label for="lead-priority">Prioridade</Label>
-              <Select v-model="leadForm.priority">
-                <SelectTrigger id="lead-priority">
-                  <SelectValue placeholder="Selecione a prioridade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="priority in priorityOptions" :key="priority.value" :value="priority.value">
-                    {{ priority.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="lead-source">Origem</Label>
-              <Select v-model="leadForm.source">
-                <SelectTrigger id="lead-source">
-                  <SelectValue placeholder="Selecione a origem" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="source in leadSources" :key="source.id" :value="source.id">
-                    {{ source.name }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="lead-status">Status</Label>
-              <Select v-model="leadForm.status">
-                <SelectTrigger id="lead-status">
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="status in statusOptions" :key="status.value" :value="status.value">
-                    {{ status.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="lead-stage">Estágio de vendas</Label>
-              <Select v-model="leadForm.sales_stage_id">
-                <SelectTrigger id="lead-stage">
-                  <SelectValue placeholder="Selecione o estágio" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="stage in salesStages" :key="stage.id" :value="stage.id">
-                    {{ stage.name }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="lead-assigned">Responsável</Label>
-              <TeamMemberSelect
-                id="lead-assigned"
-                v-model="leadForm.assigned_to"
-                include-unassigned
-                placeholder="Selecionar responsável"
+                @autofill="(match) => handleContactAutofill(index, match)"
               />
             </div>
 
-            <div class="md:col-span-2">
-              <LeadValuesFields
-                v-model="leadForm.valuesInputs"
-                v-model:closed-value="leadForm.closedValue"
-                show-closed-value
-                id-prefix="edit-lead-value"
+            <div class="space-y-2">
+              <Label :for="`contact-email-${index}`">E-mail</Label>
+              <Input
+                :id="`contact-email-${index}`"
+                v-model="contact.email"
+                placeholder="email@exemplo.com"
+                type="email"
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label :for="`contact-phone-${index}`">Telefone</Label>
+              <Input
+                :id="`contact-phone-${index}`"
+                v-model="contact.phone"
+                v-maska="{ mask: [...BR_PHONE_MASKS] }"
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+
+            <div class="space-y-2">
+              <Label :for="`contact-position-${index}`">Cargo</Label>
+              <Input
+                :id="`contact-position-${index}`"
+                v-model="contact.position"
+                placeholder="Cargo do contato"
               />
             </div>
           </div>
 
           <div class="space-y-2">
-            <Label for="lead-notes">Observações</Label>
-            <Textarea id="lead-notes" v-model="leadForm.notes" placeholder="Observações sobre o lead" rows="3" />
+            <Label :for="`contact-notes-${index}`">Observações</Label>
+            <Textarea
+              :id="`contact-notes-${index}`"
+              v-model="contact.notes"
+              placeholder="Observações sobre o contato"
+              rows="3"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Company Tab -->
+      <div v-if="activeTab === 'company'" class="space-y-6">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-medium">
+              Empresa
+            </h3>
+            <p class="text-xs text-muted-foreground">
+              Busque uma empresa cadastrada pelo nome ou crie uma nova.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="startNewCompany">
+            <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
+            Nova empresa
+          </Button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="md:col-span-2 space-y-2">
+            <Label for="company-name">Nome da empresa</Label>
+            <CompanyNameAutofillInput
+              v-model="companyForm.name"
+              input-id="company-name"
+              placeholder="Digite para buscar empresas do tenant"
+              :exclude-id="null"
+              @autofill="handleCompanyAutofill"
+            />
+          </div>
+
+          <div class="md:col-span-2 space-y-2">
+            <Label for="company-website">Site</Label>
+            <Input id="company-website" v-model="companyForm.website" placeholder="https://exemplo.com" />
+          </div>
+
+          <div class="md:col-span-2">
+            <CompanyAddressFields
+              :model-value="{
+                cep: companyForm.cep || '',
+                address: companyForm.address || '',
+                address_number: companyForm.address_number || '',
+                address_complement: companyForm.address_complement || '',
+                city: companyForm.city || '',
+                country: companyForm.country || '',
+              }"
+              @update:model-value="(value) => {
+                companyForm.cep = value.cep
+                companyForm.address = value.address
+                companyForm.address_number = value.address_number
+                companyForm.address_complement = value.address_complement
+                companyForm.city = value.city
+                companyForm.country = value.country
+              }"
+            />
           </div>
         </div>
 
-        <!-- Contact Tab -->
-        <div v-if="activeTab === 'contact'" class="space-y-6">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <h3 class="text-sm font-medium">
-                Contatos do lead
-              </h3>
-              <p class="text-xs text-muted-foreground">
-                Adicione um ou mais contatos vinculados a este lead.
-              </p>
-            </div>
-            <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="addContact">
-              <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
-              Adicionar contato
-            </Button>
-          </div>
-
-          <div
-            v-for="(contact, index) in contacts"
-            :key="contact.key"
-            class="space-y-4 rounded-lg border border-border p-4"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <p class="text-sm font-medium">
-                Contato {{ index + 1 }}
-              </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="h-8 text-muted-foreground hover:text-destructive"
-                @click="removeContact(index)"
-              >
-                <Icon name="lucide:trash-2" class="mr-1 h-4 w-4" />
-                Remover
-              </Button>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label :for="`contact-name-${index}`">Nome do contato</Label>
-                <LeadNameAutofillInput
-                  v-model="contact.name"
-                  :input-id="`contact-name-${index}`"
-                  placeholder="Nome do contato"
-                  search-field="contact"
-                  :exclude-lead-id="props.lead?.id"
-                  @autofill="(match) => handleContactAutofill(index, match)"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <Label :for="`contact-email-${index}`">E-mail</Label>
-                <Input
-                  :id="`contact-email-${index}`"
-                  v-model="contact.email"
-                  placeholder="email@exemplo.com"
-                  type="email"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <Label :for="`contact-phone-${index}`">Telefone</Label>
-                <Input
-                  :id="`contact-phone-${index}`"
-                  v-model="contact.phone"
-                  v-maska="{ mask: [...BR_PHONE_MASKS] }"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-
-              <div class="space-y-2">
-                <Label :for="`contact-position-${index}`">Cargo</Label>
-                <Input
-                  :id="`contact-position-${index}`"
-                  v-model="contact.position"
-                  placeholder="Cargo do contato"
-                />
-              </div>
-            </div>
-
-            <div class="space-y-2">
-              <Label :for="`contact-notes-${index}`">Observações</Label>
-              <Textarea
-                :id="`contact-notes-${index}`"
-                v-model="contact.notes"
-                placeholder="Observações sobre o contato"
-                rows="3"
-              />
-            </div>
-          </div>
+        <div class="space-y-2">
+          <Label for="company-notes">Observações</Label>
+          <Textarea id="company-notes" v-model="companyForm.notes" placeholder="Observações sobre a empresa" rows="3" />
         </div>
+      </div>
 
-        <!-- Company Tab -->
-        <div v-if="activeTab === 'company'" class="space-y-6">
-          <div class="flex items-center justify-between gap-2">
-            <div>
-              <h3 class="text-sm font-medium">
-                Empresa
-              </h3>
-              <p class="text-xs text-muted-foreground">
-                Busque uma empresa cadastrada pelo nome ou crie uma nova.
-              </p>
-            </div>
-            <Button type="button" variant="outline" size="sm" class="h-8 shrink-0" @click="startNewCompany">
-              <Icon name="lucide:plus" class="mr-1 h-4 w-4" />
-              Nova empresa
-            </Button>
-          </div>
-
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="space-y-2 md:col-span-2">
-              <Label for="company-name">Nome da empresa</Label>
-              <CompanyNameAutofillInput
-                v-model="companyForm.name"
-                input-id="company-name"
-                placeholder="Digite para buscar empresas do tenant"
-                :exclude-id="null"
-                @autofill="handleCompanyAutofill"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="company-website">Site</Label>
-              <Input id="company-website" v-model="companyForm.website" placeholder="https://exemplo.com" />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="company-cep">CEP</Label>
-              <Input id="company-cep" v-model="companyForm.cep" placeholder="00000-000" />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="company-city">Cidade</Label>
-              <Input id="company-city" v-model="companyForm.city" placeholder="Cidade" />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="company-country">País</Label>
-              <Input id="company-country" v-model="companyForm.country" placeholder="País" />
-            </div>
+      <!-- Meeting Tab -->
+      <div v-if="activeTab === 'meeting'" class="space-y-6">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div class="space-y-2">
+            <Label for="meeting-date">Data</Label>
+            <Input id="meeting-date" v-model="meetingForm.date" type="date" />
           </div>
 
           <div class="space-y-2">
-            <Label for="company-address">Endereço</Label>
-            <Textarea id="company-address" v-model="companyForm.address" placeholder="Endereço completo" rows="2" />
+            <Label for="meeting-time">Horário</Label>
+            <Input id="meeting-time" v-model="meetingForm.time" type="time" />
           </div>
 
           <div class="space-y-2">
-            <Label for="company-notes">Observações</Label>
-            <Textarea id="company-notes" v-model="companyForm.notes" placeholder="Observações sobre a empresa" rows="3" />
-          </div>
-        </div>
-
-        <!-- Meeting Tab -->
-        <div v-if="activeTab === 'meeting'" class="space-y-6">
-          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="space-y-2">
-              <Label for="meeting-date">Data</Label>
-              <Input id="meeting-date" v-model="meetingForm.date" type="date" />
-            </div>
-            
-            <div class="space-y-2">
-              <Label for="meeting-time">Horário</Label>
-              <Input id="meeting-time" v-model="meetingForm.time" type="time" />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="meeting-type">Tipo de reunião</Label>
-              <Select v-model="meetingForm.type">
-                <SelectTrigger id="meeting-type">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="type in meetingTypeOptions" :key="type.value" :value="type.value">
-                    {{ type.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="meeting-duration">Duração (minutos)</Label>
-              <Input id="meeting-duration" v-model="meetingForm.duration" type="number" placeholder="30" />
-            </div>
+            <Label for="meeting-type">Tipo de reunião</Label>
+            <Select v-model="meetingForm.type">
+              <SelectTrigger id="meeting-type">
+                <SelectValue placeholder="Selecione o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="type in meetingTypeOptions" :key="type.value" :value="type.value">
+                  {{ type.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div class="space-y-2">
-            <Label for="meeting-agenda">Pauta</Label>
-            <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Descreva a pauta da reunião" rows="3" />
+            <Label for="meeting-duration">Duração (minutos)</Label>
+            <Input id="meeting-duration" v-model="meetingForm.duration" type="number" placeholder="30" />
           </div>
         </div>
+
+        <div class="space-y-2">
+          <Label for="meeting-agenda">Pauta</Label>
+          <Textarea id="meeting-agenda" v-model="meetingForm.agenda" placeholder="Descreva a pauta da reunião" rows="3" />
+        </div>
+      </div>
 
       <!-- Action Buttons -->
       <div

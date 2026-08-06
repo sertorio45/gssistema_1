@@ -6,7 +6,7 @@ import { Calendar as CalendarIcon } from 'lucide-vue-next'
 
 import { cn } from '@/lib/utils'
 
-const df = new DateFormatter('en-US', {
+const df = new DateFormatter('pt-BR', {
   dateStyle: 'medium',
 })
 
@@ -40,13 +40,14 @@ const value = ref({
             </template>
           </template>
           <template v-else>
-            Pick a date
+            Escolher data
           </template>
         </Button>
       </PopoverTrigger>
       <PopoverContent class="w-auto p-0" align="end">
         <RangeCalendar
           v-model="value"
+          locale="pt-BR"
           weekday-format="short"
           :number-of-months="2"
           initial-focus

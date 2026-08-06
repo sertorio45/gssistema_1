@@ -11,21 +11,21 @@ import {
 export default defineEventHandler(async (event) => {
   const user = await serverSupabaseUser(event)
   if (!user)
-    return { status: 401, message: 'Unauthorized' }
+    return { status: 401, message: 'Não autorizado' }
 
   const body = await readBody(event) as { tenant_id: string, name: string }
   if (!body.tenant_id)
-    return { status: 400, message: 'Tenant ID is required' }
+    return { status: 400, message: 'Tenant ID é obrigatório' }
   if (!body.name || String(body.name).trim() === '')
-    return { status: 400, message: 'Name is required' }
+    return { status: 400, message: 'Nome é obrigatório' }
 
   const { role, tenantId } = resolveTenantApiAuth(user, event.context.auth?.tenantId)
 
   if (!canAccessTenantModule(role))
-    return { status: 403, message: 'Forbidden' }
+    return { status: 403, message: 'Acesso negado' }
 
   if (isWrongTenantForScopedUser(role, tenantId, body.tenant_id))
-    return { status: 403, message: 'Forbidden' }
+    return { status: 403, message: 'Acesso negado' }
 
   const client = await serverSupabaseServiceRole(event)
   const insert = {

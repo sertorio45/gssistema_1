@@ -6,12 +6,12 @@ import { serverSupabaseServiceRole } from '#supabase/server'
 export default defineEventHandler(async (event) => {
   const membershipId = getRouterParam(event, 'id')
   if (!membershipId)
-    throw createError({ statusCode: 400, statusMessage: 'id is required' })
+    throw createError({ statusCode: 400, statusMessage: 'ID é obrigatório' })
 
   const query = getQuery(event)
   const tenantId = String(query.tenant_id || '').trim()
   if (!tenantId)
-    throw createError({ statusCode: 400, statusMessage: 'tenant_id is required' })
+    throw createError({ statusCode: 400, statusMessage: 'Tenant ID é obrigatório' })
 
   const { user } = await assertCanManageTenantTeam(event, tenantId)
   const client = serverSupabaseServiceRole(event)

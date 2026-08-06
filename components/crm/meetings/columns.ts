@@ -3,9 +3,18 @@ import type { Meeting } from '~/types/crm'
 
 import { h } from 'vue'
 import DataTableColumnHeader from '@/components/tasks/components/DataTableColumnHeader.vue'
+import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-
 import DataTableRowActions from '@/components/ui/table/DataTableRowActions.vue'
+import { MEETING_STATUS_LABELS, MEETING_TYPE_LABELS } from '~/constants/meetings'
+
+function statusVariant(status: Meeting['status']) {
+  if (status === 'completed')
+    return 'secondary'
+  if (status === 'cancelled' || status === 'no-show')
+    return 'outline'
+  return 'default'
+}
 
 export const columns: ColumnDef<Meeting>[] = [
   {
@@ -37,49 +46,67 @@ export const columns: ColumnDef<Meeting>[] = [
   {
     accessorKey: 'company_name',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Empresa' }),
-    cell: ({ row }) => row.getValue('company_name') || '-',
+    cell: ({ row }) => row.getValue('company_name') || '—',
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'contact_name',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Contato' }),
-    cell: ({ row }) => row.getValue('contact_name') || '-',
+    cell: ({ row }) => row.getValue('contact_name') || '—',
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'lead_name',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Lead' }),
-    cell: ({ row }) => row.getValue('lead_name') || '-',
+    cell: ({ row }) => row.getValue('lead_name') || '—',
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'type',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Tipo' }),
-    cell: ({ row }) => row.getValue('type'),
+    cell: ({ row }) => {
+      const type = row.getValue('type') as Meeting['type']
+      return h(Badge, { variant: 'outline' }, () => MEETING_TYPE_LABELS[type] || type)
+    },
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'status',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Status' }),
-    cell: ({ row }) => row.getValue('status'),
+    cell: ({ row }) => {
+      const status = row.getValue('status') as Meeting['status']
+      return h(Badge, { variant: statusVariant(status) }, () => MEETING_STATUS_LABELS[status] || status)
+    },
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'start_time',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Início' }),
-    cell: ({ row }) => new Date(row.getValue('start_time')).toLocaleString('pt-BR'),
+    cell: ({ row }) => {
+      const raw = row.getValue('start_time') as string
+      return new Date(raw).toLocaleString('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      })
+    },
     enableSorting: true,
     enableHiding: true,
   },
   {
     accessorKey: 'end_time',
     header: ({ column }) => h(DataTableColumnHeader, { column, title: 'Fim' }),
-    cell: ({ row }) => new Date(row.getValue('end_time')).toLocaleString('pt-BR'),
+    cell: ({ row }) => {
+      const raw = row.getValue('end_time') as string
+      return new Date(raw).toLocaleString('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      })
+    },
     enableSorting: true,
     enableHiding: true,
   },

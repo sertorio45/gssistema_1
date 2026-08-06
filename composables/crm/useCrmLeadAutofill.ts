@@ -29,6 +29,8 @@ export interface CrmLeadAutofillCompanyForm {
   name: string
   website: string
   address: string
+  address_number?: string
+  address_complement?: string
   cep?: string
   city?: string
   country?: string
@@ -82,6 +84,8 @@ export function applyCompanyAutofill(
     name: match.name || '',
     website: match.website || '',
     address: match.address || '',
+    address_number: match.address_number || '',
+    address_complement: match.address_complement || '',
     cep: match.cep || '',
     city: match.city || '',
     country: match.country || '',
@@ -142,6 +146,8 @@ export function applyCrmLeadAutofill(
     name: match.company_name || '',
     website: match.company_website || '',
     address: match.company_address || '',
+    address_number: (match as any).company_address_number || '',
+    address_complement: (match as any).company_address_complement || '',
     cep: match.company_cep || '',
     city: match.company_city || '',
     country: match.company_country || '',
@@ -151,4 +157,4 @@ export function applyCrmLeadAutofill(
   options?.onCompanyId?.(match.company_id || null)
 }
 
-export type { CrmLeadLookupResult, CrmCompanyLookupResult } from '~/types/crm'
+export type { CrmCompanyLookupResult, CrmLeadLookupResult } from '~/types/crm'
