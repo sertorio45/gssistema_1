@@ -1,7 +1,7 @@
 import type { ModuleMeta } from '~/constants/modules'
 import type { WorkspaceCapability } from '~/constants/workspace'
 
-import { MODULE_LABELS_PT, MODULE_META, resolveTenantModuleSlugs } from '~/constants/modules'
+import { MODULE_LABELS_PT, MODULE_META, MODULE_DESCRIPTIONS_PT, resolveTenantModuleSlugs } from '~/constants/modules'
 import { ROLE_LABELS, isStaffRole, type AppRoleSlug } from '~/constants/roles'
 import { holdsCapability } from '~/constants/workspace'
 
@@ -44,10 +44,10 @@ export interface HubModuleTile {
 }
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
-  crm: 'Funil, contatos e negócios',
-  marketing: 'Conteúdo, calendário e aprovações',
-  whatsapp: 'Inbox, campanhas e automações',
-  article: 'Conteúdo e publicações no CMS',
+  crm: MODULE_DESCRIPTIONS_PT.crm,
+  marketing: MODULE_DESCRIPTIONS_PT.marketing,
+  whatsapp: MODULE_DESCRIPTIONS_PT.whatsapp,
+  article: MODULE_DESCRIPTIONS_PT.article,
 }
 
 /**

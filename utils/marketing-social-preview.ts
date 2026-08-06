@@ -14,9 +14,13 @@ export interface SocialContentBoardItem {
   caption?: string | null
   status: string
   statusLabel: string
+  /** MVP simplified status when resolved by the caller. */
+  mvpStatus?: string | null
   platforms: string[]
   previewAssets: SocialPreviewAsset[]
   meta?: string | null
+  campaignLabel?: string | null
+  assigneeLabel?: string | null
   href?: string
   raw?: unknown
 }

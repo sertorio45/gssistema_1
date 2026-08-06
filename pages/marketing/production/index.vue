@@ -21,9 +21,17 @@ const route = useRoute()
 const social = useMarketingSocial()
 const { toast } = useToast()
 const workspace = useWorkspace()
+const { isClientExperience } = useMarketingAudience()
 const organization = computed(() => workspace.organization.value)
 const managedTenants = computed(() => workspace.managedTenants.value)
 const isAgencyWorkspace = computed(() => workspace.isAgencyWorkspace.value)
+
+if (import.meta.client) {
+  watch(isClientExperience, (client) => {
+    if (client)
+      navigateTo('/marketing/content', { replace: true })
+  }, { immediate: true })
+}
 
 const search = ref(String(route.query.search || ''))
 const mineOnly = ref(false)

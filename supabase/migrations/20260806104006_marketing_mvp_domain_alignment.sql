@@ -168,6 +168,7 @@ COMMENT ON VIEW public.marketing_mvp_contents IS
   'Read model mapping social_posts into MVP statuses: rascunho, producao, aprovacao, agendado, publicado, erro. Prefer this for overview/reports; writes stay on social_posts.';
 
 GRANT SELECT ON public.marketing_mvp_contents TO authenticated;
+GRANT SELECT ON public.marketing_mvp_contents TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 4) MVP overview counts RPC (tenant-scoped via existing helper)
@@ -181,12 +182,14 @@ SET search_path = pg_catalog, public, private
 AS $$
 DECLARE
   v_result jsonb;
+  v_is_service boolean := coalesce(auth.role(), '') = 'service_role';
 BEGIN
-  IF auth.uid() IS NULL THEN
+  -- Nitro uses service_role (no auth.uid); capability/tenant already gated in API.
+  IF auth.uid() IS NULL AND NOT v_is_service THEN
     RAISE EXCEPTION 'not authenticated';
   END IF;
 
-  IF NOT public.user_has_tenant_access(p_tenant_id) THEN
+  IF NOT v_is_service AND NOT public.user_has_tenant_access(p_tenant_id) THEN
     RAISE EXCEPTION 'forbidden';
   END IF;
 
@@ -241,7 +244,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.marketing_mvp_overview_counts(uuid) IS
-  'Marketing MVP operational counters for overview/reports. SECURITY INVOKER + tenant access check.';
+  'Marketing MVP operational counters for overview/reports. Nitro may call with service_role after capability checks; JWT callers still require tenant access.';
 
 REVOKE ALL ON FUNCTION public.marketing_mvp_overview_counts(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.marketing_mvp_overview_counts(uuid) TO authenticated;

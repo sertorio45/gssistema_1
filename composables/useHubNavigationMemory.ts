@@ -48,7 +48,7 @@ const DESTINATION_CATALOG: Array<{ prefix: string, title: string, icon: string }
   { prefix: '/crm/funnel', title: 'Funil de vendas', icon: 'lucide:trending-up' },
   { prefix: '/crm/contacts', title: 'Contatos', icon: 'lucide:contact' },
   { prefix: '/crm/dashboard', title: 'Painel CRM', icon: 'lucide:layout-dashboard' },
-  { prefix: '/crm', title: 'CRM', icon: 'lucide:briefcase' },
+  { prefix: '/crm', title: 'CRM', icon: '/icons/modules/crm/crm.svg' },
   { prefix: '/whatsapp/conversations', title: 'Conversas', icon: 'lucide:messages-square' },
   { prefix: '/whatsapp/dashboard', title: 'Painel WhatsApp', icon: 'lucide:layout-dashboard' },
   { prefix: '/whatsapp', title: 'WhatsApp', icon: 'lucide:message-circle' },

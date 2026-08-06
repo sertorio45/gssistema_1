@@ -15,7 +15,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
   crm: {
     slug: 'crm',
     title: 'CRM',
-    icon: 'lucide:briefcase',
+    icon: '/icons/modules/crm/crm.svg',
     basePath: '/crm',
     defaultPath: '/crm/dashboard',
   },
@@ -64,6 +64,15 @@ export const MODULE_LABELS_PT: Record<string, string> = {
   marketing: 'Marketing',
   whatsapp: 'WhatsApp',
   all: 'Todos os módulos',
+}
+
+/** Short descriptions shown in module switchers and hub tiles. */
+export const MODULE_DESCRIPTIONS_PT: Record<string, string> = {
+  crm: 'Funil, contatos e negócios',
+  marketing: 'Conteúdo, calendário e aprovações',
+  whatsapp: 'Inbox, campanhas e automações',
+  article: 'Conteúdo e publicações no CMS',
+  all: 'Libera todos os módulos para este cliente',
 }
 
 export function resolveTenantModuleSlugs(

@@ -31,6 +31,11 @@ export type MarketingMvpOverviewCounts = {
   approvals_pending: number
   campaigns_active: number
   publication_jobs_open: number
+  /**
+   * Schedule occurrences (not unique contents).
+   * A post with 3 dates contributes 3 here; contents_by_mvp_status.agendado still counts 1.
+   */
+  schedules_upcoming: number
 }
 
 export function emptyMarketingMvpOverviewCounts(): MarketingMvpOverviewCounts {
@@ -47,5 +52,6 @@ export function emptyMarketingMvpOverviewCounts(): MarketingMvpOverviewCounts {
     approvals_pending: 0,
     campaigns_active: 0,
     publication_jobs_open: 0,
+    schedules_upcoming: 0,
   }
 }

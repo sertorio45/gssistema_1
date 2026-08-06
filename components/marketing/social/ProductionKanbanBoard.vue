@@ -20,6 +20,7 @@ export interface ProductionKanbanCard {
   overdue: boolean
   preview_url: string | null
   href: string
+  owner_labels?: string[]
 }
 
 const props = defineProps<{
@@ -161,6 +162,15 @@ function platformIcon(platform: string) {
             </Badge>
             <Badge variant="secondary" class="text-[10px]">
               {{ SOCIAL_PRODUCTION_PRIORITY_LABELS[card.production_priority as keyof typeof SOCIAL_PRODUCTION_PRIORITY_LABELS] || card.production_priority }}
+            </Badge>
+            <Badge
+              v-for="owner in (card.owner_labels || [])"
+              :key="`${card.id}-${owner}`"
+              variant="outline"
+              class="text-[10px]"
+              :title="owner === 'C' ? 'Copy' : owner === 'D' ? 'Design' : 'Publicação'"
+            >
+              {{ owner }}
             </Badge>
             <Badge
               v-if="card.overdue"

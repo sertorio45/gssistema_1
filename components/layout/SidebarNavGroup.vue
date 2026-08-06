@@ -24,7 +24,7 @@ const openCollapsible = ref((props.item.children?.length || 0) <= 6)
       <SidebarMenuItem>
         <CollapsibleTrigger as-child>
           <SidebarMenuButton :tooltip="item.title" :size="size">
-            <Icon :name="item.icon || ''" mode="svg" />
+            <ModuleIcon :name="item.icon || ''" class="size-4 shrink-0" :alt="item.title" />
             <span>{{ item.title }}</span>
             <span
               v-if="item.new"

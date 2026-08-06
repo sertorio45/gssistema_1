@@ -114,7 +114,7 @@ const statusCards = computed(() => {
 
     <div
       v-if="!isClientExperience"
-      class="grid gap-4 sm:grid-cols-3"
+      class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
     >
       <Card>
         <CardContent class="p-6">
@@ -143,6 +143,19 @@ const statusCards = computed(() => {
           </p>
           <p class="mt-1 text-2xl font-semibold">
             {{ overview.publication_jobs_open }}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent class="p-6">
+          <p class="text-sm text-muted-foreground">
+            Datas agendadas
+          </p>
+          <p class="mt-1 text-2xl font-semibold">
+            {{ overview.schedules_upcoming }}
+          </p>
+          <p class="mt-1 text-[11px] text-muted-foreground">
+            Conta cada data, não o conteúdo
           </p>
         </CardContent>
       </Card>

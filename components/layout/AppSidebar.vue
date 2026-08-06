@@ -294,7 +294,7 @@ onMounted(() => {
             <SidebarMenuItem v-for="(link, idx) in flatModuleLinks" :key="idx">
               <SidebarMenuButton as-child :tooltip="link.title">
                 <NuxtLink :to="link.link">
-                  <Icon :name="link.icon || 'i-lucide-circle'" mode="svg" />
+                  <ModuleIcon :name="link.icon || 'i-lucide-circle'" class="size-4 shrink-0" />
                   <span>{{ link.title }}</span>
                   <span
                     v-if="link.new"
@@ -323,7 +323,7 @@ onMounted(() => {
             <SidebarMenuItem v-for="(link, idx) in globalSettingsLinks" :key="`global-${idx}`">
               <SidebarMenuButton as-child :tooltip="link.title">
                 <NuxtLink :to="link.link">
-                  <Icon :name="link.icon || 'i-lucide-circle'" mode="svg" />
+                  <ModuleIcon :name="link.icon || 'i-lucide-circle'" class="size-4 shrink-0" />
                   <span>{{ link.title }}</span>
                 </NuxtLink>
               </SidebarMenuButton>

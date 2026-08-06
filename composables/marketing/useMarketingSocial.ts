@@ -331,12 +331,20 @@ export function useMarketingSocial() {
     })
   }
 
-  async function reschedulePost(id: string, scheduledAt: string) {
+  async function reschedulePost(
+    id: string,
+    scheduledAt: string,
+    options?: { scheduleId?: string },
+  ) {
     const response = await $fetch<{ data: { id: string, scheduled_at: string } }>(
       `/api/marketing/social/posts/${id}/reschedule`,
       {
         method: 'POST',
-        body: { scheduledAt, tenant_id: tenantId.value || undefined },
+        body: {
+          scheduledAt,
+          scheduleId: options?.scheduleId,
+          tenant_id: tenantId.value || undefined,
+        },
       },
     )
     return response.data

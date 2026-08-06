@@ -186,6 +186,11 @@ export default defineEventHandler(async (event) => {
       design_owner_id: post.design_owner_id,
       publish_owner_id: post.publish_owner_id,
       assigned_to: post.assigned_to,
+      owner_labels: [
+        post.copy_owner_id ? 'C' : null,
+        post.design_owner_id ? 'D' : null,
+        post.publish_owner_id ? 'P' : null,
+      ].filter(Boolean),
       open_tasks_count: openTasks.length,
       overdue: isProductionOverdue(post.production_due_at, post.production_status),
       preview_url: previewUrl,

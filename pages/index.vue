@@ -191,7 +191,7 @@ function onClearPreferred(event?: Event) {
             @keydown.enter="goAction(preferredDestination.to)"
           >
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <Icon :name="preferredDestination.icon" class="h-4 w-4 text-primary" />
+              <ModuleIcon :name="preferredDestination.icon" class="h-4 w-4 text-primary" />
             </div>
             <div class="min-w-0 flex-1 space-y-1 pr-6">
               <div class="flex items-center gap-2">
@@ -226,7 +226,7 @@ function onClearPreferred(event?: Event) {
             @keydown.enter="goAction(item.to)"
           >
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <Icon :name="item.icon" class="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+              <ModuleIcon :name="item.icon" class="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
             </div>
             <div class="min-w-0 flex-1 space-y-1 pr-6">
               <p class="text-sm font-medium leading-snug">
@@ -266,7 +266,7 @@ function onClearPreferred(event?: Event) {
             @keydown.enter="goAction(action.to)"
           >
             <div class="flex w-full items-center gap-2">
-              <Icon :name="action.icon" class="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
+              <ModuleIcon :name="action.icon" class="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
               <span class="text-sm font-medium">{{ action.title }}</span>
               <button
                 v-if="persona === 'staff'"
@@ -323,7 +323,7 @@ function onClearPreferred(event?: Event) {
             @click="goAction(item.to)"
           >
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background/80">
-              <Icon :name="item.icon" class="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+              <ModuleIcon :name="item.icon" class="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
             </div>
             <div class="min-w-0 flex-1 space-y-1">
               <div class="flex items-baseline justify-between gap-2">
@@ -387,7 +387,7 @@ function onClearPreferred(event?: Event) {
             @keydown.enter="goModule(tile)"
           >
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <Icon :name="tile.icon" class="h-5 w-5" />
+              <ModuleIcon :name="tile.icon" class="h-5 w-5" :alt="tile.title" />
             </div>
             <div class="min-w-0 flex-1 space-y-1">
               <p class="font-medium leading-none">

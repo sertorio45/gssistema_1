@@ -15,6 +15,9 @@ definePageMeta({
   title: 'Conteúdos',
 })
 
+type CampaignOption = { id: string, name: string }
+type TeamMemberOption = { userId: string, name: string }
+
 const DeletePostDialogPanel = markRaw(DeletePostDialog)
 
 const route = useRoute()
@@ -23,8 +26,10 @@ const { isClientExperience } = useMarketingAudience()
 const workspace = useWorkspace()
 
 const search = ref(String(route.query.search || ''))
-const status = ref(String(route.query.status || 'all'))
 const mvpStatus = ref(String(route.query.mvp_status || 'all'))
+const platform = ref(String(route.query.platform || 'all'))
+const campaignId = ref(String(route.query.campaign_id || 'all'))
+const assignedTo = ref(String(route.query.assigned_to || 'all'))
 const viewMode = ref<'thumb' | 'list'>('thumb')
 const deleteDialogOpen = ref(false)
 const postToDelete = ref<any>(null)
@@ -35,14 +40,53 @@ const canDelete = computed(() =>
 )
 
 const postsQueryKey = computed(() =>
-  `marketing-content-${social.tenantId.value}-${status.value}-${mvpStatus.value}-${search.value}`,
+  [
+    'marketing-content',
+    social.tenantId.value,
+    mvpStatus.value,
+    platform.value,
+    campaignId.value,
+    assignedTo.value,
+    search.value,
+  ].join('-'),
 )
+
+const { data: campaigns } = useMarketingFetch({
+  key: () => `marketing-content-campaigns-${social.tenantId.value}`,
+  handler: async () => {
+    const response = await $fetch<{ data: CampaignOption[] }>('/api/marketing/social/campaigns', {
+      query: { tenant_id: social.tenantId.value || undefined, status: 'all' },
+    }).catch(() => ({ data: [] as CampaignOption[] }))
+    return response.data
+  },
+  default: () => [] as CampaignOption[],
+  watch: [social.tenantId],
+  enabled: () => Boolean(social.tenantId.value),
+})
+
+const { data: members } = useMarketingFetch({
+  key: () => `marketing-content-members-${social.tenantId.value}`,
+  handler: async () => {
+    const response = await $fetch<{ data: TeamMemberOption[] }>('/api/marketing/social/approvers', {
+      query: { tenant_id: social.tenantId.value || undefined },
+    }).catch(() => ({ data: [] as TeamMemberOption[] }))
+    return response.data
+  },
+  default: () => [] as TeamMemberOption[],
+  watch: [social.tenantId, isClientExperience],
+  enabled: () => !isClientExperience.value && Boolean(social.tenantId.value),
+})
 
 const { data: response, showSkeleton, refresh } = useMarketingFetch({
   key: postsQueryKey,
-  handler: () => social.listPosts({ status: status.value, search: search.value || undefined }),
+  handler: () => social.listPosts({
+    search: search.value || undefined,
+    platform: platform.value !== 'all' ? platform.value : undefined,
+    campaign_id: campaignId.value !== 'all' ? campaignId.value : undefined,
+    assigned_to: assignedTo.value !== 'all' ? assignedTo.value : undefined,
+  }),
   default: () => ({ data: [] as any[], pagination: {} as Record<string, unknown> }),
-  watch: [social.tenantId, status, search],
+  watch: [social.tenantId, platform, campaignId, assignedTo, search],
   enabled: () => Boolean(social.tenantId.value),
 })
 
@@ -61,6 +105,20 @@ function formatDate(value?: string | null) {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+const campaignNameById = computed(() => {
+  const map = new Map<string, string>()
+  for (const campaign of campaigns.value || [])
+    map.set(campaign.id, campaign.name)
+  return map
+})
+
+const memberNameById = computed(() => {
+  const map = new Map<string, string>()
+  for (const member of members.value || [])
+    map.set(member.userId, member.name)
+  return map
+})
+
 const boardItems = computed<SocialContentBoardItem[]>(() => {
   const items = ((response.value?.data || []) as any[])
     .map((post) => {
@@ -77,6 +135,12 @@ const boardItems = computed<SocialContentBoardItem[]>(() => {
         platforms: (post.social_post_variants || []).map((variant: any) => variant.platform),
         previewAssets: uniquePostPreviewAssets(post),
         meta: formatDate(post.scheduled_at || post.updated_at),
+        campaignLabel: post.campaign_id
+          ? (campaignNameById.value.get(post.campaign_id) || 'Campanha')
+          : null,
+        assigneeLabel: post.assigned_to
+          ? (memberNameById.value.get(post.assigned_to) || 'Responsável')
+          : null,
         href: `/marketing/content/${post.id}`,
         raw: post,
       }
@@ -85,7 +149,7 @@ const boardItems = computed<SocialContentBoardItem[]>(() => {
   if (mvpStatus.value === 'all')
     return items
 
-  return items.filter(item => (item as any).mvpStatus === mvpStatus.value)
+  return items.filter(item => item.mvpStatus === mvpStatus.value)
 })
 
 function openDelete(post: any) {
@@ -127,14 +191,14 @@ function openDelete(post: any) {
     </div>
 
     <Card>
-      <CardContent class="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
-        <div class="relative flex-1">
+      <CardContent class="flex flex-col gap-3 p-4 lg:flex-row lg:flex-wrap lg:items-center">
+        <div class="relative min-w-[12rem] flex-1">
           <Icon name="lucide:search" class="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input v-model="search" class="pl-9" placeholder="Buscar por título" />
         </div>
 
         <Select v-model="mvpStatus">
-          <SelectTrigger class="w-full md:w-56">
+          <SelectTrigger class="w-full md:w-48">
             <SelectValue placeholder="Status MVP" />
           </SelectTrigger>
           <SelectContent>
@@ -147,6 +211,62 @@ function openDelete(post: any) {
               :value="value"
             >
               {{ label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="platform">
+          <SelectTrigger class="w-full md:w-44">
+            <SelectValue placeholder="Plataforma" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Todas as redes
+            </SelectItem>
+            <SelectItem value="instagram">
+              Instagram
+            </SelectItem>
+            <SelectItem value="facebook">
+              Facebook
+            </SelectItem>
+            <SelectItem value="linkedin">
+              LinkedIn
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-model="campaignId">
+          <SelectTrigger class="w-full md:w-52">
+            <SelectValue placeholder="Campanha" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Todas as campanhas
+            </SelectItem>
+            <SelectItem
+              v-for="campaign in campaigns"
+              :key="campaign.id"
+              :value="campaign.id"
+            >
+              {{ campaign.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select v-if="!isClientExperience" v-model="assignedTo">
+          <SelectTrigger class="w-full md:w-52">
+            <SelectValue placeholder="Responsável" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              Todos os responsáveis
+            </SelectItem>
+            <SelectItem
+              v-for="member in members"
+              :key="member.userId"
+              :value="member.userId"
+            >
+              {{ member.name }}
             </SelectItem>
           </SelectContent>
         </Select>

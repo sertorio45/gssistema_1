@@ -6,7 +6,7 @@ export const navMenu: NavMenu[] = [
     items: [
       {
         title: 'CRM',
-        icon: 'i-lucide-briefcase',
+        icon: '/icons/modules/crm/crm.svg',
         roles: ['admin', 'funcionario', 'cliente', 'atendente'],
         children: [
           { title: 'Painel', icon: 'i-lucide-layout-dashboard', link: '/crm/dashboard' },
